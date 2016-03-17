@@ -50,7 +50,7 @@ else:
 	data_full_lh = img_data_lh.get_data()
 	data_lh = np.squeeze(data_full_lh)
 	affine_mask_lh = img_data_lh.get_affine()
-	num_subjects = data_lh.shape[1]
+	n = data_lh.shape[1]
 	outdata_mask_lh = np.zeros_like(data_full_lh[:,:,:,1])
 	img_data_rh = nib.freesurfer.mghformat.load("rh.all.%s.03B.mgh" % (surface))
 	data_full_rh = img_data_rh.get_data()
@@ -110,7 +110,7 @@ else:
 	np.save("python_temp_med_%s/pred_x" % surface,pred_x)
 	np.save("python_temp_med_%s/covars" % surface,covars)
 	np.save("python_temp_med_%s/depend_y" % surface,depend_y)
-	np.save("python_temp_med_%s/num_subjects" % surface,num_subjects)
+	np.save("python_temp_med_%s/num_subjects" % surface,n)
 	np.save("python_temp_med_%s/num_vertex" % surface,num_vertex)
 	np.save("python_temp_med_%s/num_vertex_lh" % (surface),num_vertex_lh)
 	np.save("python_temp_med_%s/num_vertex_rh" % (surface),num_vertex_rh)
@@ -121,7 +121,7 @@ else:
 	np.save("python_temp_med_%s/adjac_rh" % (surface),adjac_rh)
 
 #step1
-	x_covars = np.column_stack([np.ones(num_subjects),covars])
+	x_covars = np.column_stack([np.ones(n),covars])
 	y_lh = resid_covars(x_covars,data_lh)
 	y_rh = resid_covars(x_covars,data_rh)
 	del data_lh
@@ -130,7 +130,6 @@ else:
 	np.save("python_temp_med_%s/merge_y" % (surface),merge_y.astype(np.float32, order = "C"))
 	del y_lh
 	del y_rh
-	n = len(merge_y)
 
 #step2 mediation
 	if medtype == 'M':

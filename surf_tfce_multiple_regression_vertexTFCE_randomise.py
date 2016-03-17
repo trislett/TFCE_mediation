@@ -43,7 +43,7 @@ else:
 	adjac_rh = np.load("python_temp_%s/adjac_rh.npy" % (surface))
 
 #load TFCE fucntion
-	calcTFCE_lh = Surf(2, 1, adjac_lh) # H=2, E=1, 3 Neighbour vertex connectivity
+	calcTFCE_lh = Surf(2, 1, adjac_lh) # H=2, E=1
 	calcTFCE_rh = Surf(2, 1, adjac_rh) # H=2, E=1
 
 #permute T values and write max TFCE values

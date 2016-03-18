@@ -58,7 +58,7 @@ else:
 	for iter_perm in xrange(arg_perm_start,arg_perm_stop):
 		np.random.seed(int(iter_perm*1000+time()))
 		print "Iteration number : %d" % (iter_perm)
-		indices_perm = np.random.permutation(n)
+		indices_perm = np.random.permutation(int(n))
 		pathA_nx = pred_x[indices_perm]
 		pathB_nx = depend_y[indices_perm]
 		if medtype == 'M':

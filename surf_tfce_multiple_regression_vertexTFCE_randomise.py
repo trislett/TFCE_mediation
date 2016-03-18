@@ -51,7 +51,7 @@ else:
 		os.mkdir("output_%s/perm_Tstat_%s" % (surface,surface))
 	os.chdir("output_%s/perm_Tstat_%s" % (surface,surface)) 
 
-	X = np.column_stack([np.ones(num_subjects),pred_x])
+	X = np.column_stack([np.ones(n),pred_x])
 	k = len(X.T)
 	for iter_perm in xrange(arg_perm_start,arg_perm_stop):
 		np.random.seed(int(iter_perm*1000+time()))

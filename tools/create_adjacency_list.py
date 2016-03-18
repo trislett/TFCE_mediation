@@ -7,22 +7,22 @@ import sys
 from cython.Adjacency import compute
 
 def mergeIdenticalVertices(v, f):
-  vr = numpy.around(v, decimals = 10)
+  vr = np.around(v, decimals = 10)
   vrv = vr.view(v.dtype.descr * v.shape[1])
-  _, idx, inv = numpy.unique(vrv, return_index = True, return_inverse = True)
+  _, idx, inv = np.unique(vrv, return_index = True, return_inverse = True)
 
   lkp = idx[inv]
 
   v_ = v[idx, :]
-  f_ = numpy.asarray([[lkp[f[i, j]] for j in xrange(f.shape[1])] for i in xrange(f.shape[0])], dtype = numpy.int32)
+  f_ = np.asarray([[lkp[f[i, j]] for j in xrange(f.shape[1])] for i in xrange(f.shape[0])], dtype = np.int32)
 
   return v, f_
 
 def removeNonManifoldTriangles(v, f):
   v_ = v[f]
-  fn = numpy.cross(v_[:, 1] - v_[:, 0], v_[:, 2] - v_[:,0])
+  fn = np.cross(v_[:, 1] - v_[:, 0], v_[:, 2] - v_[:,0])
 
-  f_ = f[numpy.logical_not(numpy.all(numpy.isclose(fn, 0), axis = 1)), :]
+  f_ = f[np.logical_not(np.all(np.isclose(fn, 0), axis = 1)), :]
 
   return v, f_
 
@@ -53,8 +53,8 @@ def compute_adjacency(hemi, min_dist, max_dist, projfrac,step_dist):
 	v = v.astype(np.float32, order = "C")
 	f = f.astype(np.int32, order = "C")
 
-	v, f = Manifold.mergeIdenticalVertices(v, f)
-	v, f = Manifold.removeNonManifoldTriangles(v, f)
+	v, f = mergeIdenticalVertices(v, f)
+	v, f = removeNonManifoldTriangles(v, f)
 
 	vn = computeNormals(v, f)
 

@@ -94,8 +94,8 @@ else:
 		adjac_rh = create_adjac(v_rh,faces_rh)
 	elif len(sys.argv) == 8:
 		print "Loading prior adjacency set"
-		arg_adjac_lh = str(sys.argv[4])
-		arg_adjac_rh = str(sys.argv[5])
+		arg_adjac_lh = str(sys.argv[6])
+		arg_adjac_rh = str(sys.argv[7])
 		adjac_lh = np.load(arg_adjac_lh)
 		adjac_rh = np.load(arg_adjac_rh)
 	else:

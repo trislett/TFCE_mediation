@@ -54,9 +54,13 @@ else
 fi
 
 if [[ $hemi = "both" ]]; then
+	echo "both"
 	surf_file_lh=$SUBJECTS_DIR/fsaverage/surf/lh.${fsaverge_surf}
 	surf_file_rh=$SUBJECTS_DIR/fsaverage/surf/rh.${fsaverge_surf}
 	freeview -f ${surf_file_lh}:overlay=${dirlocation}/${surfname}:overlay_threshold=${lower},${upper} -f ${surf_file_rh} -viewport 3d
 else
 	freeview -f ${surf_file}:overlay=${dirlocation}/${surfname}:overlay_threshold=${lower},${upper} -viewport 3d
 fi
+
+
+freeview -f ${surf_file}:overlay=${dirlocation}/${surfname}:overlay_threshold=${lower},${upper} -viewport 3d

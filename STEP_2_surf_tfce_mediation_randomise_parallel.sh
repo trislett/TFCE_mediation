@@ -2,7 +2,8 @@
 
 if [ $# -eq 0 ]; then
 	echo "Wrapper for parallelizing randomise"
-	echo "Usage: `basename $0` [-s <(area or thickness)>] [-m {M|I|Y}] [-n <# of permutations>] [-p <# of processors> OR -c OR -f]"
+	echo "Usage: `basename $0` [-s <surface (area or thickness)>] [-m {M|I|Y}] [-n <# of permutations>] [-p <# of processors> OR -c OR -f]"
+	echo "Optional: [-d <mediation model direction (pos or neg)>]"
 	echo "Mediation types: M (image as mediator), Y (image as dependent), I (image as independent)"
 	echo "For GNU Parallel: -p [# of processors]"
 	echo "For Condor: -c"
@@ -14,7 +15,7 @@ SCRIPT=$0
 SCRIPTPATH=`dirname $SCRIPT`
 current_time=$(date +%Y%m%d%H%M%S)
 
-while getopts "s:m:n:p:cf" opt; do
+while getopts "s:m:n:p:cfd:" opt; do
 	case $opt in
 		s)
 			surf=$OPTARG
@@ -24,7 +25,7 @@ while getopts "s:m:n:p:cf" opt; do
 		;;
 		n)
 			numberperm=$OPTARG
-			outperm=`expr '(' $numberperm + 50 ')'  / 100 '*' 100 '/' 2`
+			outperm=`expr '(' $numberperm + 50 ')'  / 100 '*' 100`
 			forperm=$((($outperm/100)-1))
 		;;
 		p)
@@ -37,6 +38,9 @@ while getopts "s:m:n:p:cf" opt; do
 		f)
 			p_opt="fsl_sub"
 		;;
+		d)
+			meddir=$OPTARG
+		;;
 		\?)
 		echo "Invalid option: -$OPTARG"
 		exit 1
@@ -44,10 +48,10 @@ while getopts "s:m:n:p:cf" opt; do
 	esac
 done
 
-roundnumperm=$(($forperm*2*100+200))
+roundnumperm=$(($forperm*100+200))
 echo "Evaluating $roundnumperm permuations"
 for i in $(eval echo "{0..$forperm}"); do 
-	echo ${SCRIPTPATH}/surf_tfce_mediation_vertexTFCE_randomise.py $(($i*100+1)) $(($i*100+100)) ${surf} ${medtype}
+	echo ${SCRIPTPATH}/surf_tfce_mediation_vertexTFCE_randomise.py $(($i*100+1)) $(($i*100+100)) ${surf} ${medtype} ${meddir}
 done > cmd_${medtype}_mediation_randomise_${current_time}
 
 if [[ $p_opt = "gnu" ]]; then

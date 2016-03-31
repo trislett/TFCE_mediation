@@ -21,8 +21,9 @@ def write_perm_maxTFCE(statname, vertStat, num_vertex, bin_mask_lh, bin_mask_rh,
 	os.system("echo %.4f >> perm_%s_TFCE_maxVoxel.csv" % (maxTFCE,statname))
 
 if len(sys.argv) < 5:
-	print "Usage: %s [start] [stop] [surface (area or thickness)] [mediation type (M, Y, I)]" % (str(sys.argv[0]))
+	print "Usage: %s [start] [stop] [surface (area or thickness)] [mediation type (M, Y, I)] optional: [mediation direction (pos or neg)]" % (str(sys.argv[0]))
 	print "Mediation types: M (image as mediator), Y (image as dependent), I (image as independent)"
+	print "n.b., for randomization, the maximum permuted TFCE transformed Z statistic direction can be specified as either testing the positive or negative Z statistic. The default is both directions."
 else:
 	start_time = time()
 	np.seterr(divide="ignore", invalid="ignore")
@@ -32,6 +33,7 @@ else:
 	arg_perm_stop = int(sys.argv[2]) + 1
 	surface = str(sys.argv[3])
 	medtype = str(sys.argv[4])
+	meddir = str(sys.argv[5])
 
 #load variables
 	ny = np.load("python_temp_med_%s/merge_y.npy" % (surface))
@@ -50,7 +52,7 @@ else:
 	calcTFCE_lh = Surf(2, 1, adjac_lh) # H=2, E=1
 	calcTFCE_rh = Surf(2, 1, adjac_rh) # H=2, E=1
 
-#permute Sobel Z and write max TFCE values
+#permute Sobel Z
 	if not os.path.exists("output_med_%s/perm_SobelZ_%s" % (surface,medtype)):
 		os.mkdir("output_med_%s/perm_SobelZ_%s" % (surface,medtype))
 	os.chdir("output_med_%s/perm_SobelZ_%s" % (surface,medtype)) 
@@ -58,7 +60,7 @@ else:
 	for iter_perm in xrange(arg_perm_start,arg_perm_stop):
 		np.random.seed(int(iter_perm*1000+time()))
 		print "Iteration number : %d" % (iter_perm)
-		indices_perm = np.random.permutation(int(n))
+		indices_perm = np.random.permutation(range(n))
 		pathA_nx = pred_x[indices_perm]
 		pathB_nx = depend_y[indices_perm]
 		if medtype == 'M':
@@ -77,6 +79,12 @@ else:
 			print "Invalid mediation type"
 			exit()
 
-		write_perm_maxTFCE("Zstat_%s" % medtype, SobelZ, num_vertex_lh, bin_mask_lh, bin_mask_rh, all_vertex, calcTFCE_lh, calcTFCE_rh)
-		write_perm_maxTFCE("Zstat_%s" % medtype, (SobelZ * -1), num_vertex_lh, bin_mask_lh, bin_mask_rh, all_vertex, calcTFCE_lh, calcTFCE_rh)
+# Write max TFCE values. Z stat directions are separated to ensure proper null distribution
+		if meddir == 'pos':
+			write_perm_maxTFCE("Zstat_%s" % medtype, SobelZ, num_vertex_lh, bin_mask_lh, bin_mask_rh, all_vertex, calcTFCE_lh, calcTFCE_rh)
+		elif meddir == 'neg':
+			write_perm_maxTFCE("negZstat_%s" % medtype, (SobelZ * -1), num_vertex_lh, bin_mask_lh, bin_mask_rh, all_vertex, calcTFCE_lh, calcTFCE_rh)
+		else:
+			write_perm_maxTFCE("Zstat_%s" % medtype, SobelZ, num_vertex_lh, bin_mask_lh, bin_mask_rh, all_vertex, calcTFCE_lh, calcTFCE_rh)
+			write_perm_maxTFCE("negZstat_%s" % medtype, (SobelZ * -1), num_vertex_lh, bin_mask_lh, bin_mask_rh, all_vertex, calcTFCE_lh, calcTFCE_rh)
 	print("Finished. Randomization took %.1f seconds" % (time() - start_time))

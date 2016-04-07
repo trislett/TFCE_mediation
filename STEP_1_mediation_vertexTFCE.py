@@ -1,44 +1,46 @@
 #!/usr/bin/python
 
+#    Vertex-wise mediation with TFCE
+#    Copyright (C) 2016  Tristram Lett
+
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
 import os
 import sys
 import numpy as np
 import nibabel as nib
 from scipy.stats import linregress
-from cython.cy_numstats import resid_covars,calc_beta_se,calc_sobelz
+from cython.cy_numstats import resid_covars,calc_beta_se
 from cython.TFCE import Surf
-
-def write_vertStat_img(statname, vertStat, outdata_mask, affine_mask, surf, hemi, bin_mask, TFCEfunc, all_vertex):
-	vertStat_out=np.zeros(all_vertex).astype(np.float32, order = "C")
-	vertStat_out[bin_mask] = vertStat
-	vertStat_TFCE = np.zeros_like(vertStat_out).astype(np.float32, order = "C")
-	TFCEfunc.run(vertStat_out, vertStat_TFCE)
-	outdata_mask[:,0,0] = vertStat_TFCE * (vertStat.max()/100)
-	fsurfname = "%s_%s_%s_TFCE.mgh" % (statname,surf,hemi)
-	os.system("echo %s_%s_%s,%f >> max_contrast_value.csv" % (statname,surf,hemi, outdata_mask[:,0,0].max()))
-	nib.save(nib.freesurfer.mghformat.MGHImage(outdata_mask,affine_mask),fsurfname)
-
-def create_adjac (vertices,faces):
-	adjacency = [set([]) for i in xrange(vertices.shape[0])]
-	for i in xrange(faces.shape[0]):
-		adjacency[faces[i, 0]].add(faces[i, 1])
-		adjacency[faces[i, 0]].add(faces[i, 2])
-		adjacency[faces[i, 1]].add(faces[i, 0])
-		adjacency[faces[i, 1]].add(faces[i, 2])
-		adjacency[faces[i, 2]].add(faces[i, 0])
-		adjacency[faces[i, 2]].add(faces[i, 1])
-	return adjacency
+from py_func import write_vertStat_img, create_adjac, calc_sobelz
 
 if len(sys.argv) < 6:
-	print "Usage: %s [predictor file] [covariate file] [dependent file] [surface (area or thickness)] [mediation type (M, Y, I)] optional: [lh_adjacency_dist_?mm.npy] [rh_adjacency_dist_?mm.npy]" % (str(sys.argv[0]))
+	print "Usage: %s [predictor file] [covariate file] [dependent file] [surface (area or thickness)] [mediation type (M, Y, I)]" % (str(sys.argv[0]))
 	print "Mediation types: M (neuroimage as mediator), Y (neuroimage as dependent), I (neuroimage as independent)"
+	print "Optional arguments"
+	print "Used supplied adjacency set ?mm: [1,2, or 3]"
+	print "Custom adjacency set: [lh_adjacency_dist_?mm.npy] [rh_adjacency_dist_?mm.npy]"
 else:
 	cmdargs = str(sys.argv)
+	scriptwd = os.path.dirname(os.path.realpath(sys.argv[0]))
 	arg_predictor = str(sys.argv[1])
 	arg_covars = str(sys.argv[2])
 	arg_depend = str(sys.argv[3])
 	surface = str(sys.argv[4])
 	medtype = str(sys.argv[5])
+	FWHM = '03B' # default 3mm smoothing
 
 #load variables
 	pred_x = np.genfromtxt(arg_predictor, delimiter=",")
@@ -46,31 +48,31 @@ else:
 	depend_y = np.genfromtxt(arg_depend, delimiter=",")
 
 #load data
-	img_data_lh = nib.freesurfer.mghformat.load("lh.all.%s.03B.mgh" % (surface))
+	img_data_lh = nib.freesurfer.mghformat.load("lh.all.%s.%s.mgh" % (surface,FWHM))
 	data_full_lh = img_data_lh.get_data()
 	data_lh = np.squeeze(data_full_lh)
 	affine_mask_lh = img_data_lh.get_affine()
 	n = data_lh.shape[1]
 	outdata_mask_lh = np.zeros_like(data_full_lh[:,:,:,1])
-	img_data_rh = nib.freesurfer.mghformat.load("rh.all.%s.03B.mgh" % (surface))
+	img_data_rh = nib.freesurfer.mghformat.load("rh.all.%s.%s.mgh" % (surface,FWHM))
 	data_full_rh = img_data_rh.get_data()
 	data_rh = np.squeeze(data_full_rh)
 	affine_mask_rh = img_data_rh.get_affine()
 	outdata_mask_rh = np.zeros_like(data_full_rh[:,:,:,1])
-	if not os.path.exists("lh.mean.%s.03B.mgh" % (surface)):
+	if not os.path.exists("lh.mean.%s.%s.mgh" % (surface,FWHM)):
 		mean_lh = np.sum(data_lh,axis=1)/data_lh.shape[1]
 		outmean_lh = np.zeros_like(data_full_lh[:,:,:,1])
 		outmean_lh[:,0,0] = mean_lh
-		nib.save(nib.freesurfer.mghformat.MGHImage(outmean_lh,affine_mask_lh),"lh.mean.%s.03B.mgh" % (surface))
+		nib.save(nib.freesurfer.mghformat.MGHImage(outmean_lh,affine_mask_lh),"lh.mean.%s.%s.mgh" % (surface,FWHM))
 		mean_rh = np.sum(data_rh,axis=1)/data_rh.shape[1]
 		outmean_rh = np.zeros_like(data_full_rh[:,:,:,1])
 		outmean_rh[:,0,0] = mean_rh
-		nib.save(nib.freesurfer.mghformat.MGHImage(outmean_rh,affine_mask_rh),"rh.mean.%s.03B.mgh" % (surface))
+		nib.save(nib.freesurfer.mghformat.MGHImage(outmean_rh,affine_mask_rh),"rh.mean.%s.%s.mgh" % (surface,FWHM))
 	else:
-		img_mean_lh = nib.freesurfer.mghformat.load("lh.mean.%s.03B.mgh" % (surface))
+		img_mean_lh = nib.freesurfer.mghformat.load("lh.mean.%s.%s.mgh" % (surface,FWHM))
 		mean_full_lh = img_mean_lh.get_data()
 		mean_lh = np.squeeze(mean_full_lh)
-		img_mean_rh = nib.freesurfer.mghformat.load("rh.mean.%s.03B.mgh" % (surface))
+		img_mean_rh = nib.freesurfer.mghformat.load("rh.mean.%s.%s.mgh" % (surface,FWHM))
 		mean_full_rh = img_mean_rh.get_data()
 		mean_rh = np.squeeze(mean_full_rh)
 
@@ -92,6 +94,10 @@ else:
 		v_rh, faces_rh = nib.freesurfer.read_geometry("%s/fsaverage/surf/rh.sphere" % os.environ["SUBJECTS_DIR"])
 		adjac_lh = create_adjac(v_lh,faces_lh)
 		adjac_rh = create_adjac(v_rh,faces_rh)
+	elif len(sys.argv) == 7:
+		print "Loading prior adjacency set for %s mm" % sys.argv[6]
+		adjac_lh = np.load("%s/adjacency_sets/lh_adjacency_dist_%s.0_mm.npy" % (scriptwd,str(sys.argv[6])))
+		adjac_rh = np.load("%s/adjacency_sets/rh_adjacency_dist_%s.0_mm.npy" % (scriptwd,str(sys.argv[6])))
 	elif len(sys.argv) == 8:
 		print "Loading prior adjacency set"
 		arg_adjac_lh = str(sys.argv[6])
@@ -132,28 +138,13 @@ else:
 	del y_rh
 
 #step2 mediation
-	if medtype == 'M':
-		PathA_beta, PathA_se = calc_beta_se(pred_x,merge_y,n,num_vertex)
-		PathB_beta, PathB_se = calc_beta_se(depend_y,merge_y,n,num_vertex)
-		SobelZ = calc_sobelz(PathA_beta,PathA_se,PathB_beta, PathB_se)
-	elif medtype == 'Y':
-		PathA_beta, _, _, _, PathA_se = linregress(pred_x, depend_y)
-		PathB_beta, PathB_se = calc_beta_se(depend_y,merge_y,n,num_vertex)
-		SobelZ = calc_sobelz(PathA_beta,PathA_se,PathB_beta, PathB_se)
-	elif medtype == 'I':
-		PathA_beta, PathA_se = calc_beta_se(pred_x,merge_y,n,num_vertex)
-		PathB_beta, _, _, _, PathB_se = linregress(pred_x, depend_y)
-		SobelZ = calc_sobelz(PathA_beta,PathA_se,PathB_beta, PathB_se)
-	else:
-		print "Invalid mediation type"
-		exit()
+	SobelZ = calc_sobelz(medtype, pred_x, depend_y, merge_y, n, num_vertex)
 
 #write TFCE images
 	if not os.path.exists("output_med_%s" % surface):
 		os.mkdir("output_med_%s" % surface)
 	os.chdir("output_med_%s" % surface)
 
-	write_vertStat_img('SobelZ',SobelZ[1,:num_vertex_lh],outdata_mask_lh, affine_mask_lh, surface, 'lh', bin_mask_lh, calcTFCE_lh, all_vertex)
-	write_vertStat_img('SobelZ',SobelZ[1,num_vertex_lh:],outdata_mask_rh, affine_mask_rh, surface, 'rh', bin_mask_rh, calcTFCE_rh, all_vertex)
-	write_vertStat_img('negSobelZ',(SobelZ[1,:num_vertex_lh]*-1),outdata_mask_lh, affine_mask_lh, surface, 'lh', bin_mask_lh, calcTFCE_lh, all_vertex)
-	write_vertStat_img('negSobelZ',(SobelZ[1,num_vertex_lh:]*-1),outdata_mask_rh, affine_mask_rh, surface, 'rh', bin_mask_rh, calcTFCE_rh, all_vertex)
+	write_vertStat_img('SobelZ_%s' % (medtype),SobelZ[:num_vertex_lh],outdata_mask_lh, affine_mask_lh, surface, 'lh', bin_mask_lh, calcTFCE_lh, all_vertex)
+	write_vertStat_img('SobelZ_%s' % (medtype),SobelZ[num_vertex_lh:],outdata_mask_rh, affine_mask_rh, surface, 'rh', bin_mask_rh, calcTFCE_rh, all_vertex)
+

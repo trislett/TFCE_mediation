@@ -1,6 +1,5 @@
 #! /bin/bash
 
-
 if [ $# -eq 0 ]; then
 	echo "Usage: `basename $0` [-l subject_list] [-s area or thickness]"
 	echo "Options:"
@@ -10,11 +9,6 @@ if [ $# -eq 0 ]; then
 	echo "[-v] create midthickness MNI152 mean and mask volumes"
 	exit 1;
 fi
-
-#SCRIPT=$0
-#SCRIPTPATH=`dirname $SCRIPT`
-#subject_file=$1
-#surface=$2
 
 while getopts "s:l:vmf:p" opt; do
 	case $opt in

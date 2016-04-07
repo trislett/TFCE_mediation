@@ -3,6 +3,22 @@
 #cython: wraparound=False
 #cython: cdivision=True
 
+#    Various statistic functions optimized in cython
+#    Copyright (C) 2016  Tristram Lett
+
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import numpy as np
 cimport numpy as np
 cimport cython
@@ -10,7 +26,7 @@ cimport cython
 def cy_lin_lstsqr_mat(X, y):
    return (np.linalg.inv(X.T.dot(X)).dot(X.T)).dot(y)
   
-def calcF (X,y, n, k):
+def calcF(X,y, n, k):
    a = cy_lin_lstsqr_mat(X, y)
    resids = y - np.dot(X,a)
    RSS = sum(resids**2)
@@ -45,16 +61,16 @@ def tval_int(X, invXX, y, n, k, numvoxel):
    tvals = a / se
    return tvals
 
-def tval_pred(X, y, n, k, numvoxel):
-   a = np.array(cython_lstsqr(X[:,1], y))
-   invXX = np.linalg.inv(np.dot(X.T, X))
-   sigma2 = np.sum((y - np.dot(X,a))**2,axis=0) / (n - k)
-   se = se_of_slope(numvoxel,invXX,sigma2,k)
-   tvals = a / se
-   return tvals
+#def tval_pred(X, y, n, k, numvoxel):
+#   a = np.array(cython_lstsqr(X[:,1], y))
+#   invXX = np.linalg.inv(np.dot(X.T, X))
+#   sigma2 = np.sum((y - np.dot(X,a))**2,axis=0) / (n - k)
+#   se = se_of_slope(numvoxel,invXX,sigma2,k)
+#   tvals = a / se
+#   return tvals
 
 def calc_beta_se(x,y,n,num_voxel):
-   X = np.vstack([np.ones(n), x]).T
+   X = np.column_stack([np.ones(n),x])
    invXX = np.linalg.inv(np.dot(X.T, X))
    k = len(X.T)
    a = cy_lin_lstsqr_mat(X, y)
@@ -63,5 +79,5 @@ def calc_beta_se(x,y,n,num_voxel):
    se = se_of_slope(num_voxel,invXX,sigma2,k)
    return (beta,se)
 
-def calc_sobelz(Abeta,Ase,Bbeta,Bse):
-   return Abeta*Bbeta/np.sqrt((Bbeta*Bbeta*Ase*Ase)+(Abeta*Abeta*Bse*Bse))
+#def calc_sobelz(Abeta,Ase,Bbeta,Bse):
+#   return Abeta*Bbeta/np.sqrt((Bbeta*Bbeta*Ase*Ase)+(Abeta*Abeta*Bse*Bse))

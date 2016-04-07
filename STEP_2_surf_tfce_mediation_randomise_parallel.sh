@@ -1,9 +1,25 @@
 #! /bin/bash
 
+#    Wrapper for parallelizing randomise mediation with TFCE
+#    Copyright (C) 2016  Tristram Lett
+
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
 if [ $# -eq 0 ]; then
 	echo "Wrapper for parallelizing randomise"
 	echo "Usage: `basename $0` [-s <surface (area or thickness)>] [-m {M|I|Y}] [-n <# of permutations>] [-p <# of processors> OR -c OR -f]"
-	echo "Optional: [-d <mediation model direction (pos or neg)>]"
 	echo "Mediation types: M (image as mediator), Y (image as dependent), I (image as independent)"
 	echo "For GNU Parallel: -p [# of processors]"
 	echo "For Condor: -c"
@@ -26,7 +42,7 @@ while getopts "s:m:n:p:cfd:" opt; do
 		n)
 			numberperm=$OPTARG
 			outperm=`expr '(' $numberperm + 50 ')'  / 100 '*' 100`
-			forperm=$((($outperm/100)-1))
+			forperm=$((($outperm/200)-1))
 		;;
 		p)
 			num_processors=$OPTARG
@@ -51,7 +67,7 @@ done
 roundnumperm=$(($forperm*100+200))
 echo "Evaluating $roundnumperm permuations"
 for i in $(eval echo "{0..$forperm}"); do 
-	echo ${SCRIPTPATH}/surf_tfce_mediation_vertexTFCE_randomise.py $(($i*100+1)) $(($i*100+100)) ${surf} ${medtype} ${meddir}
+	echo ${SCRIPTPATH}/surf_tfce_mediation_vertexTFCE_randomise.py $(($i*200+1)) $(($i*200+200)) ${surf} ${medtype}
 done > cmd_${medtype}_mediation_randomise_${current_time}
 
 if [[ $p_opt = "gnu" ]]; then

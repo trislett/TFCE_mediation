@@ -1,5 +1,21 @@
 #!/usr/bin/python
 
+#    Parallel Box-Cox transformation using scipy.boxcox
+#    Copyright (C) 2016  Tristram Lett
+
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import os
 import sys
 import numpy as np
@@ -18,13 +34,6 @@ def boxcox(data_array, num_vertex, num_cores):
 	bc_data = Parallel(n_jobs=num_cores)(delayed(transform_boxcox)((data_short[i,:]+1),bc_data[i,:],i) for i in xrange(num_vertex))
 	print "Transformation finished"
 	return np.array(bc_data)
-
-#def slow_boxcox(data_array, num_vertex, num_cores = 1):
-#	bc_data = np.zeros(data_array.shape)
-#	for i in xrange(num_vertex):
-#		print i
-#		bc_data[i,:],_=stats.boxcox((data_array[i,:]+1))
-#	return bc_data
 
 if len(sys.argv) < 3:
 	print "*******************************************************************"

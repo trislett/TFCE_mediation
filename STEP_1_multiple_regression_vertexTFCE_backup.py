@@ -1,28 +1,32 @@
 #!/usr/bin/python
 
-#    Multiple regression with TFCE
-#    Copyright (C) 2016  Tristram Lett
-
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
-
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
-
-#    You should have received a copy of the GNU General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 import os
 import sys
 import numpy as np
 import nibabel as nib
 from cython.cy_numstats import resid_covars,tval_int
 from cython.TFCE import Surf
-from py_func import write_vertStat_img, create_adjac
+
+def write_vertStat_img(statname, vertStat, outdata_mask, affine_mask, surf, hemi, bin_mask, TFCEfunc, all_vertex):
+	vertStat_out=np.zeros(all_vertex).astype(np.float32, order = "C")
+	vertStat_out[bin_mask] = vertStat
+	vertStat_TFCE = np.zeros_like(vertStat_out).astype(np.float32, order = "C")
+	TFCEfunc.run(vertStat_out, vertStat_TFCE)
+	outdata_mask[:,0,0] = vertStat_TFCE * (vertStat.max()/100)
+	fsurfname = "%s_%s_%s_TFCE.mgh" % (statname,surf,hemi)
+	os.system("echo %s_%s_%s,%f >> max_contrast_value.csv" % (statname,surf,hemi, outdata_mask[:,0,0].max()))
+	nib.save(nib.freesurfer.mghformat.MGHImage(outdata_mask,affine_mask),fsurfname)
+
+def create_adjac (vertices,faces):
+	adjacency = [set([]) for i in xrange(vertices.shape[0])]
+	for i in xrange(faces.shape[0]):
+		adjacency[faces[i, 0]].add(faces[i, 1])
+		adjacency[faces[i, 0]].add(faces[i, 2])
+		adjacency[faces[i, 1]].add(faces[i, 0])
+		adjacency[faces[i, 1]].add(faces[i, 2])
+		adjacency[faces[i, 2]].add(faces[i, 0])
+		adjacency[faces[i, 2]].add(faces[i, 1])
+	return adjacency
 
 if len(sys.argv) < 4:
 	print "Usage: %s [predictor file] [covariate file] [surface (area or thickness)]" % (str(sys.argv[0]))

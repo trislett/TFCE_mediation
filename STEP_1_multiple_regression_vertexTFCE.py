@@ -37,7 +37,7 @@ ap.add_argument("-f", "--fwhm", help="Specific all surface file with different s
 adjac = ap.add_mutually_exclusive_group(required=False)
 adjac.add_argument("-d", "--dist", help="Load supplied adjacency sets geodesic distance in mm. Default is 3 (recommended).", choices = [1,2,3], type=int,  nargs=1, default=[3])
 adjac.add_argument("-c", "--adjfiles", help="Load custom adjacency set for each hemisphere.", type=open, nargs=2, metavar=('*.npy', '*.npy'))
-adjac.add_argument("-t", "--triangularmesh", help="Create adjacency based on triangular mesh without distance.", action="store_true")
+adjac.add_argument("-t", "--triangularmesh", help="Create adjacency based on triangular mesh without specifying distance.", action="store_true")
 
 
 opts = ap.parse_args()
@@ -127,7 +127,6 @@ if opts.regressors:
 	pred_x = np.genfromtxt(arg_predictor, delimiter=',')
 	merge_y=np.hstack((data_lh.T,data_rh.T))
 
-
 #save variables
 if not os.path.exists("python_temp_%s" % (surface)):
 	os.mkdir("python_temp_%s" % (surface))
@@ -143,7 +142,6 @@ np.save("python_temp_%s/bin_mask_rh" % (surface),bin_mask_rh)
 np.save("python_temp_%s/adjac_lh" % (surface),adjac_lh)
 np.save("python_temp_%s/adjac_rh" % (surface),adjac_rh)
 np.save("python_temp_%s/merge_y" % (surface),merge_y.astype(np.float32, order = "C"))
-
 
 #step2
 X = np.column_stack([np.ones(n),pred_x])

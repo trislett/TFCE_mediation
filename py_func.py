@@ -23,7 +23,7 @@ import nibabel as nib
 from scipy.stats import linregress
 from cython.cy_numstats import calc_beta_se
 
-def create_adjac (vertices,faces):
+def create_adjac(vertices,faces):
 	adjacency = [set([]) for i in xrange(vertices.shape[0])]
 	for i in xrange(faces.shape[0]):
 		adjacency[faces[i, 0]].add(faces[i, 1])
@@ -33,6 +33,7 @@ def create_adjac (vertices,faces):
 		adjacency[faces[i, 2]].add(faces[i, 0])
 		adjacency[faces[i, 2]].add(faces[i, 1])
 	return adjacency
+
 
 def write_vertStat_img(statname, vertStat, outdata_mask, affine_mask, surf, hemi, bin_mask, TFCEfunc, all_vertex):
 	vertStat_out=np.zeros(all_vertex).astype(np.float32, order = "C")

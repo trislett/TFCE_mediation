@@ -36,13 +36,12 @@ ap.add_argument("-f", "--fwhm", help="Specific all surface file with different s
 
 adjac = ap.add_mutually_exclusive_group(required=False)
 adjac.add_argument("-d", "--dist", help="Load supplied adjacency sets geodesic distance in mm. Default is 3 (recommended).", choices = [1,2,3], type=int,  nargs=1, default=[3])
-adjac.add_argument("-c", "--adjfiles", help="Load custom adjacency set for each hemisphere.", type=open, nargs=2, metavar=('*.npy', '*.npy'))
+adjac.add_argument("-c", "--adjfiles", help="Load custom adjacency set for each hemisphere.", nargs=2, metavar=('*.npy', '*.npy'))
 adjac.add_argument("-t", "--triangularmesh", help="Create adjacency based on triangular mesh without specifying distance.", action="store_true")
 
 
 opts = ap.parse_args()
 scriptwd = os.path.dirname(os.path.realpath(sys.argv[0]))
-
 surface = opts.surface[0]
 FWHM = opts.fwhm[0]
 

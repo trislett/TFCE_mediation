@@ -41,16 +41,15 @@ void tfce(float H, float E, float minT, float deltaT,
   for (float T = maxT; T >= minT; T -= deltaT) { // descending -> incremental connectivity
 //    cout << "T " << T << endl;
 
-    int j_ = j;
-    while (image[ imageI[j_] ] > T && j_ < numberOfVertices) { // disjoint set algorithm
-      disjointFind[ imageI[j_] ] = new list<int>(); // make set
-      disjointFind[ imageI[j_] ]-> push_front(imageI[j_]); 
+    while (j < numberOfVertices && image[ imageI[j] ] > T) { // disjoint set algorithm
+      disjointFind[ imageI[j] ] = new list<int>(); // make set
+      disjointFind[ imageI[j] ]-> push_front(imageI[j]); 
 
-      disjointSets.insert(disjointFind[ imageI[j_] ]);
+      disjointSets.insert(disjointFind[ imageI[j] ]);
 
-      for (int i = 0; i < adjacencyList[imageI[j_]].size(); ++i) {
-        int a = adjacencyList[ imageI[j_] ][i];
-        list<int>* c = disjointFind[ imageI[j_] ];
+      for (int i = 0; i < adjacencyList[imageI[j]].size(); ++i) {
+        int a = adjacencyList[ imageI[j] ][i];
+        list<int>* c = disjointFind[ imageI[j] ];
 
         if (disjointFind[a] && disjointFind[a] != c) {
           for (list<int>::const_iterator iterator = c->begin(); 
@@ -68,7 +67,7 @@ void tfce(float H, float E, float minT, float deltaT,
 
       }
 
-      ++j_;
+      ++j;
     }
 
     float HH = pow(T, H);
@@ -86,8 +85,6 @@ void tfce(float H, float E, float minT, float deltaT,
         enhn[ *iterator_ ] += tfceIncrement; 
       }
     }
-
-    j = j_;
   }
 
   delete [] imageI;

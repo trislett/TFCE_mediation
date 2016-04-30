@@ -39,7 +39,7 @@ else:
 	medtype = str(sys.argv[4])
 
 #load variables
-	ny = np.load("python_temp_med_%s/merge_y.npy" % (surface))
+	y = np.load("python_temp_med_%s/merge_y.npy" % (surface))
 	num_vertex = np.load("python_temp_med_%s/num_vertex.npy" % (surface))
 	num_vertex_lh = np.load("python_temp_med_%s/num_vertex_lh.npy" % (surface))
 	bin_mask_lh = np.load("python_temp_med_%s/bin_mask_lh.npy" % (surface))
@@ -64,8 +64,13 @@ else:
 		np.random.seed(int(iter_perm*1000+time()))
 		print "Iteration number : %d" % (iter_perm)
 		indices_perm = np.random.permutation(range(n))
-		pathA_nx = pred_x[indices_perm]
-		pathB_nx = depend_y[indices_perm]
-		SobelZ = calc_sobelz(medtype, pathA_nx, pathB_nx, ny, n, num_vertex)
+		if (medtype == 'M') or (medtype == 'I'):
+			pathA_nx = pred_x[indices_perm]
+			pathB_nx = depend_y
+			SobelZ = calc_sobelz(medtype, pathA_nx, pathB_nx, y, n, num_vertex)
+		else:
+			pathA_nx = pred_x[indices_perm]
+			pathB_nx = depend_y[indices_perm]
+			SobelZ = calc_sobelz(medtype, pathA_nx, pathB_nx, y, n, num_vertex)
 		write_perm_maxTFCE("Zstat_%s" % medtype, SobelZ, num_vertex_lh, bin_mask_lh, bin_mask_rh, all_vertex, calcTFCE_lh, calcTFCE_rh)
 	print("Finished. Randomization took %.1f seconds" % (time() - start_time))

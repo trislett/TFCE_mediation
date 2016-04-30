@@ -57,8 +57,13 @@ def write_perm_maxTFCE(statname, vertStat, num_vertex, bin_mask_lh, bin_mask_rh,
 	maxTFCE = np.array([(vertStat_TFCE_lh.max()*(vertStat_out_lh.max()/100)),(vertStat_TFCE_rh.max()*(vertStat_out_rh.max()/100))]).max() 
 	os.system("echo %.4f >> perm_%s_TFCE_maxVoxel.csv" % (maxTFCE,statname))
 
-def calc_sobelz(medtype, pred_x, depend_y, merge_y, n, num_vertex):
-	if medtype == 'M':
+def calc_sobelz(medtype, pred_x, depend_y, merge_y, n, num_vertex, alg = "aroian"):
+	if medtype == 'I':
+		PathA_beta, PathA_se = calc_beta_se(pred_x,merge_y,n,num_vertex)
+		PathB_beta, PathB_se = calc_beta_se(np.column_stack([pred_x,depend_y]),merge_y,n,num_vertex)
+		PathA_se = PathA_se[1]
+		PathB_se = PathB_se[1]
+	elif medtype == 'M':
 		PathA_beta, PathA_se = calc_beta_se(pred_x,merge_y,n,num_vertex)
 		PathB_beta, PathB_se = calc_beta_se(np.column_stack([depend_y,pred_x]),merge_y,n,num_vertex)
 		PathA_se = PathA_se[1]
@@ -67,15 +72,21 @@ def calc_sobelz(medtype, pred_x, depend_y, merge_y, n, num_vertex):
 		PathA_beta, _, _, _, PathA_se = linregress(pred_x, depend_y)
 		PathB_beta, PathB_se = calc_beta_se(np.column_stack([depend_y,pred_x]),merge_y,n,num_vertex)
 		PathB_se = PathB_se[1]
-	elif medtype == 'I':
-		PathA_beta, PathA_se = calc_beta_se(pred_x,merge_y,n,num_vertex)
-		PathB_beta, PathB_se = calc_beta_se(np.column_stack([pred_x,depend_y]),merge_y,n,num_vertex)
-		PathA_se = PathA_se[1]
-		PathB_se = PathB_se[1]
 	else:
 		print "Invalid mediation type"
 		exit()
 	ta = PathA_beta/PathA_se
 	tb = PathB_beta/PathB_se
-	SobelZ = 1/np.sqrt((1/(tb**2))+(1/(ta**2)))
+	if alg == 'aroian':
+		#Aroian variant
+		SobelZ = 1/np.sqrt((1/(tb**2))+(1/(ta**2))+(1/(ta**2*tb**2)))
+	elif alg == 'sobel':
+		#Sobel variant
+		SobelZ = 1/np.sqrt((1/(tb**2)) + (1/(ta**2)))
+	elif alg == 'goodman':
+		#Goodman variant
+		SobelZ = 1/np.sqrt((1/(tb**2))+(1/(ta**2))-(1/(ta**2*tb**2)))
+	else:
+		print("Unknown indirect test algorithm")
+		exit()
 	return SobelZ

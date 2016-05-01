@@ -45,7 +45,7 @@ arg_predictor = opts.input[0]
 arg_covars = opts.input[1]
 arg_depend = opts.input[2]
 surface = opts.surface[0]
-medtype = medtype[0]
+medtype = opts.medtype[0]
 FWHM = opts.fwhm[0]
 
 #load variables

@@ -25,7 +25,7 @@ cimport cython
 
 def cy_lin_lstsqr_mat(X, y):
    return (np.linalg.inv(X.T.dot(X)).dot(X.T)).dot(y)
-  
+
 def calcF(X,y, n, k):
    a = cy_lin_lstsqr_mat(X, y)
    resids = y - np.dot(X,a)
@@ -61,14 +61,6 @@ def tval_int(X, invXX, y, n, k, numvoxel):
    tvals = a / se
    return tvals
 
-#def tval_pred(X, y, n, k, numvoxel):
-#   a = np.array(cython_lstsqr(X[:,1], y))
-#   invXX = np.linalg.inv(np.dot(X.T, X))
-#   sigma2 = np.sum((y - np.dot(X,a))**2,axis=0) / (n - k)
-#   se = se_of_slope(numvoxel,invXX,sigma2,k)
-#   tvals = a / se
-#   return tvals
-
 def calc_beta_se(x,y,n,num_voxel):
    X = np.column_stack([np.ones(n),x])
    invXX = np.linalg.inv(np.dot(X.T, X))
@@ -78,6 +70,3 @@ def calc_beta_se(x,y,n,num_voxel):
    sigma2 = np.sum((y - np.dot(X,a))**2,axis=0) / (n - k)
    se = se_of_slope(num_voxel,invXX,sigma2,k)
    return (beta,se)
-
-#def calc_sobelz(Abeta,Ase,Bbeta,Bse):
-#   return Abeta*Bbeta/np.sqrt((Bbeta*Bbeta*Ase*Ase)+(Abeta*Abeta*Bse*Bse))

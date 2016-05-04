@@ -33,11 +33,11 @@ ap.add_argument("-s", "--surface",  nargs=1, metavar=('area or thickness'), requ
 ap.add_argument("-m", "--medtype",  nargs=1, choices=['I','M','Y'], metavar=('{I,M,Y}'), help= """
 					Set the neuroimage image to be the independent (I), mediator (M), or dependent (Y)""", required=True)
 ap.add_argument("-f", "--fwhm", help="Specific all surface file with different smoothing. Default is 03B (recommended)" , nargs=1, default=['03B'], metavar=('??B'))
+ap.add_argument("--fmri", help="Masking threshold for fMRI surfaces. Default is 0.1 (i.e., mask regions with values less than -0.1 and greater than 0.1)", const=0.1, type=float, nargs='?')
 adjac = ap.add_mutually_exclusive_group(required=False)
 adjac.add_argument("-d", "--dist", help="Load supplied adjacency sets geodesic distance in mm. Default is 3 (recommended).", choices = [1,2,3], type=int,  nargs=1, default=[3])
 adjac.add_argument("-c", "--adjfiles", help="Load custom adjacency set for each hemisphere.", nargs=2, metavar=('*.npy', '*.npy'))
 adjac.add_argument("-t", "--triangularmesh", help="Create adjacency based on triangular mesh without specifying distance.", action="store_true")
-
 
 opts = ap.parse_args()
 scriptwd = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -83,14 +83,25 @@ else:
 	mean_rh = np.squeeze(mean_full_rh)
 
 #create masks
-bin_mask_lh = mean_lh>0
-data_lh = data_lh[bin_mask_lh]
-num_vertex_lh = data_lh.shape[0]
-bin_mask_rh = mean_rh>0
-data_rh = data_rh[bin_mask_rh]
-num_vertex_rh = data_rh.shape[0]
-num_vertex = num_vertex_lh + num_vertex_rh
-all_vertex = data_full_lh.shape[0]
+if opts.fmri:
+	maskthresh = opts.fmri
+	bin_mask_lh = np.logical_or(mean_lh > maskthresh, mean_lh < (-1*maskthresh))
+	data_lh = data_lh[bin_mask_lh]
+	num_vertex_lh = data_lh.shape[0]
+	bin_mask_rh = np.logical_or(mean_rh > maskthresh, mean_rh < (-1*maskthresh))
+	data_rh = data_rh[bin_mask_rh]
+	num_vertex_rh = data_rh.shape[0]
+	num_vertex = num_vertex_lh + num_vertex_rh
+	all_vertex = data_full_lh.shape[0]
+else:
+	bin_mask_lh = mean_lh>0
+	data_lh = data_lh[bin_mask_lh]
+	num_vertex_lh = data_lh.shape[0]
+	bin_mask_rh = mean_rh>0
+	data_rh = data_rh[bin_mask_rh]
+	num_vertex_rh = data_rh.shape[0]
+	num_vertex = num_vertex_lh + num_vertex_rh
+	all_vertex = data_full_lh.shape[0]
 
 #TFCE
 if opts.triangularmesh:

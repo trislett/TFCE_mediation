@@ -34,11 +34,16 @@ group.add_argument("-r", "--regressors", nargs=1, help="Single step regression",
 ap.add_argument("-s", "--surface",  nargs=1, metavar=('area or thickness'), required=True)
 ap.add_argument("-f", "--fwhm", help="Specific all surface file with different smoothing. Default is 03B (recommended)" , nargs=1, default=['03B'], metavar=('??B'))
 
+mask = ap.add_mutually_exclusive_group(required=False)
+mask.add_argument("--fmri", help="Masking threshold for fMRI surfaces. Default is 0.1 (i.e., mask regions with values less than -0.1 and greater than 0.1)", const=0.1, type=float, nargs='?')
+mask.add_argument("-m","--mask", help="Masking array based on fsaverage label. Default is cortex", const='cortex', nargs='?')
+mask.add_argument("-l","--label", help="Load label as masking array for lh and rh, respectively.", nargs=2, metavar=('lh.*.label','rh.*.label'))
+mask.add_argument("-b","--binmask", help="Load binary mask surface for lh and rh, respectively.", nargs=2, metavar=('lh.*.mgh','rh.*.mgh'))
+
 adjac = ap.add_mutually_exclusive_group(required=False)
 adjac.add_argument("-d", "--dist", help="Load supplied adjacency sets geodesic distance in mm. Default is 3 (recommended).", choices = [1,2,3], type=int,  nargs=1, default=[3])
 adjac.add_argument("-c", "--adjfiles", help="Load custom adjacency set for each hemisphere.", nargs=2, metavar=('*.npy', '*.npy'))
 adjac.add_argument("-t", "--triangularmesh", help="Create adjacency based on triangular mesh without specifying distance.", action="store_true")
-
 
 opts = ap.parse_args()
 scriptwd = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -74,17 +79,6 @@ else:
 	mean_full_rh = img_mean_rh.get_data()
 	mean_rh = np.squeeze(mean_full_rh)
 
-#create masks
-bin_mask_lh = mean_lh>0
-data_lh = data_lh[bin_mask_lh]
-num_vertex_lh = data_lh.shape[0]
-bin_mask_rh = mean_rh>0
-data_rh = data_rh[bin_mask_rh]
-num_vertex_rh = data_rh.shape[0]
-num_vertex = num_vertex_lh + num_vertex_rh
-all_vertex = data_full_lh.shape[0]
-
-
 #TFCE
 if opts.triangularmesh:
 	print "Creating adjacency set"
@@ -107,6 +101,60 @@ else:
 	print "Error"
 calcTFCE_lh = Surf(2, 1, adjac_lh) # H=2, E=1
 calcTFCE_rh = Surf(2, 1, adjac_rh) # H=2, E=1
+
+#create masks
+if opts.fmri:
+	maskthresh = opts.fmri
+	print("fMRI threshold mask = %2.2f" % maskthresh)
+	bin_mask_lh = np.logical_or(mean_lh > maskthresh, mean_lh < (-1*maskthresh))
+	bin_mask_rh = np.logical_or(mean_rh > maskthresh, mean_rh < (-1*maskthresh))
+elif opts.mask:
+	label = opts.mask
+	print("Loading fsaverage ?l.%s.label" % label)
+	os.system("cat $SUBJECTS_DIR/fsaverage/label/lh.%s.label | tail -n +3 | awk '{ print $1}' > temp.lh.verticeslist; cat $SUBJECTS_DIR/fsaverage/label/rh.%s.label | tail -n +3 | awk '{ print $1}' > temp.rh.verticeslist" % (label,label))
+	index_lh = np.array(np.genfromtxt("temp.lh.verticeslist", delimiter=',').astype(np.int))
+	index_rh = np.array(np.genfromtxt("temp.rh.verticeslist", delimiter=',').astype(np.int))
+	bin_mask_lh = np.zeros_like(mean_lh)
+	bin_mask_lh[index_rh]=1
+	bin_mask_lh[mean_lh==0]=0
+	bin_mask_lh = bin_mask_lh.astype(bool)
+	bin_mask_rh = np.zeros_like(mean_rh)
+	bin_mask_rh[index_rh]=1
+	bin_mask_lh[mean_lh==0]=0
+	bin_mask_rh = bin_mask_rh.astype(bool)
+elif opts.label:
+	label_lh = opts.label[0]
+	label_rh = opts.label[1]
+	os.system("cat %s | tail -n +3 | awk '{ print $1}' > temp.lh.verticeslist; cat %s | tail -n +3 | awk '{ print $1}' > temp.rh.verticeslist" % (label_lh,label_lh))
+	index_lh = np.array(np.genfromtxt("temp.lh.verticeslist", delimiter=',').astype(np.int))
+	index_rh = np.array(np.genfromtxt("temp.rh.verticeslist", delimiter=',').astype(np.int))
+	bin_mask_lh = np.zeros_like(mean_lh)
+	bin_mask_lh[index_rh]=1
+	bin_mask_lh[mean_lh==0]=0
+	bin_mask_lh = bin_mask_lh.astype(bool)
+	bin_mask_rh = np.zeros_like(mean_rh)
+	bin_mask_rh[index_rh]=1
+	bin_mask_lh[mean_lh==0]=0
+	bin_mask_rh = bin_mask_rh.astype(bool)
+elif opts.binmask:
+	print("Loading masks")
+	img_binmgh_lh = nib.freesurfer.mghformat.load(opts.binmask[0])
+	binmgh_lh = img_binmgh_lh.get_data()
+	binmgh_lh = np.squeeze(binmgh_lh)
+	img_binmgh_rh = nib.freesurfer.mghformat.load(opts.binmask[0])
+	binmgh_rh = img_binmgh_rh.get_data()
+	binmgh_rh = np.squeeze(binmgh_rh)
+	bin_mask_lh = binmgh_lh>1
+	bin_mask_rh = binmgh_rh>1
+else:
+	bin_mask_lh = mean_lh>0
+	bin_mask_rh = mean_rh>0
+data_lh = data_lh[bin_mask_lh]
+num_vertex_lh = data_lh.shape[0]
+data_rh = data_rh[bin_mask_rh]
+num_vertex_rh = data_rh.shape[0]
+num_vertex = num_vertex_lh + num_vertex_rh
+all_vertex = data_full_lh.shape[0]
 
 if opts.input: 
 #load variables

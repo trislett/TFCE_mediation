@@ -43,20 +43,23 @@ def write_vertStat_img(statname, vertStat, outdata_mask, affine_mask, surf, hemi
 	fsurfname = "%s_%s_%s_TFCE.mgh" % (statname,surf,hemi)
 	os.system("echo %s_%s_%s,%f >> max_contrast_value.csv" % (statname,surf,hemi, outdata_mask[np.isfinite(outdata_mask[:,0,0])].max()))
 	nib.save(nib.freesurfer.mghformat.MGHImage(outdata_mask,affine_mask),fsurfname)
+	outdata_mask[:,0,0] = vertStat_out
+	fsurfname = "%s_%s_%s.mgh" % (statname,surf,hemi)
+	nib.save(nib.freesurfer.mghformat.MGHImage(outdata_mask,affine_mask),fsurfname)
 
 def write_perm_maxTFCE(statname, vertStat, num_vertex, bin_mask_lh, bin_mask_rh, all_vertex,calcTFCE_lh,calcTFCE_rh):
 	vertStat_out_lh=np.zeros(all_vertex).astype(np.float32, order = "C")
 	vertStat_out_rh=np.zeros(all_vertex).astype(np.float32, order = "C")
 	vertStat_TFCE_lh = np.zeros_like(vertStat_out_lh).astype(np.float32, order = "C")
 	vertStat_TFCE_rh = np.zeros_like(vertStat_out_rh).astype(np.float32, order = "C")
-	vertStat_out_lh[bin_mask_lh] = vertStat[:num_vertex]ls
+	vertStat_out_lh[bin_mask_lh] = vertStat[:num_vertex]
 	vertStat_out_rh[bin_mask_rh] = vertStat[num_vertex:]
 	calcTFCE_lh.run(vertStat_out_lh, vertStat_TFCE_lh)
 	calcTFCE_rh.run(vertStat_out_rh, vertStat_TFCE_rh)
 	max_lh = vertStat_TFCE_lh[np.isfinite(vertStat_TFCE_lh)].max() * (vertStat_out_lh[np.isfinite(vertStat_out_lh)].max()/100)
 	max_rh = vertStat_TFCE_rh[np.isfinite(vertStat_TFCE_rh)].max() * (vertStat_out_rh[np.isfinite(vertStat_out_rh)].max()/100)
 	maxTFCE = np.array([max_lh,max_rh]).max()
-	os.system("echo %.4f >> perm_%s_TFCE_maxVoxel.csv" % (maxTFCE,statname))
+	os.system("echo %.4f >> perm_%s_TFCE_maxVertex.csv" % (maxTFCE,statname))
 
 def calc_sobelz(medtype, pred_x, depend_y, merge_y, n, num_vertex, alg = "aroian"):
 	if medtype == 'I':

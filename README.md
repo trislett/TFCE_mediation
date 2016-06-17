@@ -33,7 +33,7 @@ sudo apt-get install parallel
 
 * For personal installation of [HTCondor](https://research.cs.wisc.edu/htcondor/) (i.e., Condor), you can follow the instructions [here](http://neuro.debian.net/blog/2012/2012-03-09_parallelize_fsl_with_condor.html)
 
-1) Install the required dependences. If you are using ubuntu or debian run:
+1) Install the required python dependences. If you are using ubuntu or debian run:
 ```
 #!Bash
 

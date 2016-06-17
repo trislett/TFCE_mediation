@@ -24,7 +24,13 @@ Recommended
 Recommended for parallelization
 
 * [GNU Parallel](http://www.gnu.org/software/parallel/)
-or 
+
+```
+#!bash
+
+sudo apt-get install parallel
+```
+
 * For personal installation of [HTCondor](https://research.cs.wisc.edu/htcondor/) (i.e., Condor), you can follow the instructions [here](http://neuro.debian.net/blog/2012/2012-03-09_parallelize_fsl_with_condor.html)
 
 1) Install the required dependences. If you are using ubuntu or debian run:
@@ -49,5 +55,7 @@ bash_compile.sh '-m' option copies ?h.midthickness surface to fsaverage/surf/ di
 ```
 #!Bash
 cd src
+
+
 ./bash_compile.sh
 ```

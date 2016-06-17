@@ -48,9 +48,9 @@ git clone https://bitbucket.org/trislett/surf_tfce.git
 ```
 3) It is recommended to recompile the cython and c++ scripts. 
 
-Options:
-bash_compile.sh '-e' option includes a link in your .bashrc to the script directory as an environment variable $SURF_TFCE.
-bash_compile.sh '-m' option copies ?h.midthickness surface to fsaverage/surf/ directory. Depending on how you installed freesurfer you may have to run 'sudo ./bash_compile.sh -e -m' 
+Optional:    
+bash_compile.sh '-e' option includes a link in your .bashrc to the script directory as an environment variable $SURF_TFCE.   
+bash_compile.sh '-m' option copies ?h.midthickness surface to fsaverage/surf/ directory. Depending on how you installed freesurfer you may have to run 'sudo ./bash_compile.sh -e -m'    
 
 ```
 #!Bash

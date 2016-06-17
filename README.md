@@ -38,7 +38,7 @@ sudo apt-get install python-numpy python-scipy python-matplotlib ipython ipython
 
 ```
 #!Bash
-git clone https://trislett@bitbucket.org/trislett/py_tbss.git
+git clone https://bitbucket.org/trislett/surf_tfce.git
 ```
 3) It is recommended to recompile the cython and c++ scripts. 
 

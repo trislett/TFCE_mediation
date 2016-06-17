@@ -27,11 +27,27 @@ Recommended for parallelization
 or 
 * For personal installation of [HTCondor](https://research.cs.wisc.edu/htcondor/) (i.e., Condor), you can follow the instructions [here](http://neuro.debian.net/blog/2012/2012-03-09_parallelize_fsl_with_condor.html)
 
-
-If you are using ubuntu or debian run:
+1) Install the required dependences. If you are using ubuntu or debian run:
 ```
 #!Bash
 
 
 sudo apt-get install python-numpy python-scipy python-matplotlib ipython ipython-notebook python-pandas python-sympy python-nose cython python-nibabel
+```
+2) Download this repository to somewhere useful (e.g., scripts directory):
+
+```
+#!Bash
+git clone https://trislett@bitbucket.org/trislett/py_tbss.git
+```
+3) It is recommended to recompile the cython and c++ scripts. 
+
+Options:
+bash_compile.sh '-e' option includes a link in your .bashrc to the script directory as an environment variable $SURF_TFCE.
+bash_compile.sh '-m' option copies ?h.midthickness surface to fsaverage/surf/ directory. Depending on how you installed freesurfer you may have to run 'sudo ./bash_compile.sh -e -m' 
+
+```
+#!Bash
+cd src
+./bash_compile.sh
 ```

@@ -55,7 +55,5 @@ bash_compile.sh '-m' option copies ?h.midthickness surface to fsaverage/surf/ di
 ```
 #!Bash
 cd src
-
-
 ./bash_compile.sh
 ```

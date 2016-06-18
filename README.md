@@ -11,7 +11,8 @@ This is a placeholder for the full instructions.
 
 Surf_tfce has been tested on Ubuntu 14.04 and 16.04, Arch Linux, and OSX   
    
-Required
+Required   
+   
 * [SciPy Stack](https://www.scipy.org/install.html)
 * [NiBabel](http://nipy.org/nibabel/installation.html#installation)
 * [Cython](http://cython.org)

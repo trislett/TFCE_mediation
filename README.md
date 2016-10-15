@@ -1,4 +1,4 @@
-# Surf_tfce #
+# TFCE_mediation #
 
 This is a placeholder for the full instructions.
 
@@ -9,7 +9,7 @@ This is a placeholder for the full instructions.
 
 ### Dependencies ###
 
-Surf_tfce has been tested on Ubuntu 14.04 and 16.04, Arch Linux, and OSX   
+TFCE_mediation has been tested on Ubuntu 14.04 and 16.04, Arch Linux, and OSX   
    
 Required   
    
@@ -46,12 +46,12 @@ sudo apt-get install python-numpy python-scipy python-matplotlib ipython ipython
 
 ```
 #!Bash
-git clone https://bitbucket.org/trislett/surf_tfce.git
+git clone https://github.com/trislett/TFCE_mediation.git
 ```
 3) It is recommended to recompile the cython and c++ scripts. 
 
 Optional:    
-bash_compile.sh '-e' option includes a link in your .bashrc to the script directory as an environment variable $SURF_TFCE.   
+bash_compile.sh '-e' option includes a link in your .bashrc to the script directory as an environment variable $TFCE_mediation.   
 bash_compile.sh '-m' option copies ?h.midthickness surface to fsaverage/surf/ directory. Depending on how you installed freesurfer you may have to run 'sudo ./bash_compile.sh -e -m'    
 
 ```

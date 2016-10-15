@@ -3,7 +3,7 @@
 while getopts "emh" opt; do
 	case $opt in
 		e)
-			echo "export SURF_TFCE="`dirname $PWD` >> ~/.bashrc
+			echo "export TFCE_mediation="`dirname $PWD` >> ~/.bashrc
 		;;
 		m)
 			cp ../adjacency_sets/?h.midthickness $SUBJECTS_DIR/fsaverage/surf/
@@ -11,7 +11,7 @@ while getopts "emh" opt; do
 		h)
 			echo "Usage: `basename $0`"
 			echo "Options:"
-			echo "[-e] Set SURF_TFCE as environment variable in ~/.bashrc"
+			echo "[-e] Set TFCE_mediation as environment variable in ~/.bashrc"
 			echo "[-m] Copy midthickness surface to fsaverage"
 			exit 1;
 		;;
@@ -36,6 +36,6 @@ mv TFCE.so ../cython
 cp TFCE_.hxx ../cython
 
 #adjacency
-mv Adjacency.so ../tools/cython
-mv Adjacency.cpp ../tools/cython
+mv Adjacency.so ../vertex_tools/cython
+mv Adjacency.cpp ../vertex_tools/cython
 

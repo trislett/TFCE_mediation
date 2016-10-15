@@ -1330,7 +1330,7 @@ static char __pyx_k_maxDistance[] = "maxDistance";
 static char __pyx_k_RuntimeError[] = "RuntimeError";
 static char __pyx_k_initAdjacency[] = "==> initAdjacency";
 static char __pyx_k_ndarray_is_not_C_contiguous[] = "ndarray is not C contiguous";
-static char __pyx_k_home_tris_scripts_surf_tfce_src[] = "/home/tris/scripts/surf_tfce/src/Adjacency.pyx";
+static char __pyx_k_home_tris_scripts_TFCE_mediatio[] = "/home/tris/scripts/TFCE_mediation/src/Adjacency.pyx";
 static char __pyx_k_unknown_dtype_code_in_numpy_pxd[] = "unknown dtype code in numpy.pxd (%d)";
 static char __pyx_k_Format_string_allocated_too_shor[] = "Format string allocated too short, see comment in numpy.pxd";
 static char __pyx_k_Non_native_byte_order_not_suppor[] = "Non-native byte order not supported";
@@ -1356,7 +1356,7 @@ static PyObject *__pyx_n_s_compute;
 static PyObject *__pyx_n_s_end;
 static PyObject *__pyx_n_s_f;
 static PyObject *__pyx_n_s_file;
-static PyObject *__pyx_kp_s_home_tris_scripts_surf_tfce_src;
+static PyObject *__pyx_kp_s_home_tris_scripts_TFCE_mediatio;
 static PyObject *__pyx_n_s_i;
 static PyObject *__pyx_n_s_import;
 static PyObject *__pyx_kp_s_initAdjacency;
@@ -4317,7 +4317,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_end, __pyx_k_end, sizeof(__pyx_k_end), 0, 0, 1, 1},
   {&__pyx_n_s_f, __pyx_k_f, sizeof(__pyx_k_f), 0, 0, 1, 1},
   {&__pyx_n_s_file, __pyx_k_file, sizeof(__pyx_k_file), 0, 0, 1, 1},
-  {&__pyx_kp_s_home_tris_scripts_surf_tfce_src, __pyx_k_home_tris_scripts_surf_tfce_src, sizeof(__pyx_k_home_tris_scripts_surf_tfce_src), 0, 0, 1, 0},
+  {&__pyx_kp_s_home_tris_scripts_TFCE_mediatio, __pyx_k_home_tris_scripts_TFCE_mediatio, sizeof(__pyx_k_home_tris_scripts_TFCE_mediatio), 0, 0, 1, 0},
   {&__pyx_n_s_i, __pyx_k_i, sizeof(__pyx_k_i), 0, 0, 1, 1},
   {&__pyx_n_s_import, __pyx_k_import, sizeof(__pyx_k_import), 0, 0, 1, 1},
   {&__pyx_kp_s_initAdjacency, __pyx_k_initAdjacency, sizeof(__pyx_k_initAdjacency), 0, 0, 1, 0},
@@ -4432,7 +4432,7 @@ static int __Pyx_InitCachedConstants(void) {
   __pyx_tuple__10 = PyTuple_Pack(13, __pyx_n_s_v, __pyx_n_s_f, __pyx_n_s_thresholds, __pyx_n_s_Mesh, __pyx_n_s_Algorithm, __pyx_n_s_Source, __pyx_n_s_Target, __pyx_n_s_Distance, __pyx_n_s_maxDistance, __pyx_n_s_adjacency, __pyx_n_s_i, __pyx_n_s_j, __pyx_n_s_k); if (unlikely(!__pyx_tuple__10)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 44; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_tuple__10);
   __Pyx_GIVEREF(__pyx_tuple__10);
-  __pyx_codeobj__11 = (PyObject*)__Pyx_PyCode_New(3, 0, 13, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__10, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_home_tris_scripts_surf_tfce_src, __pyx_n_s_compute, 44, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__11)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 44; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_codeobj__11 = (PyObject*)__Pyx_PyCode_New(3, 0, 13, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__10, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_home_tris_scripts_TFCE_mediatio, __pyx_n_s_compute, 44, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__11)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 44; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;

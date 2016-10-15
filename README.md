@@ -28,8 +28,6 @@ Recommended for parallelization
 * [GNU Parallel](http://www.gnu.org/software/parallel/)
 
 ```
-#!bash
-
 sudo apt-get install parallel
 ```
 
@@ -37,15 +35,11 @@ sudo apt-get install parallel
 
 1) Install the required python dependences. If you are using ubuntu or debian run:
 ```
-#!Bash
-
-
-sudo apt-get install python-numpy python-scipy python-matplotlib ipython ipython-notebook python-pandas python-sympy python-nose cython python-nibabel
+sudo apt-get install python-numpy python-scipy python-matplotlib python-sympy python-nose cython python-nibabel
 ```
 2) Download this repository to somewhere useful (e.g., scripts directory):
 
 ```
-#!Bash
 git clone https://github.com/trislett/TFCE_mediation.git
 ```
 3) It is recommended to recompile the cython and c++ scripts. 
@@ -55,7 +49,6 @@ bash_compile.sh '-e' option includes a link in your .bashrc to the script direct
 bash_compile.sh '-m' option copies ?h.midthickness surface to fsaverage/surf/ directory. Depending on how you installed freesurfer you may have to run 'sudo ./bash_compile.sh -e -m'    
 
 ```
-#!Bash
 cd src
 ./bash_compile.sh
 ```

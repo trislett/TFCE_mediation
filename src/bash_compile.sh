@@ -23,7 +23,7 @@ while getopts "emh" opt; do
 done
 
 mkdir -p ../cython
-mkdir -p ../tools/cython
+mkdir -p ../vertex_tools/cython
 
 #numstats
 python setup.py build_ext --inplace

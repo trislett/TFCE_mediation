@@ -23,7 +23,7 @@ import numpy as np
 from cython.cy_numstats import tval_int, calcF
 from time import time
 from cython.TFCE import Surf
-from py_func import write_perm_maxTFCE
+from py_func import write_perm_maxTFCE_voxel
 
 start_time = time()
 
@@ -69,7 +69,7 @@ else:
 			perm_fvals = np.sqrt(perm_fvals)
 			print perm_fvals.max()
 			print perm_fvals.min()
-			write_perm_maxTFCE('fstat', perm_fvals, calcTFCE)
+			write_perm_maxTFCE_voxel('fstat', perm_fvals, calcTFCE)
 	else:
 		for iter_perm in xrange(arg_perm_start,arg_perm_stop):
 			np.random.seed(int(iter_perm*1000+time()))
@@ -80,6 +80,6 @@ else:
 			perm_tvalues[np.isnan(perm_tvalues)]=0 #only necessary for ANTS skeleton
 			for j in xrange(k-1):
 				tnum=j+1
-				write_perm_maxTFCE('tstat_con%d' % tnum, perm_tvalues[tnum], calcTFCE)
-				write_perm_maxTFCE('tstat_con%d' % tnum, (perm_tvalues[tnum]*-1), calcTFCE)
+				write_perm_maxTFCE_voxel('tstat_con%d' % tnum, perm_tvalues[tnum], calcTFCE)
+				write_perm_maxTFCE_voxel('tstat_con%d' % tnum, (perm_tvalues[tnum]*-1), calcTFCE)
 	print("Finished. Randomization took %.1f seconds" % (time() - start_time))

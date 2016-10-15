@@ -22,7 +22,7 @@ import numpy as np
 from time import time
 from cython.cy_numstats import tval_int
 from cython.TFCE import Surf
-from py_func import write_perm_maxTFCE
+from py_func import write_perm_maxTFCE_vertex
 
 if len(sys.argv) < 4:
 	print "Usage: %s [start] [stop] [surface (area or thickness)]" % (str(sys.argv[0]))
@@ -66,6 +66,6 @@ else:
 		tvals=tval_int(nx, invXX, ny, n, k, num_vertex)
 		for j in xrange(k-1):
 			tnum=j+1
-			write_perm_maxTFCE('tstat_con%d' % tnum, tvals[tnum], num_vertex_lh, bin_mask_lh, bin_mask_rh, all_vertex, calcTFCE_lh, calcTFCE_rh)
-			write_perm_maxTFCE('tstat_con%d' % tnum, (tvals[tnum] * -1), num_vertex_lh, bin_mask_lh, bin_mask_rh, all_vertex, calcTFCE_lh, calcTFCE_rh)
+			write_perm_maxTFCE_vertex('tstat_con%d' % tnum, tvals[tnum], num_vertex_lh, bin_mask_lh, bin_mask_rh, all_vertex, calcTFCE_lh, calcTFCE_rh)
+			write_perm_maxTFCE_vertex('tstat_con%d' % tnum, (tvals[tnum] * -1), num_vertex_lh, bin_mask_lh, bin_mask_rh, all_vertex, calcTFCE_lh, calcTFCE_rh)
 	print("Finished. Randomization took %.1f seconds" % (time() - start_time))

@@ -61,7 +61,7 @@ done
 roundnumperm=$(($forperm*2*100+200))
 echo "Evaluating $roundnumperm permuations"
 for i in $(eval echo "{0..$forperm}"); do 
-	echo ${SCRIPTPATH}/py_mediation_randomise.py $(($i*200+1)) $(($i*200+200)) ${medtype}
+	echo ${SCRIPTPATH}/voxel_tfce_mediation_randomise.py $(($i*200+1)) $(($i*200+200)) ${medtype}
 done > cmd_${medtype}_mediation_randomise_${current_time}
 
 if [[ $p_opt = "gnu" ]]; then

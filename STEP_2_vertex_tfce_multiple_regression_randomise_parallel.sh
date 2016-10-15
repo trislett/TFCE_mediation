@@ -61,7 +61,7 @@ done
 roundnumperm=$(($forperm*2*100+200))
 echo "Evaluating $roundnumperm permuations"
 for i in $(eval echo "{0..$forperm}"); do 
-	echo ${SCRIPTPATH}/surf_tfce_multiple_regression_vertexTFCE_randomise.py $(($i*100+1)) $(($i*100+100)) ${surf}
+	echo ${SCRIPTPATH}/vertex_tfce_multiple_regression_randomise.py $(($i*100+1)) $(($i*100+100)) ${surf}
 done > cmd_multipleregress_randomise_${surf}_${current_time}
 
 if [[ $p_opt = "gnu" ]]; then

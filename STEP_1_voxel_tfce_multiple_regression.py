@@ -20,7 +20,7 @@ import os
 import numpy as np
 from cython.cy_numstats import resid_covars, tval_int, calcF
 from cython.TFCE import Surf
-from py_func import write_voxelStat_img, create_adjac
+from py_func import write_voxelStat_img, create_adjac_voxel
 from scipy import stats
 import argparse as ap
 
@@ -75,7 +75,7 @@ if opts.ftest:
 	ancova=1
 
 #TFCE
-adjac = create_adjac(data_index,data_mask,num_voxel,dirtype=opts.tfce[2])
+adjac = create_adjac_voxel(data_index,data_mask,num_voxel,dirtype=opts.tfce[2])
 calcTFCE = Surf(float(opts.tfce[0]), float(opts.tfce[1]), adjac) # H=2, E=2, 26 neighbour connectivity
 
 #save

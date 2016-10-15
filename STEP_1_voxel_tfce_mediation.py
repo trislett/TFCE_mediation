@@ -23,7 +23,7 @@ import nibabel as nib
 from scipy.stats import linregress
 from cython.cy_numstats import resid_covars,calc_beta_se
 from cython.TFCE import Surf
-from py_func import write_voxelStat_img, create_adjac, calc_sobelz
+from py_func import write_voxelStat_img, create_adjac_voxel, calc_sobelz
 import argparse as ap
 
 ap = ap.ArgumentParser(description="Voxel-wise mediation with TFCE")
@@ -55,7 +55,7 @@ covars = np.genfromtxt(arg_covars, delimiter=",")
 depend_y = np.genfromtxt(arg_depend, delimiter=",")
 
 #TFCE
-adjac = create_adjac(data_index,data_mask,num_voxel,dirtype=opts.tfce[2])
+adjac = create_adjac_voxel(data_index,data_mask,num_voxel,dirtype=opts.tfce[2])
 calcTFCE = Surf(float(opts.tfce[0]), float(opts.tfce[1]), adjac) # i.e. default: H=2, E=2, 26 neighbour connectivity
 
 #step1

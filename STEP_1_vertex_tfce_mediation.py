@@ -24,7 +24,7 @@ import nibabel as nib
 from scipy.stats import linregress
 from cython.cy_numstats import resid_covars,calc_beta_se
 from cython.TFCE import Surf
-from py_func import write_vertStat_img, create_adjac, calc_sobelz
+from py_func import write_vertStat_img, create_adjac_vertex, calc_sobelz
 import argparse as ap
 
 ap = ap.ArgumentParser(description="Vertex-wise mediation with TFCE")
@@ -109,8 +109,8 @@ if opts.triangularmesh:
 	# 3 Neighbour vertex connectity
 	v_lh, faces_lh = nib.freesurfer.read_geometry("%s/fsaverage/surf/lh.sphere" % os.environ["SUBJECTS_DIR"])
 	v_rh, faces_rh = nib.freesurfer.read_geometry("%s/fsaverage/surf/rh.sphere" % os.environ["SUBJECTS_DIR"])
-	adjac_lh = create_adjac(v_lh,faces_lh)
-	adjac_rh = create_adjac(v_rh,faces_rh)
+	adjac_lh = create_adjac_vertex(v_lh,faces_lh)
+	adjac_rh = create_adjac_vertex(v_rh,faces_rh)
 elif opts.adjfiles:
 	print "Loading prior adjacency set"
 	arg_adjac_lh = opts.adjfiles[0]

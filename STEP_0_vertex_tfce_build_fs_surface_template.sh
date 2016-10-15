@@ -45,50 +45,50 @@ for i in $(cat ${subject_file}); do echo -ne $(echo --s $i)" "; done > longname
 if [[ $use_parallel = 1 ]]; then
 	echo "using parallel processing"
 	for i in lh rh; do 
-		echo 'mris_preproc' $(cat longname) '--target fsaverage --hemi '$(echo ${i})' --meas '$(echo ${surface})' --out '$(echo ${i})'.all.'$(echo ${surface})'.00.mgh'
+		echo '$FREESURFER_HOME/bin/$FREESURFER_HOME/bin/mris_preproc' $(cat longname) '--target fsaverage --hemi '$(echo ${i})' --meas '$(echo ${surface})' --out '$(echo ${i})'.all.'$(echo ${surface})'.00.mgh'
 	done > cmd_step1
 	cat cmd_step1 | parallel -j 2
 	rm cmd_step1
 else
-	eval $(echo 'mris_preproc' $(cat longname) '--target fsaverage --hemi lh --meas ${surface} --out lh.all.${surface}.00.mgh')
-	eval $(echo 'mris_preproc' $(cat longname) '--target fsaverage --hemi rh --meas ${surface} --out rh.all.${surface}.00.mgh')
+	eval $(echo '$FREESURFER_HOME/bin/mris_preproc' $(cat longname) '--target fsaverage --hemi lh --meas ${surface} --out lh.all.${surface}.00.mgh')
+	eval $(echo '$FREESURFER_HOME/bin/mris_preproc' $(cat longname) '--target fsaverage --hemi rh --meas ${surface} --out rh.all.${surface}.00.mgh')
 fi
 rm longname
 
 if [[ $use_parallel = 1 ]]; then
 	for j in lh rh; do 
-		echo mri_surf2surf --hemi ${j} --s fsaverage --sval ${j}.all.${surface}.00.mgh --fwhm 10 --cortex --tval ${j}.all.${surface}.10B.mgh
-		echo mri_surf2surf --hemi ${j} --s fsaverage --sval ${j}.all.${surface}.00.mgh --fwhm 3 --cortex --tval ${j}.all.${surface}.03B.mgh
+		echo $FREESURFER_HOME/bin/mri_surf2surf --hemi ${j} --s fsaverage --sval ${j}.all.${surface}.00.mgh --fwhm 10 --cortex --tval ${j}.all.${surface}.10B.mgh
+		echo $FREESURFER_HOME/bin/mri_surf2surf --hemi ${j} --s fsaverage --sval ${j}.all.${surface}.00.mgh --fwhm 3 --cortex --tval ${j}.all.${surface}.03B.mgh
 	done > cmd_step2
 	cat cmd_step2 | parallel -j 4
 	rm cmd_step2
 else
-	mri_surf2surf --hemi lh --s fsaverage --sval lh.all.${surface}.00.mgh --fwhm 10 --cortex --tval lh.all.${surface}.10B.mgh
-	mri_surf2surf --hemi rh --s fsaverage --sval rh.all.${surface}.00.mgh --fwhm 10 --cortex --tval rh.all.${surface}.10B.mgh
+	$FREESURFER_HOME/bin/mri_surf2surf --hemi lh --s fsaverage --sval lh.all.${surface}.00.mgh --fwhm 10 --cortex --tval lh.all.${surface}.10B.mgh
+	$FREESURFER_HOME/bin/mri_surf2surf --hemi rh --s fsaverage --sval rh.all.${surface}.00.mgh --fwhm 10 --cortex --tval rh.all.${surface}.10B.mgh
 
-	mri_surf2surf --hemi lh --s fsaverage --sval lh.all.${surface}.00.mgh --fwhm 3 --cortex --tval lh.all.${surface}.03B.mgh
-	mri_surf2surf --hemi rh --s fsaverage --sval rh.all.${surface}.00.mgh --fwhm 3 --cortex --tval rh.all.${surface}.03B.mgh
+	$FREESURFER_HOME/bin/mri_surf2surf --hemi lh --s fsaverage --sval lh.all.${surface}.00.mgh --fwhm 3 --cortex --tval lh.all.${surface}.03B.mgh
+	$FREESURFER_HOME/bin/mri_surf2surf --hemi rh --s fsaverage --sval rh.all.${surface}.00.mgh --fwhm 3 --cortex --tval rh.all.${surface}.03B.mgh
 fi
 
 
 if [[ $means_opt = 1 ]]; then
-	mri_concat lh.all.${surface}.00.mgh --o lh.mean.${surface}.00.mgh --mean
-	mri_concat rh.all.${surface}.00.mgh --o rh.mean.${surface}.00.mgh --mean
+	$FREESURFER_HOME/bin/mri_concat lh.all.${surface}.00.mgh --o lh.mean.${surface}.00.mgh --mean
+	$FREESURFER_HOME/bin/mri_concat rh.all.${surface}.00.mgh --o rh.mean.${surface}.00.mgh --mean
 
-	mri_concat lh.all.${surface}.03B.mgh --o lh.mean.${surface}.03B.mgh --mean
-	mri_concat rh.all.${surface}.03B.mgh --o rh.mean.${surface}.03B.mgh --mean
+	$FREESURFER_HOME/bin/mri_concat lh.all.${surface}.03B.mgh --o lh.mean.${surface}.03B.mgh --mean
+	$FREESURFER_HOME/bin/mri_concat rh.all.${surface}.03B.mgh --o rh.mean.${surface}.03B.mgh --mean
 fi
 
 if [[ $other_FWHM = 1 ]]; then
-	mri_surf2surf --hemi lh --s fsaverage --sval lh.all.${surface}.00.mgh --fwhm $FWHM --cortex --tval lh.all.${surface}.0${FWHM}B.mgh
-	mri_surf2surf --hemi rh --s fsaverage --sval rh.all.${surface}.00.mgh --fwhm $FWHM --cortex --tval rh.all.${surface}.0${FWHM}B.mgh
+	$FREESURFER_HOME/bin/mri_surf2surf --hemi lh --s fsaverage --sval lh.all.${surface}.00.mgh --fwhm $FWHM --cortex --tval lh.all.${surface}.0${FWHM}B.mgh
+	$FREESURFER_HOME/bin/mri_surf2surf --hemi rh --s fsaverage --sval rh.all.${surface}.00.mgh --fwhm $FWHM --cortex --tval rh.all.${surface}.0${FWHM}B.mgh
 fi
 
 if [[ $surf_opt = 1 ]]; then
-	mri_surf2vol --surfval lh.mean.${surface}.03B.mgh --hemi lh --outvol lh.mean.${surface}.03B.mni152.nii.gz --projfrac 0.5 --template $FSLDIR/data/standard/MNI152_T1_1mm_brain.nii.gz --reg $FREESURFER_HOME/average/mni152.register.dat
-	mri_surf2vol --surfval rh.mean.${surface}.03B.mgh --hemi rh --outvol rh.mean.${surface}.03B.mni152.nii.gz --projfrac 0.5 --template $FSLDIR/data/standard/MNI152_T1_1mm_brain.nii.gz --reg $FREESURFER_HOME/average/mni152.register.dat
-	fslmaths lh.mean.${surface}.03B.mni152.nii.gz -add rh.mean.${surface}.03B.mni152.nii.gz mean.${surface}.03B.mni152.nii.gz
-	fslmaths mean.${surface}.03B.mni152.nii.gz -bin mask.${surface}.03B.mni152
+	$FREESURFER_HOME/bin/mri_surf2vol --surfval lh.mean.${surface}.03B.mgh --hemi lh --outvol lh.mean.${surface}.03B.mni152.nii.gz --projfrac 0.5 --template $FSLDIR/data/standard/MNI152_T1_1mm_brain.nii.gz --reg $FREESURFER_HOME/average/mni152.register.dat
+	$FREESURFER_HOME/bin/mri_surf2vol --surfval rh.mean.${surface}.03B.mgh --hemi rh --outvol rh.mean.${surface}.03B.mni152.nii.gz --projfrac 0.5 --template $FSLDIR/data/standard/MNI152_T1_1mm_brain.nii.gz --reg $FREESURFER_HOME/average/mni152.register.dat
+	${FSLDIR}/bin/fslmaths lh.mean.${surface}.03B.mni152.nii.gz -add rh.mean.${surface}.03B.mni152.nii.gz mean.${surface}.03B.mni152.nii.gz
+	${FSLDIR}/bin/fslmaths mean.${surface}.03B.mni152.nii.gz -bin mask.${surface}.03B.mni152
 	echo "Mean St_Dev Min Max Voxels"
-	fslstats mean.${surface}.03B.mni152.nii.gz -M -S -P 0 -P 100 -V
+	${FSLDIR}/bin/fslstats mean.${surface}.03B.mni152.nii.gz -M -S -P 0 -P 100 -V
 fi

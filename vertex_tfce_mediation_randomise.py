@@ -23,7 +23,7 @@ from time import time
 from scipy.stats import linregress
 from cython.cy_numstats import calc_beta_se
 from cython.TFCE import Surf
-from py_func import write_perm_maxTFCE, calc_sobelz
+from py_func import write_perm_maxTFCE_vertex, calc_sobelz
 
 if len(sys.argv) < 5:
 	print "Usage: %s [start] [stop] [surface (area or thickness)] [mediation type (M, Y, I)]" % (str(sys.argv[0]))
@@ -72,5 +72,5 @@ else:
 			pathA_nx = pred_x[indices_perm]
 			pathB_nx = depend_y[indices_perm]
 			SobelZ = calc_sobelz(medtype, pathA_nx, pathB_nx, y, n, num_vertex)
-		write_perm_maxTFCE("Zstat_%s" % medtype, SobelZ, num_vertex_lh, bin_mask_lh, bin_mask_rh, all_vertex, calcTFCE_lh, calcTFCE_rh)
+		write_perm_maxTFCE_vertex("Zstat_%s" % medtype, SobelZ, num_vertex_lh, bin_mask_lh, bin_mask_rh, all_vertex, calcTFCE_lh, calcTFCE_rh)
 	print("Finished. Randomization took %.1f seconds" % (time() - start_time))

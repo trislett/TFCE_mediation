@@ -24,7 +24,7 @@ from cython.cy_numstats import calc_beta_se
 from scipy.stats import linregress
 from time import time
 from cython.TFCE import Surf
-from py_func import write_perm_maxTFCE, calc_sobelz
+from py_func import write_perm_maxTFCE_voxel, calc_sobelz
 
 start_time = time()
 
@@ -69,5 +69,5 @@ else:
 			pathA_nx = pred_x[indices_perm]
 			pathB_nx = depend_y[indices_perm]
 			SobelZ = calc_sobelz(medtype, pathA_nx, pathB_nx, ny, n, num_voxel)
-		write_perm_maxTFCE('Zstat_%s' % medtype, SobelZ, calcTFCE)
+		write_perm_maxTFCE_voxel('Zstat_%s' % medtype, SobelZ, calcTFCE)
 	print("Finished. Randomization took %.1f seconds" % (time() - start_time))

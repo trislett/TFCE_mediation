@@ -72,7 +72,7 @@ def write_vertStat_img(statname, vertStat, outdata_mask, affine_mask, surf, hemi
 	TFCEfunc.run(vertStat_out, vertStat_TFCE)
 	outdata_mask[:,0,0] = vertStat_TFCE * (vertStat[np.isfinite(vertStat)].max()/100)
 	fsurfname = "%s_%s_%s_TFCE.mgh" % (statname,surf,hemi)
-	os.system("echo %s_%s_%s,%f >> max_contrast_value.csv" % (statname,surf,hemi, outdata_mask[np.isfinite(outdata_mask[:,0,0])].max()))
+	os.system("echo %s_%s_%s,%f >> max_TFCE_contrast_values.csv" % (statname,surf,hemi, outdata_mask[np.isfinite(outdata_mask[:,0,0])].max()))
 	nib.save(nib.freesurfer.mghformat.MGHImage(outdata_mask,affine_mask),fsurfname)
 	outdata_mask[:,0,0] = vertStat_out
 	fsurfname = "%s_%s_%s.mgh" % (statname,surf,hemi)
@@ -84,7 +84,7 @@ def write_voxelStat_img(statname, voxelStat, out_path, data_index, affine, TFCEf
 	TFCEfunc.run(voxelStat_out, voxelStat_TFCE)
 	out_path[data_index] = voxelStat_TFCE * (voxelStat_out.max()/100)
 	nib.save(nib.Nifti1Image(out_path,affine),"%s_TFCE.nii.gz" % (statname))
-	os.system("echo %s,%f >> maxTFCE_contrast_values.csv" % (statname,out_path.max()))
+	os.system("echo %s,%f >> max_TFCE_contrast_values.csv" % (statname,out_path.max()))
 	out_path[data_index] = voxelStat
 	nib.save(nib.Nifti1Image(out_path,affine),"%s.nii.gz" % (statname))
 

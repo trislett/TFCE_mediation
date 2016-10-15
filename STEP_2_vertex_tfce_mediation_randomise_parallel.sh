@@ -67,7 +67,7 @@ done
 roundnumperm=$(($forperm*100+200))
 echo "Evaluating $roundnumperm permuations"
 for i in $(eval echo "{0..$forperm}"); do 
-	echo ${SCRIPTPATH}/surf_tfce_mediation_vertexTFCE_randomise.py $(($i*200+1)) $(($i*200+200)) ${surf} ${medtype}
+	echo ${SCRIPTPATH}/vertex_tfce_mediation_randomise.py $(($i*200+1)) $(($i*200+200)) ${surf} ${medtype}
 done > cmd_${medtype}_mediation_randomise_${current_time}
 
 if [[ $p_opt = "gnu" ]]; then

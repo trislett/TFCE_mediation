@@ -59,8 +59,11 @@ if [[ $list_opt = 1 ]]; then
 	fslmaths averageFA.nii.gz -thr 0.01 -bin averageFA_mask
 	if [[ $mask_opt = 1 ]]; then
 		echo 'correcting mask for all subjects'
+		cp averageFA_mask.nii.gz averageFA_mask_original.nii.gz
+		cp averageFA.nii.gz averageFA_original.nii.gz
 		eval $(echo '${SCRIPTPATH}/createFinalMask.py -i averageFA_mask.nii.gz -m ' $(cat brainT1toStdMask))
 	fi
+	fslmaths averageFA.nii.gz -mul averageFA_mask.nii.gz averageFA.nii.gz
 	rm listFAtoStd
 	rm brainT1toStdMask
 else
@@ -68,6 +71,8 @@ else
 	fslmaths averageFA.nii.gz -thr 0.01 -bin averageFA_mask
 	if [[ $mask_opt = 1 ]]; then
 		echo 'correcting mask for all subjects'
+		cp averageFA_mask.nii.gz averageFA_mask_original.nii.gz
+		cp averageFA.nii.gz averageFA_original.nii.gz
 		${SCRIPTPATH}/createFinalMask.py -i averageFA_mask.nii.gz -m ${FA2SDDIR}/*_braintoStd_mask.nii.gz
 	fi
 	fslmaths averageFA.nii.gz -mul averageFA_mask.nii.gz averageFA.nii.gz

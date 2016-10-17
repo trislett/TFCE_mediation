@@ -57,7 +57,7 @@ done
 roundnumperm=$(($forperm*2*100+200))
 echo "Evaluating $roundnumperm permuations"
 for i in $(eval echo "{0..$forperm}"); do 
-	echo ${SCRIPTPATH}/voxel_tfce_multiple_regression_randomise.py $(($i*100+1)) $(($i*100+100))
+	echo ${SCRIPTPATH}/voxel_tfce_multiple_regression_randomise.py -r $(($i*100+1)) $(($i*100+100))
 done > cmd_${medtype}_mult_regression_randomise_${current_time}
 
 if [[ $p_opt = "gnu" ]]; then

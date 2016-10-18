@@ -33,8 +33,8 @@ group.add_argument("-p","--gnuparallel", nargs=1, type=int, help="Use GNU parall
 group.add_argument("-c","--condor", help="Use HTCondor.", action="store_true")
 group.add_argument("-f","--fslsub", help="Use fsl_sub script.",action="store_true")
 datatype = ap.add_mutually_exclusive_group(required=True)
-group.add_argument("--voxel", help="Voxel analysis", action="store_true")
-group.add_argument("--vertex", help="Vertex analysis [area or thickness]", nargs=1,metavar=('STR'))
+datatype.add_argument("--voxel", help="Voxel analysis", action="store_true")
+datatype.add_argument("--vertex", help="Vertex analysis [area or thickness]", nargs=1,metavar=('STR'))
 ap.add_argument("-m", "--mediation", nargs=1, help="mediation type [M or I or Y]", metavar=('STR'))
 opts = ap.parse_args()
 
@@ -44,7 +44,8 @@ currentTime=int(time())
 
 #load the proper script
 if opts.voxel:
-	whichScript="%s/voxel_tfce_multiple_regression_randomise.py" % SCRIPTPATH
+	whichScript="%s/voxel_tfce_multiple_regression_randomise.py" % (SCRIPTPATH)
+	if opts.specifyvars:
 		whichScript="%s/voxel_tfce_multiple_regression_randomise.py -v %d %d" % (SCRIPTPATH, opts.specifyvars[0], opts.specifyvars[1])
 	if opts.mediation:
 		whichScript= "%s/voxel_tfce_mediation_randomise.py -m %s" % (SCRIPTPATH,opts.mediation[0])

@@ -26,15 +26,16 @@ def get_script_path():
 	return os.path.dirname(os.path.realpath(sys.argv[0]))
 
 ap = ap.ArgumentParser(description="Permutation testing for multiple regression with TFCE on vertex data.")
+datatype = ap.add_mutually_exclusive_group(required=True)
+datatype.add_argument("--voxel", help="Voxel analysis", action="store_true")
+datatype.add_argument("--vertex", help="Vertex analysis [area or thickness]", nargs=1,metavar=('STR'))
 ap.add_argument("-n", "--numperm", nargs=1, type=int, help="# of permutations", metavar=('INT'), required=True)
 ap.add_argument("-v", "--specifyvars", nargs=2, type=int, help="Optional. Specify which regressors are permuted [first] [last]. For one variable, first=last.", metavar=('INT','INT'))
 group = ap.add_mutually_exclusive_group(required=True)
 group.add_argument("-p","--gnuparallel", nargs=1, type=int, help="Use GNU parallel. Specify number of cores", metavar=('INT'))
 group.add_argument("-c","--condor", help="Use HTCondor.", action="store_true")
 group.add_argument("-f","--fslsub", help="Use fsl_sub script.",action="store_true")
-datatype = ap.add_mutually_exclusive_group(required=True)
-datatype.add_argument("--voxel", help="Voxel analysis", action="store_true")
-datatype.add_argument("--vertex", help="Vertex analysis [area or thickness]", nargs=1,metavar=('STR'))
+
 ap.add_argument("-m", "--mediation", nargs=1, help="mediation type [M or I or Y]", metavar=('STR'))
 opts = ap.parse_args()
 
@@ -56,7 +57,7 @@ else:
 	if opts.mediation:
 		whichScript= "%s/vertex_tfce_mediation_randomise.py -s %s -m %s" % (SCRIPTPATH,opts.vertex[0],opts.mediation[0])
 
-#round number of permutations to the nearest 100
+#round number of permutations to the nearest 200
 roundperm=int(np.round(opts.numperm[0]/200.0)*100.0)
 forperm=(roundperm/100)-1
 print "Evaluating %d permuations" % (roundperm*2)
@@ -68,11 +69,11 @@ for i in xrange(forperm+1):
 
 #submit text file for parallel processing; submit_condor_jobs_file is supplied with TFCE_mediation
 if opts.gnuparallel:
-	os.system("cat cmd_multipleregress_randomise_%s_%d | parallel -j %d" % (opts.surface[0],currentTime,int(opts.gnuparallel[0])) )
+	os.system("cat cmd_TFCE_randomise_%d | parallel -j %d" % (currentTime,int(opts.gnuparallel[0])) )
 elif opts.condor:
-	os.system("%s/tools/submit_condor_jobs_file cmd_multipleregress_randomise_%s_%d" % (SCRIPTPATH,opts.surface[0],currentTime) )
+	os.system("%s/tools/submit_condor_jobs_file cmd_TFCE_randomise_%d" % (SCRIPTPATH,currentTime) )
 elif opts.fslsub:
-	os.system("${FSLDIR}/bin/fsl_sub -t cmd_multipleregress_randomise_%s_%d" % (opts.surface[0],currentTime) )
+	os.system("${FSLDIR}/bin/fsl_sub -t cmd_TFCE_randomise_%d" % (currentTime) )
 
 if opts.voxel:
 	print "Run: ${SCRIPTPATH}/voxel_tools/calculate_fweP.py to calculate (1-P[FWE]) image (after randomisation is finished)."

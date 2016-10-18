@@ -25,8 +25,14 @@ from scipy.stats import linregress
 from time import time
 from cython.TFCE import Surf
 from py_func import write_perm_maxTFCE_voxel, calc_sobelz
+import argparse as ap
 
 start_time = time()
+
+ap = ap.ArgumentParser(description="Permutation testing for mediation with TFCE")
+ap.add_argument("-r", "--range", nargs=2, help="permutation [start] [stop]", required=True)
+ap.add_argument("-m", "--medtype", nargs=1, help="Mediation type [M or Y or I].  Specify which regressors are permuted [first] [last]. For one variable, first=last.", metavar=('INT','INT'))
+opts = ap.parse_args()
 
 if len(sys.argv) < 4:
 	print "Usage: %s [start] [stop] [mediation type (M, Y, I)]" % (str(sys.argv[0]))

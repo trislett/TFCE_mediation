@@ -42,29 +42,30 @@ opts = ap.parse_args()
 SCRIPTPATH=get_script_path()
 currentTime=int(time())
 
+#load the proper script
 if opts.voxel:
-	whichScript= "%s/voxel_tfce_multiple_regression_randomise.py -s %s -r %i %i"
-		whichScript= "%s/voxel_tfce_multiple_regression_randomise.py -r %i %i -s %s -v %d %d"
+	whichScript="%s/voxel_tfce_multiple_regression_randomise.py" % SCRIPTPATH
+		whichScript="%s/voxel_tfce_multiple_regression_randomise.py -v %d %d" % (SCRIPTPATH, opts.specifyvars[0], opts.specifyvars[1])
 	if opts.mediation:
-		whichScript= ""
+		whichScript= "%s/voxel_tfce_mediation_randomise.py -m %s" % (SCRIPTPATH,opts.mediation[0])
 else:
-	whichScript= "%s/vertex_tfce_multiple_regression_randomise.py -s %s -r %i %i"
+	whichScript= "%s/vertex_tfce_multiple_regression_randomise.py -s %s" % (SCRIPTPATH,opts.vertex[0])
 	if opts.specifyvars:
-		whichScript= "%s/vertex_tfce_multiple_regression_randomise.py -s %s -v %d %d -r %i %i"
+		whichScript= "%s/vertex_tfce_multiple_regression_randomise.py -s %s -v %d %d" % (SCRIPTPATH,opts.vertex[0], opts.specifyvars[0], opts.specifyvars[1])
 	if opts.mediation:
-		whichScript= ""
+		whichScript= "%s/vertex_tfce_mediation_randomise.py -s %s -m %s" % (SCRIPTPATH,opts.vertex[0],opts.mediation[0])
+
+#round number of permutations to the nearest 100
 roundperm=int(np.round(opts.numperm[0]/200.0)*100.0)
 forperm=(roundperm/100)-1
 print "Evaluating %d permuations" % (roundperm*2)
 
-if opts.specifyvars:
-	for i in xrange(forperm+1):
-		os.system("echo %s/vertex_tfce_multiple_regression_randomise.py -r %i %i -s %s -v %d %d >> cmd_multipleregress_randomise_%s_%d" % (SCRIPTPATH, (i*100+1), (i*100+100), opts.surface[0], int(opts.specifyvars[0]), int(opts.specifyvars[1]) ,opts.surface[0],currentTime) ) 
-else:
-	for i in xrange(forperm+1):
-		os.system("echo %s/vertex_tfce_multiple_regression_randomise.py -r %i %i -s %s >> cmd_multipleregress_randomise_%s_%d" % (SCRIPTPATH, (i*100+1), (i*100+100), opts.surface[0],opts.surface[0],currentTime) ) 
+#build command text file
+for i in xrange(forperm+1):
+	os.system("echo %s -r %i %i >> cmd_TFCE_randomise_%d" % (whichScript, (i*100+1), (i*100+100),currentTime) )
 
 
+#submit text file for parallel processing; submit_condor_jobs_file is supplied with TFCE_mediation
 if opts.gnuparallel:
 	os.system("cat cmd_multipleregress_randomise_%s_%d | parallel -j %d" % (opts.surface[0],currentTime,int(opts.gnuparallel[0])) )
 elif opts.condor:
@@ -72,4 +73,7 @@ elif opts.condor:
 elif opts.fslsub:
 	os.system("${FSLDIR}/bin/fsl_sub -t cmd_multipleregress_randomise_%s_%d" % (opts.surface[0],currentTime) )
 
-print "Run: ${SCRIPTPATH}/tools/calculate_fweP_vertex.py to calculate (1-P[FWE]) image (after randomisation is finished)."
+if opts.voxel:
+	print "Run: ${SCRIPTPATH}/voxel_tools/calculate_fweP.py to calculate (1-P[FWE]) image (after randomisation is finished)."
+else:
+	print "Run: ${SCRIPTPATH}/vertex_tools/calculate_fweP_vertex.py to calculate (1-P[FWE]) image (after randomisation is finished)."

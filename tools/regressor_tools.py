@@ -5,6 +5,7 @@ import numpy as np
 import statsmodels.api as sm
 from scipy.linalg import sqrtm, inv
 import argparse as ap
+import textwrap
 
 def sym(w):
 	return w.dot(inv(sqrtm(w.T.dot(w))))
@@ -12,25 +13,29 @@ def writeCSV(base,tail,data):
 	np.savetxt(("%s_%s.csv" % (base,tail)), data, delimiter=",", fmt='%10.5f')
 
 ap = ap.ArgumentParser(description="""
-Simple program to condition the regressors for TFCE_mediation analyses. 
-Either orthogonalization or removing the effect confounders from a regressor 
-variable. Orthogonalization should not be performed for mediation analysis.
+Simple program to condition the regressors for TFCE_mediation analyses. The program returns either the orthogonalization (i.e., --orthogonalize) of the input file(s) or it returns the residuals (ie. --residuals) from a least squares regression to remove the effect of covariates from variable.
 
-e.g. %s -o -i pred.csv covars.csv -s""" % (sys.argv[0]))
+Orthogonalization or the residuals should be used if the predictor variables and covariates are not completely independent from each other. Orthogonalization should not be performed for mediation analysis.
+
+e.g. %s -o -i pred.csv covars.csv -s""" % (sys.argv[0]),formatter_class=ap.RawTextHelpFormatter)
+
+
+#input type
+group = ap.add_mutually_exclusive_group(required=True)
+group.add_argument("-i", "--input",help="Two csv files: [dependent_var] [covariates]", nargs=2, metavar=('*.csv', '*.csv'))
+group.add_argument("-f", "--file",  help="One csv file: [regressors]", nargs=1, metavar=('*.csv'))
 
 proceducetype = ap.add_mutually_exclusive_group(required=True)
-proceducetype.add_argument("-o", "--orthogonalize", help="orthogonalize the inputs")
-proceducetype.add_argument("-r", "--residuals", help="regress the dependent variable by the covariates, and store the residual")
-proceducetype.add_argument("-j", "--juststandarize", help="Just demean or standardize the regressors. i.e., no regression or orthogonization")
+proceducetype.add_argument("-o", "--orthogonalize", help="orthogonalize the inputs", action="store_true")
+proceducetype.add_argument("-r", "--residuals", help="residuals after regressing covariates", action="store_true")
+proceducetype.add_argument("-j", "--juststandarize", help="""Just demean or standardize the regressors. 
+i.e., no regression or orthogonization""", action="store_true")
 
 #options
 parser = ap.add_argument("-d", "--demean", help="demean columns", action="store_true")
 parser = ap.add_argument("-s", "--stddemean", help="demean and standardize columns", action="store_true")
 
-#input type
-group = ap.add_mutually_exclusive_group(required=True)
-group.add_argument("-i", "--input",help="Two csv: [dependent_var] [covariates]", nargs=2, metavar=('*.csv', '*.csv'))
-group.add_argument("-f", "--file",  help="One csv: [regressors] file", nargs=1, metavar=('*.csv'))
+
 
 opts = ap.parse_args()
 
@@ -57,14 +62,19 @@ if opts.orthogonalize:
 	out_regressors = regressors_orthog[:,1:]
 
 	if opts.file:
-		writeCSV(regressors_nocsv,'orthogonal',out_regressors):
+		writeCSV(regressors_nocsv,'orthogonal',out_regressors)
 	if opts.input:
 		out_pred = out_regressors[:,:-(covars.shape[1])]
-		out_covars = regressors_orthog[:,pred_ones.shape[1]:]
+		if covars.ndim==1:
+			out_covars = regressors_orthog[:,-1:]
+		else:
+			out_covars = regressors_orthog[:,-covars.shape[1]:]
+		out_covars = regressors_orthog[:,-covars.shape[1]:]
 		writeCSV(pred_nocsv,'orthogonal',out_pred)
 		writeCSV(covars_nocsv,'orthogonal',out_covars)
 
 elif opts.residuals:
+	# check number of files
 	if opts.file:
 		print "Two *.csv files are necesssary"
 		exit()
@@ -74,6 +84,10 @@ elif opts.residuals:
 	covars_nocsv = arg_covars.split('.csv',1)[0]
 	depvars = np.genfromtxt(arg_depvars, delimiter=',')
 	covars = np.genfromtxt(arg_covars, delimiter=',')
+	# check number of columns for dependent variable
+	if depvars.ndim>1:
+		print "The dependent variable should only only have one column"
+		exit()
 	if opts.demean:
 		covars = covars - np.mean(covars, axis=0)
 		writeCSV(covars_nocsv,'dm',covars)
@@ -93,10 +107,13 @@ elif opts.juststandarize:
 		if opts.demean:
 			regressors = regressors - np.mean(regressors, axis=0)
 			writeCSV(regressors_nocsv,'dm',regressors)
-		if opts.stddemean:
+		elif opts.stddemean:
 			regressors = regressors - np.mean(regressors, axis=0)
 			regressors = np.divide(regressors,np.std(regressors,axis=0))
 			writeCSV(regressors_nocsv,'std_dm',regressors)
+		else:
+			print "Please select demean (-d) or standardize (-s)"
+			exit()
 	if opts.input:
 		pred = np.genfromtxt(opts.input[0], delimiter=',')
 		covars = np.genfromtxt(opts.input[1], delimiter=',')
@@ -107,10 +124,13 @@ elif opts.juststandarize:
 			pred = pred - np.mean(pred, axis=0)
 			writeCSV(covars_nocsv,'dm',covars)
 			writeCSV(pred_nocsv,'dm',pred)
-		if opts.stddemean:
+		elif opts.stddemean:
 			covars = covars - np.mean(covars, axis=0)
 			covars = np.divide(covars,np.std(covars,axis=0))
 			pred = pred - np.mean(pred, axis=0)
-			pred = np.divide(covars,np.std(pred,axis=0))
+			pred = np.divide(pred,np.std(pred,axis=0))
 			writeCSV(covars_nocsv,'std_dm',covars)
 			writeCSV(pred_nocsv,'std_dm',pred)
+		else:
+			print "Please select demean (-d) or standardize (-s)"
+			exit()

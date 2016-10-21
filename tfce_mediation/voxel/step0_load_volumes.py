@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 #    Load mean_FA_skeleton_mask and all_FA_skeletonised into tfce_mediation
 #    Copyright (C) 2016  Tristram Lett
@@ -29,14 +29,15 @@ def getArgumentParser(parser = argparse.ArgumentParser(description = DESCRIPTION
 		help="[4D_image] [Mask]", 
 		metavar=('*.nii.gz', '*.nii.gz'), 
 		default=['all_FA_skeletonised.nii.gz','mean_FA_skeleton_mask.nii.gz'])
+	return parser
 
-def run(input):
-	img_mask = nib.load(input[1])
+def run(opts):
+	img_mask = nib.load(opts.input[1])
 	data_mask = img_mask.get_data()
 	affine_mask = img_mask.get_affine()
 	header_mask = img_mask.get_header()
 
-	os.system("zcat %s > temp_4d.nii" % input[0])
+	os.system("zcat %s > temp_4d.nii" % opts.input[0])
 	img_all_fa = nib.load('temp_4d.nii')
 	data_all_fa = img_all_fa.get_data()
 	affine_all_fa = img_all_fa.get_affine()
@@ -60,4 +61,4 @@ def run(input):
 if __name__ == "__main__":
 	parser = getArgumentParser()
 	opts = parser.parse_args()
-	run(input = opts.input)
+	run(opts)

@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+
+#    Voxel-wise mediation with TFCE
+#    Copyright (C) 2016 Lea Waller, Tristram Lett
+
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+import os
+import argparse 
+
+import tfce_mediation
+
+DESCRIPTION = "Mediation with TFCE"
+
+parser = argparse.ArgumentParser(description = DESCRIPTION)
+
+subparsers = parser.add_subparsers(help = "sub-command help")
+
+voxel_step0 = subparsers.add_parser("voxel-step0")
+voxel_step0.set_defaults(func = tfce_mediation.voxel.step0_load_volumes.run)
+tfce_mediation.voxel.step0_load_volumes.getArgumentParser(voxel_step0)
+
+voxel_step1 = subparsers.add_parser("voxel-step1")
+voxel_step1.set_defaults(func = tfce_mediation.voxel.step1_tfce_mediation.run)
+tfce_mediation.voxel.step1_tfce_mediation.getArgumentParser(voxel_step1)
+
+args = parser.parse_args()
+
+args.func(args)

@@ -2,15 +2,13 @@ import Cython.Compiler.Main
 
 from numpy.distutils.command import build_src
 
-PACKAGE_NAME = "voxel"
+PACKAGE_NAME = "tools"
 
 def configuration(parent_package = "", top_path = None):
   from numpy.distutils.misc_util import Configuration
   CONFIG = Configuration(PACKAGE_NAME, 
     parent_name = parent_package, 
     top_path = top_path)
-
-  CONFIG.add_subpackage("tools")
 
   CONFIG.make_config_py()
   return CONFIG

@@ -41,6 +41,6 @@ cdef class Surface:
 
     self.Adjacency = Adjacency_
 
-  def tfce(self, numpy.ndarray[float, ndim=1, mode="c"] image, numpy.ndarray[float, ndim=1, mode="c"] enhn):
+  def run(self, numpy.ndarray[float, ndim=1, mode="c"] image, numpy.ndarray[float, ndim=1, mode="c"] enhn):
     tfce[float](self.H, self.E, 0, 0, self.Adjacency[0], &image[0], &enhn[0])
 

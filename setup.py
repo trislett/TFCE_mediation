@@ -1,5 +1,7 @@
 import Cython.Compiler.Main
 
+import os
+
 import numpy
 from numpy.distutils.core import setup
 from numpy.distutils.command import build_src
@@ -16,6 +18,8 @@ def configuration(parent_package = "", top_path = None):
     assume_default_configuration = True,
     delegate_options_to_subpackages = True,
     quiet = True)
+
+  CONFIG.add_scripts(os.path.join("bin", PACKAGE_NAME))
 
   CONFIG.add_subpackage(PACKAGE_NAME)
 

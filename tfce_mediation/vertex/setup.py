@@ -4,16 +4,13 @@ import numpy
 from numpy.distutils.command import build_src
 from numpy.distutils.misc_util import Configuration
 
-PACKAGE_NAME = "vertex"
+from distutils.dir_util import mkpath
 
-def cythonize(self, base, ext_name, source, extension):
-  compilationOptions = Cython.Compiler.Main.CompilationOptions(
-    defaults = Cython.Compiler.Main.default_options,
-    include_path = extension.include_dirs,
-    cplus = True)
-  compilationResult = Cython.Compiler.Main.compile([source], compilationOptions)
-  return compilationResult.values()[0].c_file
-build_src.build_src.generate_a_pyrex_source = cythonize
+import os
+
+import pdb
+
+PACKAGE_NAME = "vertex"
 
 def configuration(parent_package = "",top_path = None):
   from numpy.distutils.misc_util import Configuration
@@ -27,6 +24,44 @@ def configuration(parent_package = "",top_path = None):
     language = "c++",
     extra_compile_args = ["-std=c++11", "-Wno-unused", "-g"])
 
+  def cythonize(self, base, ext_name, source, extension):
+    target_ext = '.cpp'
+
+    target_dir = CONFIG.get_build_temp_dir()
+    target_dir = os.path.join(target_dir, "pyrex")
+    for package_name in extension.name.split('.')[:-1]:
+      target_dir = os.path.join(target_dir, package_name)
+    
+    new_sources = []
+    cython_targets = {}
+
+    for source in extension.sources:
+      (base, ext) = os.path.splitext(os.path.basename(source))
+      new_sources.append(os.path.join(target_dir, base + target_ext))
+      cython_targets[source] = new_sources[-1]
+
+    module_name = extension.name
+      
+    for source in extension.sources:
+      target = cython_targets[source]
+      mkpath(os.path.dirname(target))
+      options = Cython.Compiler.Main.CompilationOptions(
+        defaults = Cython.Compiler.Main.default_options,
+        include_path = extension.include_dirs,
+        output_file = target,
+        verbose = True,
+        cplus = True)
+      result = Cython.Compiler.Main.compile([source], 
+        options = options, full_module_name = module_name)
+
+    if len(new_sources) == 1:
+      return new_sources[0]
+    return new_sources
+
+  build_src.build_src.generate_a_pyrex_source = cythonize
+
+  CONFIG.add_subpackage("tools")
+  
   CONFIG.make_config_py()
   return CONFIG
  

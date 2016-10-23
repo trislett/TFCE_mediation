@@ -27,7 +27,7 @@ def configuration(parent_package = "", top_path = None):
 
 setup(name = PACKAGE_NAME,
   maintainer = "Tristram Lett",
-  maintainer_email = "trislett@gmail.com",
+  maintainer_email = "tris.lett@gmail.com",
   description = "",
   long_description = "",
   url = "",

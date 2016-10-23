@@ -18,10 +18,10 @@ from libcpp.vector cimport vector
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-cdef extern from "lea_tfce.hpp":
+cdef extern from "fast_tfce.hpp":
   void tfce[T](float H, float E, float minT, float deltaT, vector[vector[int]]& adjacencyList, T* image, T* enhn)
 
-cdef class Surface:
+cdef class CreateAdjSet:
   cdef vector[vector[int]] *Adjacency
 
   cdef float H

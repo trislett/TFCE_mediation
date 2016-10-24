@@ -42,8 +42,8 @@ class _Usage(ap._HelpAction):
 		splist.append(regressor_tools)
 		splist.append(plot_permutions)
 		splist.append(vertex_freeview_quick)
-#		splist.append(voxel_step1_mediation)
-#		splist.append(vertex_step1_regression)
+		splist.append(vertex_boxcox_transformation)
+		splist.append(vertex_make_subsample)
 #		splist.append(vertex_step1_mediation)
 #		splist.append(voxel_step2)
 #		splist.append(calculate_fweP_voxel)
@@ -71,7 +71,7 @@ subparsers = parser.add_subparsers(help = "Sub-command help: tfce_mediation {sub
 #{funcName}.set_defaults(func = tfce_mediation.{scriptName}.run)
 #tfce_mediation.{scriptName}.getArgumentParser({funcName})
 
-regressor_tools = subparsers.add_parser("regressor-tools", help="Simple program to condition the regressors for TFCE_mediation analyses.")
+regressor_tools = subparsers.add_parser("regressor-tools", help="Simple program to condition the regressors for TFCE_mediation analyses. The program returns either the orthogonalization of the input file(s) or it returns the residuals from a least squares regression to remove the effect of covariates from variable.")
 regressor_tools.set_defaults(func = tfce_mediation.tools.regressor_tools.run)
 tfce_mediation.tools.regressor_tools.getArgumentParser(regressor_tools)
 
@@ -82,6 +82,14 @@ tfce_mediation.tools.plot_permutions.getArgumentParser(plot_permutions)
 vertex_freeview_quick = subparsers.add_parser("vertex-freeview-quick", help="Python wrapper to view voxel-wise results using freeview.")
 vertex_freeview_quick.set_defaults(func = tfce_mediation.tools.vertex_freeview_quick.run)
 tfce_mediation.tools.vertex_freeview_quick.getArgumentParser(vertex_freeview_quick)
+
+vertex_boxcox_transformation = subparsers.add_parser("vertex-box-cox-transform", help="Apply Box-Cox Transformation to a vertex template file, and apply 3mm smoothing. Box-Cox Transformation uses parallel processing.")
+vertex_boxcox_transformation.set_defaults(func = tfce_mediation.tools.boxcox_transformation.run)
+tfce_mediation.tools.boxcox_transformation.getArgumentParser(vertex_boxcox_transformation)
+
+vertex_make_subsample = subparsers.add_parser("vertex-make-subsample", help="Creates a subgroub based on missing data from an analysis. The subgrouping variable should be a 1D text file list with missing variables coded as a string (e.g. NA or NaN).")
+vertex_make_subsample.set_defaults(func = tfce_mediation.tools.vertex_make_subsample.run)
+tfce_mediation.tools.vertex_make_subsample.getArgumentParser(vertex_make_subsample)
 
 parser.add_argument('--verbosehelp', action=_HelpAction, help='Display help for each sub-command.')  # add custom help
 parser.add_argument('--usage', action=_Usage, help='Display usage for sub-command.')  # add printout usage

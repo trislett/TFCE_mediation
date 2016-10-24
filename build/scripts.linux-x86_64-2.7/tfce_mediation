@@ -44,6 +44,7 @@ class _Usage(ap._HelpAction):
 		splist.append(voxel_step1_mediation)
 		splist.append(voxel_step2)
 		splist.append(calculate_fweP_voxel)
+		splist.append(vertex_step0)
 		splist.append(voxel_regression_randomise)
 		splist.append(voxel_mediation_randomise)
 		helps = []
@@ -58,6 +59,11 @@ DESCRIPTION = "Mediation with TFCE"
 parser = ap.ArgumentParser(description = DESCRIPTION)
 
 subparsers = parser.add_subparsers(help = "Sub-command help: tfce_mediation {subcommand} -h")
+
+### Subparser template ###
+#{funcName} = subparsers.add_parser("{funcName}", help="Description")
+#{funcName}.set_defaults(func = tfce_mediation.tmanalysis.{scriptName}.run)
+#tfce_mediation.tmanalysis.{scriptName}.getArgumentParser({funcName})
 
 voxel_step0 = subparsers.add_parser("step0-voxel", help="Load 4D NifTI image for voxel-based analysis")
 voxel_step0.set_defaults(func = tfce_mediation.tmanalysis.STEP_0_load_volumes.run)
@@ -78,6 +84,10 @@ tfce_mediation.tmanalysis.STEP_2_tfce_randomise_parallel.getArgumentParser(voxel
 calculate_fweP_voxel = subparsers.add_parser("voxel-calculate-fwep", help="Calculate 1-P[FWE] voxel image from max TFCE values from randomisation.")
 calculate_fweP_voxel.set_defaults(func = tfce_mediation.tmanalysis.calculate_fweP_voxel.run)
 tfce_mediation.tmanalysis.calculate_fweP_voxel.getArgumentParser(calculate_fweP_voxel)
+
+vertex_step0 = subparsers.add_parser("step0-vertex", help="Python pipe to build Freesurfer template surface (e.g., either area or thickness) using mris_preproc.")
+vertex_step0.set_defaults(func = tfce_mediation.tmanalysis.STEP_0_vertex_build_fs_surface_template.run)
+tfce_mediation.tmanalysis.STEP_0_vertex_build_fs_surface_template.getArgumentParser(vertex_step0)
 
 voxel_regression_randomise = subparsers.add_parser("voxel-regress-randomise", help="Permutation analysis for voxel-based multiple regression with TFCE")
 voxel_regression_randomise.set_defaults(func = tfce_mediation.tmanalysis.voxel_tfce_multiple_regression_randomise.run)

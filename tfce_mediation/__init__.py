@@ -1,5 +1,5 @@
-from . import cy_numstats
-from . import py_func
+from . import cynumstats
+from . import pyfunc
 from . import tfce
 
 from . import tmanalysis

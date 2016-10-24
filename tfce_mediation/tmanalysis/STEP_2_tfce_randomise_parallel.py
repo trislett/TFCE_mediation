@@ -69,19 +69,33 @@ def run(opts):
 	SCRIPTPATH=get_script_path()
 	currentTime=int(time())
 
+#	#load the proper script
+#	if opts.voxel:
+#		whichScript="%s/voxel_tfce_multiple_regression_randomise.py" % (SCRIPTPATH)
+#		if opts.specifyvars:
+#			whichScript="%s/voxel_tfce_multiple_regression_randomise.py -v %d %d" % (SCRIPTPATH, opts.specifyvars[0], opts.specifyvars[1])
+#		if opts.mediation:
+#			whichScript= "%s/voxel_tfce_mediation_randomise.py -m %s" % (SCRIPTPATH,opts.mediation[0])
+#	else:
+#		whichScript= "%s/vertex_tfce_multiple_regression_randomise.py -s %s" % (SCRIPTPATH,opts.vertex[0])
+#		if opts.specifyvars:
+#			whichScript= "%s/vertex_tfce_multiple_regression_randomise.py -s %s -v %d %d" % (SCRIPTPATH,opts.vertex[0], opts.specifyvars[0], opts.specifyvars[1])
+#		if opts.mediation:
+#			whichScript= "%s/vertex_tfce_mediation_randomise.py -s %s -m %s" % (SCRIPTPATH,opts.vertex[0],opts.mediation[0])
+
 	#load the proper script
 	if opts.voxel:
-		whichScript="%s/voxel_tfce_multiple_regression_randomise.py" % (SCRIPTPATH)
+		whichScript="tfce_mediation voxel-regress-randomise"
 		if opts.specifyvars:
-			whichScript="%s/voxel_tfce_multiple_regression_randomise.py -v %d %d" % (SCRIPTPATH, opts.specifyvars[0], opts.specifyvars[1])
+			whichScript="tfce_mediation voxel-regress-randomise -v %d %d" % (opts.specifyvars[0], opts.specifyvars[1])
 		if opts.mediation:
-			whichScript= "%s/voxel_tfce_mediation_randomise.py -m %s" % (SCRIPTPATH,opts.mediation[0])
+			whichScript= "tfce_mediation voxel-mediation-randomise -m %s" % (opts.mediation[0])
 	else:
-		whichScript= "%s/vertex_tfce_multiple_regression_randomise.py -s %s" % (SCRIPTPATH,opts.vertex[0])
+		whichScript= "tfce_mediation vertex-regress-randomise -s %s" % (SCRIPTPATH,opts.vertex[0])
 		if opts.specifyvars:
-			whichScript= "%s/vertex_tfce_multiple_regression_randomise.py -s %s -v %d %d" % (SCRIPTPATH,opts.vertex[0], opts.specifyvars[0], opts.specifyvars[1])
+			whichScript= "tfce_mediation vertex-regress-randomise -s %s -v %d %d" % (SCRIPTPATH,opts.vertex[0], opts.specifyvars[0], opts.specifyvars[1])
 		if opts.mediation:
-			whichScript= "%s/vertex_tfce_mediation_randomise.py -s %s -m %s" % (SCRIPTPATH,opts.vertex[0],opts.mediation[0])
+			whichScript= "tfce_mediation vertex-mediation-randomise -s %s -m %s" % (SCRIPTPATH,opts.vertex[0],opts.mediation[0])
 
 	#round number of permutations to the nearest 200
 	roundperm=int(np.round(opts.numperm[0]/200.0)*100.0)

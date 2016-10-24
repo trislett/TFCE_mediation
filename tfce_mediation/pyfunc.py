@@ -22,7 +22,7 @@ import numpy as np
 import nibabel as nib
 from scipy.stats import linregress
 
-from .cy_numstats import calc_beta_se
+from .cynumstats import calc_beta_se
 
 # Creation of adjacencty sets for TFCE connectivity
 def create_adjac_vertex(vertices,faces): # basic version

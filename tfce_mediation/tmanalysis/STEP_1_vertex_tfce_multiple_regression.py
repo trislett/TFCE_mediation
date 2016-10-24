@@ -85,7 +85,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 
 def run(opts):
 
-	scriptwd = os.environ['TM_DIR']
+	scriptwd = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 	surface = opts.surface[0]
 	FWHM = opts.fwhm[0]
 

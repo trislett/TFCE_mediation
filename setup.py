@@ -18,6 +18,7 @@ def configuration(parent_package = "", top_path = None):
     assume_default_configuration = True,
     delegate_options_to_subpackages = True,
     quiet = True)
+  CONFIG.add_data_dir(('tfce_mediation/adjacency_sets'))
 
   CONFIG.add_scripts(os.path.join("bin", PACKAGE_NAME))
 

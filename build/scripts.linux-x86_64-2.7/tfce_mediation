@@ -40,13 +40,19 @@ class _Usage(ap._HelpAction):
 	def __call__(self, parser, namespace, values, option_string=None):
 		splist = []
 		splist.append(voxel_step0)
+		splist.append(vertex_step0)
 		splist.append(voxel_step1_regression)
 		splist.append(voxel_step1_mediation)
+		splist.append(vertex_step1_regression)
+		splist.append(vertex_step1_mediation)
 		splist.append(voxel_step2)
 		splist.append(calculate_fweP_voxel)
-		splist.append(vertex_step0)
+		splist.append(calculate_fweP_vertex)
 		splist.append(voxel_regression_randomise)
 		splist.append(voxel_mediation_randomise)
+		splist.append(vertex_regression_randomise)
+		splist.append(vertex_mediation_randomise)
+
 		helps = []
 		helps.append(parser.format_usage())
 		for p in splist:
@@ -69,6 +75,10 @@ voxel_step0 = subparsers.add_parser("step0-voxel", help="Load 4D NifTI image for
 voxel_step0.set_defaults(func = tfce_mediation.tmanalysis.STEP_0_load_volumes.run)
 tfce_mediation.tmanalysis.STEP_0_load_volumes.getArgumentParser(voxel_step0)
 
+vertex_step0 = subparsers.add_parser("step0-vertex", help="Python pipe to build Freesurfer template surface (e.g., either area or thickness) using mris_preproc.")
+vertex_step0.set_defaults(func = tfce_mediation.tmanalysis.STEP_0_vertex_build_fs_surface_template.run)
+tfce_mediation.tmanalysis.STEP_0_vertex_build_fs_surface_template.getArgumentParser(vertex_step0)
+
 voxel_step1_regression = subparsers.add_parser("step1-voxel-regress", help="Multiple regression for voxel-based analysis with TFCE")
 voxel_step1_regression.set_defaults(func = tfce_mediation.tmanalysis.STEP_1_voxel_tfce_multiple_regression.run)
 tfce_mediation.tmanalysis.STEP_1_voxel_tfce_multiple_regression.getArgumentParser(voxel_step1_regression)
@@ -76,6 +86,14 @@ tfce_mediation.tmanalysis.STEP_1_voxel_tfce_multiple_regression.getArgumentParse
 voxel_step1_mediation = subparsers.add_parser("step1-voxel-mediation", help="Voxel-based mediation analysis with TFCE")
 voxel_step1_mediation.set_defaults(func = tfce_mediation.tmanalysis.STEP_1_voxel_tfce_mediation.run)
 tfce_mediation.tmanalysis.STEP_1_voxel_tfce_mediation.getArgumentParser(voxel_step1_mediation)
+
+vertex_step1_regression = subparsers.add_parser("step1-vertex-regress", help="Multiple regression for vertex-based analysis with TFCE")
+vertex_step1_regression.set_defaults(func = tfce_mediation.tmanalysis.STEP_1_vertex_tfce_multiple_regression.run)
+tfce_mediation.tmanalysis.STEP_1_vertex_tfce_multiple_regression.getArgumentParser(vertex_step1_regression)
+
+vertex_step1_mediation = subparsers.add_parser("step1-vertex-mediation", help="Vertex-based mediation analysis with TFCE")
+vertex_step1_mediation.set_defaults(func = tfce_mediation.tmanalysis.STEP_1_vertex_tfce_mediation.run)
+tfce_mediation.tmanalysis.STEP_1_vertex_tfce_mediation.getArgumentParser(vertex_step1_mediation)
 
 voxel_step2 = subparsers.add_parser("step2-randomise-parallel", help="Parallel processing of permutation analyses.")
 voxel_step2.set_defaults(func = tfce_mediation.tmanalysis.STEP_2_tfce_randomise_parallel.run)
@@ -85,9 +103,9 @@ calculate_fweP_voxel = subparsers.add_parser("voxel-calculate-fwep", help="Calcu
 calculate_fweP_voxel.set_defaults(func = tfce_mediation.tmanalysis.calculate_fweP_voxel.run)
 tfce_mediation.tmanalysis.calculate_fweP_voxel.getArgumentParser(calculate_fweP_voxel)
 
-vertex_step0 = subparsers.add_parser("step0-vertex", help="Python pipe to build Freesurfer template surface (e.g., either area or thickness) using mris_preproc.")
-vertex_step0.set_defaults(func = tfce_mediation.tmanalysis.STEP_0_vertex_build_fs_surface_template.run)
-tfce_mediation.tmanalysis.STEP_0_vertex_build_fs_surface_template.getArgumentParser(vertex_step0)
+calculate_fweP_vertex = subparsers.add_parser("vertex-calculate-fwep", help="Calculate 1-P[FWE] vertex image from max TFCE values from randomisation.")
+calculate_fweP_vertex.set_defaults(func = tfce_mediation.tmanalysis.calculate_fweP_vertex.run)
+tfce_mediation.tmanalysis.calculate_fweP_vertex.getArgumentParser(calculate_fweP_vertex)
 
 voxel_regression_randomise = subparsers.add_parser("voxel-regress-randomise", help="Permutation analysis for voxel-based multiple regression with TFCE")
 voxel_regression_randomise.set_defaults(func = tfce_mediation.tmanalysis.voxel_tfce_multiple_regression_randomise.run)
@@ -97,9 +115,16 @@ voxel_mediation_randomise = subparsers.add_parser("voxel-mediation-randomise", h
 voxel_mediation_randomise.set_defaults(func = tfce_mediation.tmanalysis.voxel_tfce_mediation_randomise.run)
 tfce_mediation.tmanalysis.voxel_tfce_mediation_randomise.getArgumentParser(voxel_mediation_randomise)
 
+vertex_regression_randomise = subparsers.add_parser("vertex-regress-randomise", help="Permutation analysis for vertex-based multiple regression with TFCE")
+vertex_regression_randomise.set_defaults(func = tfce_mediation.tmanalysis.vertex_tfce_multiple_regression_randomise.run)
+tfce_mediation.tmanalysis.vertex_tfce_multiple_regression_randomise.getArgumentParser(vertex_regression_randomise)
+
+vertex_mediation_randomise = subparsers.add_parser("vertex-mediation-randomise", help="Permutation analysis for vertex-based mediation with TFCE")
+vertex_mediation_randomise.set_defaults(func = tfce_mediation.tmanalysis.vertex_tfce_mediation_randomise.run)
+tfce_mediation.tmanalysis.vertex_tfce_mediation_randomise.getArgumentParser(vertex_mediation_randomise)
 
 parser.add_argument('--verbosehelp', action=_HelpAction, help='Display help for each sub-command.')  # add custom help
-parser.add_argument('--usage', action=_Usage, help='Display usage for sub-command.')  # add custom help
+parser.add_argument('--usage', action=_Usage, help='Display usage for sub-command.')  # add printout usage
 
 args = parser.parse_args()
 args.func(args)

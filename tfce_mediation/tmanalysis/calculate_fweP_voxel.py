@@ -1,13 +1,12 @@
 #!/usr/bin/python
 
 import os
-import sys
 import numpy as np
 import nibabel as nib
 import argparse as ap
 import math
 
-DESCRIPTION = "Calculate 1-P[FWE] image from max TFCE values from randomisation."
+DESCRIPTION = "Calculate 1-P[FWE] 3D image from max TFCE values from randomisation."
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	ap.add_argument("-i", "--input", 
@@ -36,7 +35,6 @@ def run(opts):
 	tfce_img = nib.load(arg_tfce_img)
 	data_tfce_img = tfce_img.get_data()
 	affine_tfce_img = tfce_img.get_affine()
-	header_tfce_img = tfce_img.get_header()
 	corrp_img = np.zeros(tfce_img.shape)
 
 #sort max tfce values
@@ -51,7 +49,6 @@ def run(opts):
 		corrp_img[x,y,z] = find_nearest(sorted_perm_tfce_max,data_tfce_img[x,y,z],p_array)
 
 #output corrected image,and printout accuracy based on number of permuations
-	outputdir = os.path.dirname(arg_tfce_img)
 	temp_outname = os.path.basename(arg_tfce_img)
 	temp_outname, _ = os.path.splitext(temp_outname)
 	temp_outname, _ = os.path.splitext(temp_outname)

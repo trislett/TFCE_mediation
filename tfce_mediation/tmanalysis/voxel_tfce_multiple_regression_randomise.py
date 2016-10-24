@@ -26,10 +26,10 @@ from tfce_mediation.cynumstats import tval_int, calcF
 from tfce_mediation.tfce import CreateAdjSet
 from tfce_mediation.pyfunc import write_perm_maxTFCE_voxel
 
-DESCRIPTION = "Permutation testing for multiple regression with TFCE"
+DESCRIPTION = "Permutation testing for voxel-wise multiple regression with TFCE"
 start_time = time()
 
-def getArgumentParser(ap = ap.ArgumentParser(description="DESCRIPTION")):
+def getArgumentParser(ap = ap.ArgumentParser(description=DESCRIPTION)):
 	ap.add_argument("-r", "--range",
 		nargs=2,
 		help="permutation [start] [stop]",

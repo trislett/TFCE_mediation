@@ -21,6 +21,8 @@ def configuration(parent_package = "", top_path = None):
   CONFIG.add_data_dir(('tfce_mediation/adjacency_sets'))
 
   CONFIG.add_scripts(os.path.join("bin", PACKAGE_NAME))
+  CONFIG.add_scripts(os.path.join("bin", 'tm_tools'))
+  CONFIG.add_scripts(os.path.join("bin", 'submit_condor_jobs_file'))
 
   CONFIG.add_subpackage(PACKAGE_NAME)
 

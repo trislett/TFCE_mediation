@@ -1,0 +1,92 @@
+#!/usr/bin/env python
+
+#    Wrapper for TFCE_mediation tools
+#    Copyright (C) 2016 Lea Waller, Tristram Lett
+
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+import os
+import argparse as ap
+
+import tfce_mediation
+
+
+class _HelpAction(ap._HelpAction):
+
+	def __call__(self, parser, namespace, values, option_string=None):
+		parser.print_help()
+		subparsers_actions = [
+			action for action in parser._actions
+			if isinstance(action, ap._SubParsersAction)]
+		for subparsers_action in subparsers_actions:
+			for choice, subparser in subparsers_action.choices.items():
+				print("Sub-command '{}'".format(choice))
+				print(subparser.format_help())
+		parser.exit()
+
+class _Usage(ap._HelpAction):
+
+	def __call__(self, parser, namespace, values, option_string=None):
+		splist = []
+		splist.append(regressor_tools)
+		splist.append(plot_permutions)
+		splist.append(vertex_freeview_quick)
+#		splist.append(voxel_step1_mediation)
+#		splist.append(vertex_step1_regression)
+#		splist.append(vertex_step1_mediation)
+#		splist.append(voxel_step2)
+#		splist.append(calculate_fweP_voxel)
+#		splist.append(calculate_fweP_vertex)
+#		splist.append(voxel_regression_randomise)
+#		splist.append(voxel_mediation_randomise)
+#		splist.append(vertex_regression_randomise)
+#		splist.append(vertex_mediation_randomise)
+
+		helps = []
+		helps.append(parser.format_usage())
+		for p in splist:
+			helps.append(p.format_usage())
+		print(''.join(helps))
+		parser.exit()
+
+DESCRIPTION = "TFCE_mediation tools"
+
+parser = ap.ArgumentParser(description = DESCRIPTION)
+
+subparsers = parser.add_subparsers(help = "Sub-command help: tfce_mediation {subcommand} -h")
+
+### Subparser template ###
+#{funcName} = subparsers.add_parser("{funcName}", help="Description")
+#{funcName}.set_defaults(func = tfce_mediation.{scriptName}.run)
+#tfce_mediation.{scriptName}.getArgumentParser({funcName})
+
+regressor_tools = subparsers.add_parser("regressor-tools", help="Simple program to condition the regressors for TFCE_mediation analyses.")
+regressor_tools.set_defaults(func = tfce_mediation.tools.regressor_tools.run)
+tfce_mediation.tools.regressor_tools.getArgumentParser(regressor_tools)
+
+plot_permutions = subparsers.add_parser("plot-permutions", help="Plot the maximum TFCE values from permutation analysis as a histogram, and plot the critical values.")
+plot_permutions.set_defaults(func = tfce_mediation.tools.plot_permutions.run)
+tfce_mediation.tools.plot_permutions.getArgumentParser(plot_permutions)
+
+vertex_freeview_quick = subparsers.add_parser("vertex-freeview-quick", help="Python wrapper to view voxel-wise results using freeview.")
+vertex_freeview_quick.set_defaults(func = tfce_mediation.tools.vertex_freeview_quick.run)
+tfce_mediation.tools.vertex_freeview_quick.getArgumentParser(vertex_freeview_quick)
+
+parser.add_argument('--verbosehelp', action=_HelpAction, help='Display help for each sub-command.')  # add custom help
+parser.add_argument('--usage', action=_Usage, help='Display usage for sub-command.')  # add printout usage
+
+args = parser.parse_args()
+args.func(args)
+
+

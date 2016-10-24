@@ -17,6 +17,7 @@ def configuration(parent_package = "", top_path = None):
 		top_path = top_path)
 
 	CONFIG.add_subpackage("tmanalysis")
+	CONFIG.add_subpackage("tools")
 
 	CONFIG.add_extension("tfce", 
 		sources = ["tfce.pyx"],

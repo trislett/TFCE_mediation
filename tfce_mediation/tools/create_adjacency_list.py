@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 #    Create adjacency set at specified geodescic distance and projections distance
 #    Copyright (C) 2016  Lea Waller, Tristram Lett
@@ -19,28 +19,30 @@
 import numpy as np
 import nibabel as nib
 import os
-import sys
-from cython.Adjacency import compute
+import argparse as ap
+from tfce_mediation.adjacency import compute
+
+DESCRIPTION = "Create adjacency list based on geodesic distance for vertex-based TFCE. Note, 1mm, 2mm, and 3mm adjacency list have already supplied (adjacency_sets/?h_adjacency_dist_?.0_mm.npy)"
 
 def mergeIdenticalVertices(v, f):
-  vr = np.around(v, decimals = 10)
-  vrv = vr.view(v.dtype.descr * v.shape[1])
-  _, idx, inv = np.unique(vrv, return_index = True, return_inverse = True)
+	vr = np.around(v, decimals = 10)
+	vrv = vr.view(v.dtype.descr * v.shape[1])
+	_, idx, inv = np.unique(vrv, return_index = True, return_inverse = True)
 
-  lkp = idx[inv]
+	lkp = idx[inv]
 
-  v_ = v[idx, :]
-  f_ = np.asarray([[lkp[f[i, j]] for j in xrange(f.shape[1])] for i in xrange(f.shape[0])], dtype = np.int32)
+	v_ = v[idx, :]
+	f_ = np.asarray([[lkp[f[i, j]] for j in xrange(f.shape[1])] for i in xrange(f.shape[0])], dtype = np.int32)
 
-  return v, f_
+	return v, f_
 
 def removeNonManifoldTriangles(v, f):
-  v_ = v[f]
-  fn = np.cross(v_[:, 1] - v_[:, 0], v_[:, 2] - v_[:,0])
+	v_ = v[f]
+	fn = np.cross(v_[:, 1] - v_[:, 0], v_[:, 2] - v_[:,0])
 
-  f_ = f[np.logical_not(np.all(np.isclose(fn, 0), axis = 1)), :]
+	f_ = f[np.logical_not(np.all(np.isclose(fn, 0), axis = 1)), :]
 
-  return v, f_
+	return v, f_
 
 def computeNormals(v, f):
 	v_ = v[f]
@@ -83,32 +85,46 @@ def compute_adjacency(hemi, min_dist, max_dist, projfrac,step_dist):
 	thresholds = np.arange(min_dist, max_dist, step=step_dist, dtype = np.float32)
 	adjacency = compute(v_, f, thresholds)
 	count = 0
-	for i in np.arange(min_dist, max_dist, step=step):
+	for i in np.arange(min_dist, max_dist, step=step_dist):
 		np.save("%s_adjacency_dist_%.1f_mm" % (hemi,i),adjacency[count])
 		count += 1
 
-if len(sys.argv) < 3:
-	print "Usage: %s [Minimun distance] [Maximum distance]] optional: [step size] [projection fraction]" % (str(sys.argv[0]))
-	print "By defaults step size = 1mm and projection fraction = 0.5 (i.e. midthickness)"
-else:
-	if len(sys.argv) == 3:
-		min_dist=float(sys.argv[1])
-		max_dist=float(sys.argv[2])+1
-		step = 1.0
-		projfrac=0.5
+def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
+	ap.add_argument("-d", "--distance", 
+		nargs = 2, 
+		help = "[minimum distance(mm)] [maximum distance(mm)]", 
+		metavar = ('Float', 'Float'), 
+		required = True)
+	ap.add_argument("-s", "--stepsize", 
+		nargs = 1, 
+		help = "[step size (mm)] default: %(default)s).", 
+		metavar = ('Float'),
+		default = [1.0],
+		type=float)
+	ap.add_argument("-p", "--projectfraction", 
+		nargs = 1, 
+		help = "[projected fraction from white matter surface] default: %(default)s). i.e, default is midthickness surface", 
+		metavar = ('Float'),
+		default = [0.5],
+		type=float)
+	return ap
 
-	elif len(sys.argv) == 4:
-		min_dist=float(sys.argv[1])
-		max_dist=float(sys.argv[2])+1
-		step=float(sys.argv[3])
-		projfrac=0.5
-	elif len(sys.argv) == 5:
-		min_dist=float(sys.argv[1])
-		max_dist=float(sys.argv[2])+1
-		step=float(sys.argv[3])
-		projfrac=float(sys.argv[3])
-	elif len(sys.argv) > 5:
-		print "Too many arguments"
+def run(opts):
+	min_dist=float(opts.distance[0])
+	max_dist=float(opts.distance[1])
+	step=float(opts.stepsize[0])
+	projfrac=float(opts.projectfraction[0])
+
+	if np.divide(max_dist-min_dist,step).is_integer():
+		max_dist+=step
+		compute_adjacency('lh', min_dist, max_dist,projfrac,step)
+		compute_adjacency('rh', min_dist, max_dist,projfrac,step)
+	else:
+		print "The difference between max and min distance must be evenly divisible by the step size."
 		exit()
-	compute_adjacency('lh', min_dist, max_dist,projfrac,step)
-	compute_adjacency('rh', min_dist, max_dist,projfrac,step)
+
+if __name__ == "__main__":
+	parser = getArgumentParser()
+	opts = parser.parse_args()
+	run(opts)
+

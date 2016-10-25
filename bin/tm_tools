@@ -42,11 +42,12 @@ class _Usage(ap._HelpAction):
 		splist.append(regressor_tools)
 		splist.append(plot_permutions)
 		splist.append(vertex_freeview_quick)
+		splist.append(vertex_cluster_step1)
+		splist.append(vertex_cluster_step2)
 		splist.append(vertex_boxcox_transformation)
 		splist.append(vertex_make_subsample)
-#		splist.append(vertex_step1_mediation)
-#		splist.append(voxel_step2)
-#		splist.append(calculate_fweP_voxel)
+		splist.append(create_adjacency_list)
+		splist.append(vertex_extract_mean_values)
 #		splist.append(calculate_fweP_vertex)
 #		splist.append(voxel_regression_randomise)
 #		splist.append(voxel_mediation_randomise)
@@ -83,6 +84,14 @@ vertex_freeview_quick = subparsers.add_parser("vertex-freeview-quick", help="Pyt
 vertex_freeview_quick.set_defaults(func = tfce_mediation.tools.vertex_freeview_quick.run)
 tfce_mediation.tools.vertex_freeview_quick.getArgumentParser(vertex_freeview_quick)
 
+vertex_cluster_step1 = subparsers.add_parser("vertex-cluster-step1", help="Python wrapper to run mri_surfcluster on PFWE corrected statistics surface images. The default threshold is 0.95 (i.e., pFWE<0.05)")
+vertex_cluster_step1.set_defaults(func = tfce_mediation.tools.vertex_cluster_step1.run)
+tfce_mediation.tools.vertex_cluster_step1.getArgumentParser(vertex_cluster_step1)
+
+vertex_cluster_step2 = subparsers.add_parser("vertex-cluster-step2", help="Extract mean values from a label file (i.e. a cluster)")
+vertex_cluster_step2.set_defaults(func = tfce_mediation.tools.vertex_cluster_step2.run)
+tfce_mediation.tools.vertex_cluster_step2.getArgumentParser(vertex_cluster_step2)
+
 vertex_boxcox_transformation = subparsers.add_parser("vertex-box-cox-transform", help="Apply Box-Cox Transformation to a vertex template file, and apply 3mm smoothing. Box-Cox Transformation uses parallel processing.")
 vertex_boxcox_transformation.set_defaults(func = tfce_mediation.tools.boxcox_transformation.run)
 tfce_mediation.tools.boxcox_transformation.getArgumentParser(vertex_boxcox_transformation)
@@ -90,6 +99,14 @@ tfce_mediation.tools.boxcox_transformation.getArgumentParser(vertex_boxcox_trans
 vertex_make_subsample = subparsers.add_parser("vertex-make-subsample", help="Creates a subgroub based on missing data from an analysis. The subgrouping variable should be a 1D text file list with missing variables coded as a string (e.g. NA or NaN).")
 vertex_make_subsample.set_defaults(func = tfce_mediation.tools.vertex_make_subsample.run)
 tfce_mediation.tools.vertex_make_subsample.getArgumentParser(vertex_make_subsample)
+
+create_adjacency_list = subparsers.add_parser("vertex-create-adjac-list", help="Creates a subgroub based on missing data from an analysis. The subgrouping variable should be a 1D text file list with missing variables coded as a string (e.g. NA or NaN).")
+create_adjacency_list.set_defaults(func = tfce_mediation.tools.create_adjacency_list.run)
+tfce_mediation.tools.create_adjacency_list.getArgumentParser(create_adjacency_list)
+
+vertex_extract_mean_values = subparsers.add_parser("vertex-extract-mean-values", help="Calculate mean vertex values from labels or annotation.")
+vertex_extract_mean_values.set_defaults(func = tfce_mediation.tools.vertex_extract_mean_values.run)
+tfce_mediation.tools.vertex_extract_mean_values.getArgumentParser(vertex_extract_mean_values)
 
 parser.add_argument('--verbosehelp', action=_HelpAction, help='Display help for each sub-command.')  # add custom help
 parser.add_argument('--usage', action=_Usage, help='Display usage for sub-command.')  # add printout usage

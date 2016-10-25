@@ -31,6 +31,12 @@ def configuration(parent_package = "", top_path = None):
 		language = "c++",
 		extra_compile_args = ["-std=c++11", "-Wno-unused", "-g"])
 
+	CONFIG.add_extension("adjacency", 
+		sources = ["adjacency.pyx"],
+		include_dirs = ["lib", numpy.get_include()],
+		language = "c++",
+		extra_compile_args = ["-std=c++11", "-Wno-unused", "-g"])
+
 	def cythonize(self, base, ext_name, source, extension):
 		target_ext = '.cpp'
 

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 #    Parallel Box-Cox transformation using scipy.boxcox
 #    Copyright (C) 2016  Tristram Lett

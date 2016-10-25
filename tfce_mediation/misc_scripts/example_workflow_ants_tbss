@@ -1,0 +1,27 @@
+# output subjects names to test file (one per line)
+for i in *_FA.nii.gz; do echo $(basename $i _FA.nii.gz); done > subjects
+
+mkdir FAimages
+mkdir T1images
+
+# move FA images to folder
+mv *_FA.nii.gz FAimages/
+
+# convert normalized freesurfer t1 weighted image to nifti, rename, and copy to T1_images. The subjects must match what's in the freesurfer $SUBJECTS_DIR.
+for i in `cat subjects`; do echo mri_convert $SUBJECTS_DIR/${i}/mri/brainmask.mgz T1images/${i}_T1_brain.nii.gz --out_orientation RAS; done | parallel -j 8
+
+# echo nl_FAtoStd.sh for all subjects (FA to T1 using MI; T1 to Standard image using SyN)
+for i in `cat subjects`; do echo $TFCE_mediation/misc_scripts/nl_FAtoStd.sh ${PWD}/FAimages/${i}*FA*z ${PWD}/T1images/${i}*T1*z ${FSLDIR}/data/standard/MNI152_T1_1mm_brain.nii.gz; done > cmd_FAtoStd
+
+# Use your favourite tool for parallelization (htcondor used here). Note, this step will use a lot of disk space.
+$TFCE_mediation/tools/submit_condor_jobs_file cmd_FAtoStd
+
+# Create FA skeleton
+$TFCE_mediation/misc_scripts/create_skeleton.sh -t 0.2 -m -s
+
+# Run statistics using TFCE_mediation or randomise.
+
+# Note, ANTS binaries and scripts, as well the FSL binaries must be in your PATH. If not, add them to your bashrc, or edit the bash scripts accordingly (i.e., in nl_FAtoStd.sh, and in create_skeleton.sh)
+
+# read/cite: Tustison NJ, Avants BB, Cook PA, Kim J, Whyte J, Gee JC, Stone JR. Logical circularity in voxel-based analysis: normalization strategy may induce statistical bias. Hum Brain Mapp. 2014 Mar;35(3):745-59. doi: 10.1002/hbm.22211. 
+# and maybe read this post from the ANTS forum: https://sourceforge.net/p/advants/discussion/840261/thread/e6fc9a8c/

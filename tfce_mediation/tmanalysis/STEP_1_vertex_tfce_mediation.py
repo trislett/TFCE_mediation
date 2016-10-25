@@ -59,7 +59,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	adjac = ap.add_mutually_exclusive_group(required=False)
 	adjac.add_argument("-d", "--dist", 
 		help="Load supplied adjacency sets geodesic distance in mm. Default is 3 (recommended).",
-		choices = [1,2,3],\
+		choices = [1,2,3],
 		type=int,
 		nargs=1,
 		default=[3])

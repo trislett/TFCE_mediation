@@ -10,8 +10,6 @@ def configuration(parent_package = "", top_path = None):
     parent_name = parent_package, 
     top_path = top_path)
 
-  CONFIG.add_subpackage("tools")
-
   CONFIG.make_config_py()
   return CONFIG
 

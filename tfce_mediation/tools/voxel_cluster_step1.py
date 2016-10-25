@@ -20,7 +20,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 def run(opts):
 
 	statimage=str(opts.image[0])
-	thresh=opts.threshold[0]
+	thresh=float(opts.threshold[0])
 
 	os.system('mkdir -p cluster_results; $FSLDIR/bin/cluster -i %s -t %1.2f --mm --scalarname="1-p" -o cluster_results/$(basename %s .nii.gz)_clusters > cluster_results/$(basename %s .nii.gz)_results' % (statimage,thresh,statimage,statimage))
 

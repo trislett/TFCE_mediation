@@ -9,12 +9,15 @@ DESCRIPTION = "Extract mean voxel values from clusters after running cluster_ste
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 
 	ap.add_argument("-i", "--image", 
-		help="Cluster Nifti image", 
+		help="Clusters Nifti image", 
 		nargs=1, 
-		required=True)
+		required=True,
+		metavar=('*_clusters.nii.gz'))
 	ap.add_argument("-c", "--cluster", 
 		help="Which clusters to extract from results file", 
-		nargs='+', type=int)
+		nargs='+', 
+		type=int,
+		metavar=('INT'))
 	ap.add_argument("-d", "--dir",
 		help="python_temp directory", 
 		default=['../../python_temp'], 

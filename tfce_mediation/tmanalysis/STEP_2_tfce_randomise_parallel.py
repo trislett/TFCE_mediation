@@ -22,7 +22,7 @@ import numpy as np
 import argparse as ap
 from time import time
 
-DESCRIPTION = "Different parallelization methods for TFCE_mediation permutation testing"
+DESCRIPTION = "Different parallelization methods for TFCE_mediation permutation testing. If no parallelization method is specified, only a text file of commands will be outputed (i.e., cmd_TFCE_randomise_{timestamp})"
 
 def get_script_path():
 	return os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -51,7 +51,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=2, type=int, 
 		help="Optional for multiple regression. Specify which regressors are permuted [first] [last]. For one variable, first=last.", 
 		metavar=('INT','INT'))
-	group = ap.add_mutually_exclusive_group(required=True)
+	group = ap.add_mutually_exclusive_group(required=False)
 	group.add_argument("-p","--gnuparallel", 
 		nargs=1, 
 		type=int, 
@@ -68,20 +68,6 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 def run(opts):
 	SCRIPTPATH=get_script_path()
 	currentTime=int(time())
-
-#	#load the proper script
-#	if opts.voxel:
-#		whichScript="%s/voxel_tfce_multiple_regression_randomise.py" % (SCRIPTPATH)
-#		if opts.specifyvars:
-#			whichScript="%s/voxel_tfce_multiple_regression_randomise.py -v %d %d" % (SCRIPTPATH, opts.specifyvars[0], opts.specifyvars[1])
-#		if opts.mediation:
-#			whichScript= "%s/voxel_tfce_mediation_randomise.py -m %s" % (SCRIPTPATH,opts.mediation[0])
-#	else:
-#		whichScript= "%s/vertex_tfce_multiple_regression_randomise.py -s %s" % (SCRIPTPATH,opts.vertex[0])
-#		if opts.specifyvars:
-#			whichScript= "%s/vertex_tfce_multiple_regression_randomise.py -s %s -v %d %d" % (SCRIPTPATH,opts.vertex[0], opts.specifyvars[0], opts.specifyvars[1])
-#		if opts.mediation:
-#			whichScript= "%s/vertex_tfce_mediation_randomise.py -s %s -m %s" % (SCRIPTPATH,opts.vertex[0],opts.mediation[0])
 
 	#load the proper script
 	if opts.voxel:
@@ -111,7 +97,7 @@ def run(opts):
 	if opts.gnuparallel:
 		os.system("cat cmd_TFCE_randomise_%d | parallel -j %d" % (currentTime,int(opts.gnuparallel[0])) )
 	elif opts.condor:
-		os.system("%s/tools/submit_condor_jobs_file cmd_TFCE_randomise_%d" % (SCRIPTPATH,currentTime) )
+		os.system("submit_condor_jobs_file cmd_TFCE_randomise_%d" % (currentTime) )
 	elif opts.fslsub:
 		os.system("${FSLDIR}/bin/fsl_sub -t cmd_TFCE_randomise_%d" % (currentTime) )
 

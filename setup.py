@@ -30,11 +30,11 @@ def configuration(parent_package = "", top_path = None):
 
 setup(name = PACKAGE_NAME,
   maintainer = "Tristram Lett",
-  maintainer_email = "tris.lett@gmail.com",
-  description = "",
-  long_description = "",
+  maintainer_email = "tristram.lett@charite.de",
+  description = "TFCE_mediation",
+  long_description = "Fast regression and mediation analysis of vertex or voxel MR data with TFCE",
   url = "",
   download_url = "",
-  license = "",
+  license = "GNU General Public License v3 or later (GPLv3+)",
   configuration = configuration
 )

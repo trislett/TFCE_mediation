@@ -39,7 +39,7 @@ def run(opts):
 		os.system("mv %s backup_%s" % (outname,outname))
 		print "Warning. Any previous backups would have been over-written"
 #write nifti data
-	nib.save(nib.Nifti1Image(out_4d,affine_mask),(outname))
+	nib.save(nib.Nifti1Image(out_4d.astype(np.float32, order = "C"),affine_mask),(outname))
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

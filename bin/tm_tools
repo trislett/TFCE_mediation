@@ -113,7 +113,7 @@ vertex_boxcox_transformation = subparsers.add_parser("vertex-box-cox-transform",
 vertex_boxcox_transformation.set_defaults(func = tfce_mediation.tools.boxcox_transformation.run)
 tfce_mediation.tools.boxcox_transformation.getArgumentParser(vertex_boxcox_transformation)
 
-create_adjacency_list = subparsers.add_parser("vertex-box-cox-transform", help="Creates adjacency list based on geodesic distance for vertex-based TFCE (?h_adjacency_dist_?.?_mm.npy). The ?h.midthickness surfaces are also returned. Note, 1mm, 2mm, and 3mm adjacency list have already supplied (adjacency_sets/?h_adjacency_dist_?.0_mm.npy).")
+create_adjacency_list = subparsers.add_parser("vertex-create-adjac-list", help="Creates adjacency list based on geodesic distance for vertex-based TFCE (?h_adjacency_dist_?.?_mm.npy). The ?h.midthickness surfaces are also returned. Note, 1mm, 2mm, and 3mm adjacency list have already supplied (adjacency_sets/?h_adjacency_dist_?.0_mm.npy).")
 create_adjacency_list.set_defaults(func = tfce_mediation.tools.create_adjacency_list.run)
 tfce_mediation.tools.create_adjacency_list.getArgumentParser(create_adjacency_list)
 

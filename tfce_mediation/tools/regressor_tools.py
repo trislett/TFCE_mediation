@@ -53,8 +53,8 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 def run(opts):
 	if opts.orthogonalize:
 		if opts.file:
-			regressors = np.genfromtxt(opts.csv[0], delimiter=',')
-			regressors_nocsv = opts.csv[0].split('.csv',1)[0]
+			regressors = np.genfromtxt(opts.file[0], delimiter=',')
+			regressors_nocsv = opts.file[0].split('.csv',1)[0]
 		if opts.input:
 			pred = np.genfromtxt(opts.input[0], delimiter=',')
 			covars = np.genfromtxt(opts.input[1], delimiter=',')
@@ -114,8 +114,8 @@ def run(opts):
 
 	elif opts.juststandarize:
 		if opts.file:
-			regressors = np.genfromtxt(opts.csv[0], delimiter=',')
-			regressors_nocsv = opts.csv[0].split('.csv',1)[0]
+			regressors = np.genfromtxt(opts.file[0], delimiter=',')
+			regressors_nocsv = opts.file[0].split('.csv',1)[0]
 			if opts.demean:
 				regressors = regressors - np.mean(regressors, axis=0)
 				writeCSV(regressors_nocsv,'dm',regressors)

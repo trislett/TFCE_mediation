@@ -33,9 +33,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		help="Voxel analysis", 
 		action="store_true")
 	datatype.add_argument("--vertex", 
-		help="Vertex analysis [area or thickness]", 
+		help="Vertex analysis. Input surface: e.g. --vertex [area or thickness]", 
 		nargs=1,
-		metavar=('STR'))
+		metavar=('surface'))
 	ap.add_argument("-m", "--mediation",
 		help="Mediation analysis [M or I or Y]. If not specified, then multiple regression is performed.",
 		nargs=1, 
@@ -66,7 +66,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	return ap
 
 def run(opts):
-	SCRIPTPATH=get_script_path()
+
 	currentTime=int(time())
 
 	#load the proper script
@@ -77,11 +77,11 @@ def run(opts):
 		if opts.mediation:
 			whichScript= "tfce_mediation voxel-mediation-randomise -m %s" % (opts.mediation[0])
 	else:
-		whichScript= "tfce_mediation vertex-regress-randomise -s %s" % (SCRIPTPATH,opts.vertex[0])
+		whichScript= "tfce_mediation vertex-regress-randomise -s %s" % (opts.vertex[0])
 		if opts.specifyvars:
-			whichScript= "tfce_mediation vertex-regress-randomise -s %s -v %d %d" % (SCRIPTPATH,opts.vertex[0], opts.specifyvars[0], opts.specifyvars[1])
+			whichScript= "tfce_mediation vertex-regress-randomise -s %s -v %d %d" % (opts.vertex[0], opts.specifyvars[0], opts.specifyvars[1])
 		if opts.mediation:
-			whichScript= "tfce_mediation vertex-mediation-randomise -s %s -m %s" % (SCRIPTPATH,opts.vertex[0],opts.mediation[0])
+			whichScript= "tfce_mediation vertex-mediation-randomise -s %s -m %s" % (opts.vertex[0],opts.mediation[0])
 
 	#round number of permutations to the nearest 200
 	roundperm=int(np.round(opts.numperm[0]/200.0)*100.0)
@@ -102,9 +102,9 @@ def run(opts):
 		os.system("${FSLDIR}/bin/fsl_sub -t cmd_TFCE_randomise_%d" % (currentTime) )
 
 	if opts.voxel:
-		print "Run: ${SCRIPTPATH}/voxel_tools/calculate_fweP.py to calculate (1-P[FWE]) image (after randomisation is finished)."
+		print "Run: tfce_mediation calculate_fweP_voxel to calculate (1-P[FWE]) image (after randomisation is finished)."
 	else:
-		print "Run: ${SCRIPTPATH}/vertex_tools/calculate_fweP_vertex.py to calculate (1-P[FWE]) image (after randomisation is finished)."
+		print "Run: tfce_mediation calculate_fweP_vertex to calculate (1-P[FWE]) image (after randomisation is finished)."
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

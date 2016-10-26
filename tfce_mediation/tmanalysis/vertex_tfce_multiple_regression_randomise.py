@@ -64,10 +64,11 @@ def run(opts):
 	pred_x = np.load("python_temp_%s/pred_x.npy" % (surface))
 	adjac_lh = np.load("python_temp_%s/adjac_lh.npy" % (surface))
 	adjac_rh = np.load("python_temp_%s/adjac_rh.npy" % (surface))
+	optstfce = np.load('python_temp_%s/optstfce.npy' % (surface))
 
 	#load TFCE fucntion
-	calcTFCE_lh = CreateAdjSet(2, 1, adjac_lh) # H=2, E=1
-	calcTFCE_rh = CreateAdjSet(2, 1, adjac_rh) # H=2, E=1
+	calcTFCE_lh = CreateAdjSet(float(optstfce[0]), float(optstfce[1]), adjac_lh) # H=2, E=1
+	calcTFCE_rh = CreateAdjSet(float(optstfce[0]), float(optstfce[1]), adjac_rh) # H=2, E=1
 
 	#permute T values and write max TFCE values
 	if not os.path.exists("output_%s/perm_Tstat_%s" % (surface,surface)):

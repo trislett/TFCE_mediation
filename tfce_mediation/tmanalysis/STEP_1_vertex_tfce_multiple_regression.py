@@ -80,6 +80,11 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	adjac.add_argument("-t", "--triangularmesh", 
 		help="Create adjacency based on triangular mesh without specifying distance.", 
 		action="store_true")
+	ap.add_argument("--tfce", 
+		help="TFCE settings. H (i.e., height raised to power H), E (i.e., extent raised to power E). Default: %(default)s). H=2, E=2/3 is the point at which the cummulative density function is approximately Gaussian distributed.", 
+		nargs=2, 
+		default=[2,0.67], 
+		metavar=('H', 'E'))
 
 	return ap
 
@@ -138,8 +143,8 @@ def run(opts):
 		adjac_rh = np.load("%s/adjacency_sets/rh_adjacency_dist_%s.0_mm.npy" % (scriptwd,str(opts.dist[0])))
 	else:
 		print "Error"
-	calcTFCE_lh = CreateAdjSet(2, 1, adjac_lh) # H=2, E=1
-	calcTFCE_rh = CreateAdjSet(2, 1, adjac_rh) # H=2, E=1
+	calcTFCE_lh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_lh) # H=2, E=1
+	calcTFCE_rh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_rh) # H=2, E=1
 
 	#create masks
 	if opts.fmri:
@@ -230,6 +235,7 @@ def run(opts):
 	np.save("python_temp_%s/adjac_lh" % (surface),adjac_lh)
 	np.save("python_temp_%s/adjac_rh" % (surface),adjac_rh)
 	np.save("python_temp_%s/merge_y" % (surface),merge_y.astype(np.float32, order = "C"))
+	np.save('python_temp_%s/optstfce'% (surface), opts.tfce)
 
 	#step2
 	X = np.column_stack([np.ones(n),pred_x])

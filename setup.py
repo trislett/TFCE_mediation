@@ -10,6 +10,14 @@ import pdb
 PACKAGE_NAME = "tfce_mediation"
 BUILD_REQUIRES = ["numpy", "scipy", "cython", "scikit-learn", "matplotlib", "joblib", "nibabel"]
 
+CLASSIFIERS = ["Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Topic :: Scientific/Engineering :: Medical Science Apps."]
+
 def parse_setuppy_commands():
   info_commands = ['--help-commands', '--name', '--version', '-V',
     '--fullname', '--author', '--author-email',
@@ -59,6 +67,7 @@ setup(name = PACKAGE_NAME, version = "0.1.0.dev0",
   download_url = "",
   platforms=["Linux", "Solaris", "Mac OS-X", "Unix"],
   license = "GNU General Public License v3 or later (GPLv3+)",
+  classifiers = CLASSIFIERS,
   install_requires = BUILD_REQUIRES,
   setup_requires = BUILD_REQUIRES,
   cmdclass = cmdclass,

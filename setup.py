@@ -1,15 +1,27 @@
-import Cython.Compiler.Main
-
 import os
+import sys
 
-import numpy
-from numpy.distutils.core import setup
+from distutils.command.sdist import sdist
 from numpy.distutils.command import build_src
 from numpy.distutils.misc_util import Configuration
 
-# import pdb
+import pdb
 
 PACKAGE_NAME = "tfce_mediation"
+BUILD_REQUIRES = ["numpy", "scipy", "cython", "scikit-learn", "matplotlib", "joblib", "nibabel"]
+
+def parse_setuppy_commands():
+  info_commands = ['--help-commands', '--name', '--version', '-V',
+    '--fullname', '--author', '--author-email',
+    '--maintainer', '--maintainer-email', '--contact',
+    '--contact-email', '--url', '--license', '--description',
+    '--long-description', '--platforms', '--classifiers',
+    '--keywords', '--provides', '--requires', '--obsoletes']
+  info_commands.extend(['egg_info', 'install_egg_info', 'rotate'])
+  for command in info_commands:
+    if command in sys.argv[1:]:
+      return False
+  return True
 
 def configuration(parent_package = "", top_path = None):
   from numpy.distutils.misc_util import Configuration
@@ -18,23 +30,37 @@ def configuration(parent_package = "", top_path = None):
     assume_default_configuration = True,
     delegate_options_to_subpackages = True,
     quiet = True)
-  CONFIG.add_data_dir(('tfce_mediation/adjacency_sets'))
 
   CONFIG.add_scripts(os.path.join("bin", PACKAGE_NAME))
-  CONFIG.add_scripts(os.path.join("bin", 'tm_tools'))
-  CONFIG.add_scripts(os.path.join("bin", 'submit_condor_jobs_file'))
+  CONFIG.add_scripts(os.path.join("bin", "tm_tools"))
+  CONFIG.add_scripts(os.path.join("bin", "submit_condor_jobs_file"))
 
   CONFIG.add_subpackage(PACKAGE_NAME)
 
   return CONFIG
 
-setup(name = PACKAGE_NAME,
+cmdclass = {"sdist": sdist}
+
+if os.path.exists('MANIFEST'):
+  os.remove('MANIFEST')
+
+from setuptools import setup
+
+if parse_setuppy_commands():
+  from numpy.distutils.core import setup
+
+# pdb.set_trace()
+setup(name = PACKAGE_NAME, version = "0.1.0.dev0",
   maintainer = "Tristram Lett",
   maintainer_email = "tristram.lett@charite.de",
   description = "TFCE_mediation",
   long_description = "Fast regression and mediation analysis of vertex or voxel MR data with TFCE",
-  url = "",
+  url = "https://github.com/trislett/TFCE_mediation",
   download_url = "",
+  platforms=["Linux", "Solaris", "Mac OS-X", "Unix"],
   license = "GNU General Public License v3 or later (GPLv3+)",
+  install_requires = BUILD_REQUIRES,
+  setup_requires = BUILD_REQUIRES,
+  cmdclass = cmdclass,
   configuration = configuration
 )

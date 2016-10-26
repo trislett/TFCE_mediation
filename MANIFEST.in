@@ -1,0 +1,5 @@
+include MANIFEST.in
+include setup.py
+recursive-include tfce_mediation *
+recursive-include bin *
+global-exclude *.pyc

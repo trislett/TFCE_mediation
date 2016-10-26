@@ -71,15 +71,15 @@ subparsers = parser.add_subparsers(help = "Sub-command help: tfce_mediation {sub
 #{funcName}.set_defaults(func = tfce_mediation.tmanalysis.{scriptName}.run)
 #tfce_mediation.tmanalysis.{scriptName}.getArgumentParser({funcName})
 
-voxel_step0 = subparsers.add_parser("step0-voxel", help="Load 4D NifTI image for voxel-based analysis")
+voxel_step0 = subparsers.add_parser("step0-voxel", help="Load 4D NifTI image and binary mask for voxel-based analysis")
 voxel_step0.set_defaults(func = tfce_mediation.tmanalysis.STEP_0_load_volumes.run)
 tfce_mediation.tmanalysis.STEP_0_load_volumes.getArgumentParser(voxel_step0)
 
-vertex_step0 = subparsers.add_parser("step0-vertex", help="Python pipe to build Freesurfer template surface (e.g., either area or thickness) using mris_preproc.")
+vertex_step0 = subparsers.add_parser("step0-vertex", help="Python pipe to build Freesurfer template surface (e.g., either area or thickness) using mris_preproc. SUBJECT_DIR must be declared (e.g., export SUBJECT_DIR=/path/to/freesurfer/subjects).")
 vertex_step0.set_defaults(func = tfce_mediation.tmanalysis.STEP_0_vertex_build_fs_surface_template.run)
 tfce_mediation.tmanalysis.STEP_0_vertex_build_fs_surface_template.getArgumentParser(vertex_step0)
 
-voxel_step1_regression = subparsers.add_parser("step1-voxel-regress", help="Multiple regression for voxel-based analysis with TFCE")
+voxel_step1_regression = subparsers.add_parser("step1-voxel-regress", help="Multiple regression for voxel-based analysis with TFCE.")
 voxel_step1_regression.set_defaults(func = tfce_mediation.tmanalysis.STEP_1_voxel_tfce_multiple_regression.run)
 tfce_mediation.tmanalysis.STEP_1_voxel_tfce_multiple_regression.getArgumentParser(voxel_step1_regression)
 

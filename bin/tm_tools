@@ -41,18 +41,19 @@ class _Usage(ap._HelpAction):
 		splist = []
 		splist.append(regressor_tools)
 		splist.append(plot_permutions)
-		splist.append(vertex_freeview_quick)
-		splist.append(vertex_cluster_step1)
-		splist.append(vertex_cluster_step2)
-		splist.append(vertex_boxcox_transformation)
-		splist.append(vertex_make_subsample)
-		splist.append(create_adjacency_list)
-		splist.append(vertex_extract_mean_values)
-		splist.append(vertex_threshold_image)
 		splist.append(voxel_cluster_step1)
 		splist.append(voxel_cluster_step2)
 		splist.append(voxel_extract_mean_values)
 		splist.append(voxel_build_nifti4d_from_npy)
+		splist.append(vertex_freeview_quick)
+		splist.append(vertex_cluster_step1)
+		splist.append(vertex_cluster_step2)
+		splist.append(vertex_boxcox_transformation)
+		splist.append(create_adjacency_list)
+		splist.append(vertex_make_subsample)
+		splist.append(vertex_extract_mean_values)
+		splist.append(vertex_threshold_image)
+
 
 		helps = []
 		helps.append(parser.format_usage())
@@ -72,13 +73,29 @@ subparsers = parser.add_subparsers(help = "Sub-command help: tfce_mediation {sub
 #{funcName}.set_defaults(func = tfce_mediation.{scriptName}.run)
 #tfce_mediation.{scriptName}.getArgumentParser({funcName})
 
-regressor_tools = subparsers.add_parser("regressor-tools", help="Simple program to condition the regressors for TFCE_mediation analyses. The program returns either the orthogonalization of the input file(s) or it returns the residuals from a least squares regression to remove the effect of covariates from variable.")
+regressor_tools = subparsers.add_parser("regressor-tools", help="For the two-step multiple regression and mediation analyses using TFCE_mediation, it is recommended to scale (or whiten with orthonormalization) the regressors. The input file(s) should be dummy coded, and deliminated with comma (i.e., *.csv). The program returns either the orthogonalization of the input file(s) or it returns the residuals from a least squares regression to remove the effect of covariates from variable.")
 regressor_tools.set_defaults(func = tfce_mediation.tools.regressor_tools.run)
 tfce_mediation.tools.regressor_tools.getArgumentParser(regressor_tools)
 
 plot_permutions = subparsers.add_parser("plot-permutions", help="Plot the maximum TFCE values from permutation analysis as a histogram, and plot the critical values.")
 plot_permutions.set_defaults(func = tfce_mediation.tools.plot_permutions.run)
 tfce_mediation.tools.plot_permutions.getArgumentParser(plot_permutions)
+
+voxel_cluster_step1 = subparsers.add_parser("voxel-cluster-step1", help="Python wrapper to run FSL's cluster_results on pFWE corrected statistics voxel images. The default threshold is 0.95 (i.e., pFWE<0.05)")
+voxel_cluster_step1.set_defaults(func = tfce_mediation.tools.voxel_cluster_step1.run)
+tfce_mediation.tools.voxel_cluster_step1.getArgumentParser(voxel_cluster_step1)
+
+voxel_cluster_step2 = subparsers.add_parser("voxel-cluster-step2", help="Extract mean voxel values from clusters after running cluster_step1. Probably best to run from cluster_results directory.")
+voxel_cluster_step2.set_defaults(func = tfce_mediation.tools.voxel_cluster_step2.run)
+tfce_mediation.tools.voxel_cluster_step2.getArgumentParser(voxel_cluster_step2)
+
+voxel_extract_mean_values = subparsers.add_parser("voxel-extract-mean-values", help="Calculate mean voxel values from label(s). Requires tfce_mediation step0-voxel to be run first")
+voxel_extract_mean_values.set_defaults(func = tfce_mediation.tools.voxel_extract_mean_values.run)
+tfce_mediation.tools.voxel_extract_mean_values.getArgumentParser(voxel_extract_mean_values)
+
+voxel_build_nifti4d_from_npy = subparsers.add_parser("voxel-npy-to-nifti", help="Convert numpy voxel data (from python_temp) to 4D nifti image")
+voxel_build_nifti4d_from_npy.set_defaults(func = tfce_mediation.tools.voxel_build_nifti4d_from_npy.run)
+tfce_mediation.tools.voxel_build_nifti4d_from_npy.getArgumentParser(voxel_build_nifti4d_from_npy)
 
 vertex_freeview_quick = subparsers.add_parser("vertex-freeview-quick", help="Python wrapper to view voxel-wise results using freeview.")
 vertex_freeview_quick.set_defaults(func = tfce_mediation.tools.vertex_freeview_quick.run)
@@ -96,13 +113,13 @@ vertex_boxcox_transformation = subparsers.add_parser("vertex-box-cox-transform",
 vertex_boxcox_transformation.set_defaults(func = tfce_mediation.tools.boxcox_transformation.run)
 tfce_mediation.tools.boxcox_transformation.getArgumentParser(vertex_boxcox_transformation)
 
+create_adjacency_list = subparsers.add_parser("Creates adjacency list based on geodesic distance for vertex-based TFCE (?h_adjacency_dist_?.?_mm.npy). The ?h.midthickness surfaces are also returned. Note, 1mm, 2mm, and 3mm adjacency list have already supplied (adjacency_sets/?h_adjacency_dist_?.0_mm.npy).")
+create_adjacency_list.set_defaults(func = tfce_mediation.tools.create_adjacency_list.run)
+tfce_mediation.tools.create_adjacency_list.getArgumentParser(create_adjacency_list)
+
 vertex_make_subsample = subparsers.add_parser("vertex-make-subsample", help="Creates a subgroub based on missing data from an analysis. The subgrouping variable should be a 1D text file list with missing variables coded as a string (e.g. NA or NaN).")
 vertex_make_subsample.set_defaults(func = tfce_mediation.tools.vertex_make_subsample.run)
 tfce_mediation.tools.vertex_make_subsample.getArgumentParser(vertex_make_subsample)
-
-create_adjacency_list = subparsers.add_parser("vertex-create-adjac-list", help="Creates a subgroub based on missing data from an analysis. The subgrouping variable should be a 1D text file list with missing variables coded as a string (e.g. NA or NaN).")
-create_adjacency_list.set_defaults(func = tfce_mediation.tools.create_adjacency_list.run)
-tfce_mediation.tools.create_adjacency_list.getArgumentParser(create_adjacency_list)
 
 vertex_extract_mean_values = subparsers.add_parser("vertex-extract-mean-values", help="Calculate mean vertex values from labels or annotation.")
 vertex_extract_mean_values.set_defaults(func = tfce_mediation.tools.vertex_extract_mean_values.run)
@@ -112,21 +129,6 @@ vertex_threshold_image = subparsers.add_parser("vertex-threshold-image", help="C
 vertex_threshold_image.set_defaults(func = tfce_mediation.tools.vertex_threshold_image.run)
 tfce_mediation.tools.vertex_threshold_image.getArgumentParser(vertex_threshold_image)
 
-voxel_cluster_step1 = subparsers.add_parser("voxel-cluster-step1", help="Python wrapper to run FSL's cluster_results on pFWE corrected statistics voxel images. The default threshold is 0.95 (i.e., pFWE<0.05)")
-voxel_cluster_step1.set_defaults(func = tfce_mediation.tools.voxel_cluster_step1.run)
-tfce_mediation.tools.voxel_cluster_step1.getArgumentParser(voxel_cluster_step1)
-
-voxel_cluster_step2 = subparsers.add_parser("voxel-cluster-step2", help="Extract mean voxel values from clusters after running cluster_step1. Probably best to run from cluster_results directory.")
-voxel_cluster_step2.set_defaults(func = tfce_mediation.tools.voxel_cluster_step2.run)
-tfce_mediation.tools.voxel_cluster_step2.getArgumentParser(voxel_cluster_step2)
-
-voxel_extract_mean_values = subparsers.add_parser("voxel-extract-mean-values", help="Calculate mean voxel values from label(s) after running STEP_0. Returns *.csv with mean values.")
-voxel_extract_mean_values.set_defaults(func = tfce_mediation.tools.voxel_extract_mean_values.run)
-tfce_mediation.tools.voxel_extract_mean_values.getArgumentParser(voxel_extract_mean_values)
-
-voxel_build_nifti4d_from_npy = subparsers.add_parser("voxel-npy-to-nifti", help="Convert numpy voxel data (from python_temp) to 4D nifti image")
-voxel_build_nifti4d_from_npy.set_defaults(func = tfce_mediation.tools.voxel_build_nifti4d_from_npy.run)
-tfce_mediation.tools.voxel_build_nifti4d_from_npy.getArgumentParser(voxel_build_nifti4d_from_npy)
 
 parser.add_argument('--verbosehelp', action=_HelpAction, help='Display help for each sub-command.')  # add custom help
 parser.add_argument('--usage', action=_Usage, help='Display usage for sub-command.')  # add printout usage

@@ -61,7 +61,7 @@ Outputs:
 * ?h.all.area.00.mgh (all subjects to the fsaverage template using spherical registration)
 * ?h.all.area.03B.mgh (the above file after 3mm FWHM smoothing of the surface)
 
-2) Optional: Box-Cox transformation of the white matter surface
+3) Optional: Box-Cox transformation of the white matter surface
 
 ```
 tm_tools vertex-box-cox-transform -i lh.all.area.00.mgh 8
@@ -85,14 +85,14 @@ Outputs:
 * ?h.all.area.00.boxcox.mgh (Box-Cox transformed image)
 * ?h.all.area.03B.boxcox.mgh (Box-Cox transformed image after 3mm FWHM smoothing)
 
-3) Optional: orthonormalizing the regressors
+4) Optional: orthonormalizing the regressors
 
 ```
 tm_tools regressor-tools -i predictors.csv covariates.csv -o -s
 ```
 
 Explanation:
-For the two-step multiple regression and mediation analyses using TFCE_mediation, it is recommended to scale (or whiten with orthonormalization) the regressors. The input file(s) should be dummy coded, and deliminated with comma. The program returns either the orthogonalization of the input file(s) or it returns the residuals from a least squares regression to remove the effect of covariates from variable. In this example, we using the orthonormalization option (-o -s).
+For the two-step multiple regression and mediation analyses using TFCE_mediation, it is recommended to scale (or orthonormalization) the regressors. The input file(s) should be dummy coded, and comma deliminated. The program returns either the orthogonalization of the input file(s) or it returns the residuals from a least squares regression to remove the effect of covariates from variable. In this example, we using the orthonormalization option (-o -s).
 
 Inputs:
 * predictors.csv (dummy-coded regressors of interest)
@@ -102,7 +102,7 @@ Outputs:
 * predictors_orthogonized.csv (orthogonormalized regressors of interest)
 * covariates_orthogonized.csv (orthogonormalized regressors of no interest)
 
-4) Multiple Regression
+5) Multiple Regression
 
 ```
 tfce_mediation step1-voxel-regress -i predictors_orthogonized.csv covariates_orthogonized.csv -s area
@@ -124,7 +124,7 @@ Outputs:
 * output_area/negtstat_area_?h_con?_TFCE.mgh (TFCE transformed negative t-statistic image)
 * output_area/max_TFCE_contrast_values.csv (The max TFCE value for the positive and negative contrast(s))
 
-5) Permuation Testing (Randomization)
+6) Permuation Testing (Randomization)
 
 ```
 tfce_mediation step2-randomise-parallel --vertex area -n 10000 -p 8
@@ -143,7 +143,7 @@ Output:
 
 * output/perm_Tstat_area/perm_tstat_con?_TFCE_maxVertex.csv (the maximum TFCE value among all vertices of the entire cortex for each permutation. It is used to correct for family-wise error)
 
-6) Apply family-wise error rate correction
+7) Apply family-wise error rate correction
 
 ```
 cd output
@@ -160,7 +160,7 @@ perm_tstat_con?_TFCE_maxVertex.csv (List with maximum TFCE values)
 Output:
 tstat_area_?h_con?_TFCE_FWEcorrP.mgh (1-P(FWE) corrected image)
 
-7) View results
+8) View results
 
 ```
 tm_tools vertex-freeview-quick -i tstat_area_lh_con1_TFCE_FWEcorrP.mgh tstat_area_rh_con1_TFCE_FWEcorrP.mgh

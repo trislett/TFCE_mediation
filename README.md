@@ -218,7 +218,7 @@ Explanation:
 Mediation analyses using TFCE_mediation in which the ‘predictor_variable’ is the independent variable, the 4d_image is the mediator, and the ‘dependent_variable’ is the dependent variable. 
 
 Inputs:
-* ?_resids.csv (residuals of the variable of interest)
+* ????????_resids.csv (residuals of the variable of interest)
 * covariates_std_dm.csv (unit variance and demean covariates file)
 
 Outputs:
@@ -247,7 +247,7 @@ Output:
 
 ```
 cd output_med_M
-tfce_mediation voxel calculate-fwep -i  SobelZ_M_TFCE.nii.gz  perm_SobelZ/perm_Zstat_TFCE_maxVoxel.csv
+tfce_mediation voxel-calculate-fwep -i  SobelZ_M_TFCE.nii.gz  perm_SobelZ/perm_Zstat_TFCE_maxVoxel.csv
 ```
 Explanation:
 Calculate 1-P(FWE) voxel image from max TFCE values from randomisation.

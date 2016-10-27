@@ -42,11 +42,11 @@ cd TFCE_mediation
 sudo python setup.py install
 ```
 
-### Example work-flow for vertex analyses ###
+### Example work-flow for vertex regression analyses ###
 
 1) Run standard [Freesurfer](https://surfer.nmr.mgh.harvard.edu/fswiki) (for vertex-based analyses) recon-all preprocessing of T1-weighted images.
 
-2) Spherical regrestration
+2) Spherical registration
 
 
 ```
@@ -108,7 +108,7 @@ Outputs:
 5) Multiple Regression
 
 ```
-tfce_mediation step1-voxel-regress -i predictors_orthogonized.csv covariates_orthogonized.csv -s area
+tfce_mediation step1-vertex-regress -i predictors_orthogonized.csv covariates_orthogonized.csv -s area
 ```
 
 Explanation:
@@ -170,4 +170,95 @@ tm_tools vertex-freeview-quick -i tstat_area_lh_con1_TFCE_FWEcorrP.mgh tstat_are
 
 ```
 
+### Example work-flow for voxel mediation analyses ###
 
+1) Preprocess a 4D volume. For instance using [TBSS](http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/TBSS/UserGuide). 
+
+2) Load 4D volume into tfce_mediation
+
+
+```
+tfce_mediation step0-voxel -i 4dvolume.nii.gz mask.nii.gz
+```
+
+Explanation:
+Load the 4D volume and its binarized mask into tfce_mediation
+
+Inputs:
+* 4Dvolume.nii.gz (3D NiFti volumes for all subjects. e.g. for TBSS output use all_FA_skeletonised.nii.gz)
+* mask.nii.gz (binarized brain makes. e.g. for TBSS output use mean_FA_skeleton_mask.nii.gz)
+
+Outputs:
+* python_temp/*.npy (Numpy memory mapped objects used for all voxel analyses/actions)
+
+3) Remove the effect of covariates on regressors for mediation analysis
+
+```
+tm_tools regressor-tools -r predictor_variable.csv covariates.csv -r -s
+tm_tools regressor-tools -r dependant_variable.csv covariates.csv -r -s
+```
+
+Explanation:
+For mediation analyses using TFCE_mediation, the effect of covariates should be removed from all regressors of interest. ‘regressor-tools -r’ returns the residuals after regressing out the effect of the covariates. In the next step (voxel-step1-????), the covariates will regressed out from the 4D_image.
+
+Inputs:
+* ?_variable.csv (dummy-coded regressors of interest)
+* covariates.csv (dummy-coded regressors of no interest)
+
+Outputs:
+* ?_resids.csv (residuals of the variable of interest)
+* covariates_std_dm.csv (unit variance and demean covariates file)
+
+4) Mediation analysis
+
+```
+tfce_mediation step1-voxel-regress -i predictor_ resids.csv covariates_std_dm.csv dependant_resids.csv -m M
+```
+Explanation:
+Mediation analyses using TFCE_mediation in which the ‘predictor_variable’ is the independent variable, the 4d_image is the mediator, and the ‘dependent_variable’ is the dependent variable. 
+
+Inputs:
+* ?_resids.csv (residuals of the variable of interest)
+* covariates_std_dm.csv (unit variance and demean covariates file)
+
+Outputs:
+* output_med_M/SobelZ_M.nii.gz (the untransformed Sobel Z-statistics of the indirect effect)
+* output_med_M/SobelZ_M_TFCE.nii.gz (the TFCE transformed Z-statistics)
+* output_med_M/maxTFCE_contrast_value.csv (the maximum TFCE values of the statistics image)
+
+5) Permuation Testing (Randomization)
+
+```
+tfce_mediation step2-randomise-parallel --voxel -n 10000 -m M -p 8
+```
+
+Explanation:
+Permutation testing using parallel processing. This script is a wrapper to make n=200 permution chunks, and parallelizing processing of the voxel-mediation-randomise scipt for each chunk (in this case). i.e., each chunk to a different processor.
+
+Input: 
+* M (mediation type)
+* 10000 (total number of permutations)
+* 8 (number of cores to used with GNU parallel)
+
+Output:
+* output_med_M/perm_SobelZ/perm_Zstat_TFCE_maxVoxel.csv (the maximum TFCE value among all voxels of the entire cortex for each permutation. It is used to correct for family-wise error)
+
+6) Apply family-wise error rate correction
+
+```
+cd output_med_M
+tfce_mediation voxel calculate-fwep -i  SobelZ_M_TFCE.nii.gz  perm_SobelZ/perm_Zstat_TFCE_maxVoxel.csv
+```
+Explanation:
+Calculate 1-P(FWE) voxel image from max TFCE values from randomisation.
+
+Input:
+* SobelZ_M_TFCE.nii.gz (TFCE transformed Z-statistic voxel image)
+* perm_Zstat_TFCE_maxVoxel.csv (List with maximum TFCE values)
+
+Output:
+* SobelZ_M_TFCE_FWEcorrP.nii.gz (1-P(FWE) corrected image)
+
+7) View results
+
+Use your favorite viewer. e.g., fslview, mricron, MRIcroGL, etc.

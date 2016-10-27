@@ -67,8 +67,11 @@ Outputs:
 tm_tools vertex-box-cox-transform -i lh.all.area.00.mgh 8
 tm_tools vertex-box-cox-transform -i rh.all.area.00.mgh 8
 
-# replace the output
-mv ?h.all.area.03B.boxcox.mgh ?h.all.area.00.boxcox.mgh
+# replace the ?h.all.area.03B.mgh with lh.all.area.03B.boxcox.mgh
+for i in lh rh; do
+	mv ${i}.all.area.03B.mgh ${i}.all.area.00.backup.mgh;
+	mv ${i}.all.area.03B.boxcox.mgh ${i}.all.area.03B.mgh;
+done
 ```
 
 Explanation:
@@ -89,7 +92,6 @@ tm_tools regressor-tools -i predictors.csv covariates.csv -o -s
 ```
 
 Explanation:
-
 For the two-step multiple regression and mediation analyses using TFCE_mediation, it is recommended to scale (or whiten with orthonormalization) the regressors. The input file(s) should be dummy coded, and deliminated with comma. The program returns either the orthogonalization of the input file(s) or it returns the residuals from a least squares regression to remove the effect of covariates from variable. In this example, we using the orthonormalization option (-o -s).
 
 Inputs:
@@ -103,8 +105,66 @@ Outputs:
 4) Multiple Regression
 
 ```
-mv ?h.all.area.03B.boxcox.mgh ?h.all.area.00.boxcox.mgh
-tfce_mediation step1-voxel-regress -i predictors_orthogonized.csv covariates_orthogonized.csv
+tfce_mediation step1-voxel-regress -i predictors_orthogonized.csv covariates_orthogonized.csv -s area
+```
+
+Explanation:
+A two-step multiple regression is performed, and the resulting T-statistic images then undergo TFCE.
+
+Inputs:
+* predictors_orthogonized.csv (orthogonormalized regressors of interest)
+* covariates_orthogonized.csv (orthogonormalized regressors of no interest)
+* area (the surface of interest)
+
+Outputs:
+* python_temp_area/*.npy (Memory mapped numpy objects used later for permutation testing)
+* output_area/tstat_area_?h_con?.mgh (t-statistic image or the respective hemispehere and contrast)
+* output_area/negtstat_area_?h_con?.mgh (negative t-statistic image or the respective hemispehere and contrast)
+* output_area/tstat_area_?h_con?_TFCE.mgh (TFCE transformed t-statistic image)
+* output_area/negtstat_area_?h_con?_TFCE.mgh (TFCE transformed negative t-statistic image)
+* output_area/max_TFCE_contrast_values.csv (The max TFCE value for the positive and negative contrast(s))
+
+5) Permuation Testing (Randomization)
+
+```
+tfce_mediation step2-randomise-parallel --vertex area -n 10000 -p 8
+```
+
+Explanation:
+Permutation testing using parallel processing. This script is a wrapper to make n=200 permution chunks, and parallelizing processing of the vertex-regress-randomise scipt for each chunk (in this case). i.e., each chunk to a different processor.
+
+Input: 
+
+* area (surface of interest)
+* 10000 (total number of permutations)
+* 8 (number of cores to used with GNU parallel)
+
+Output:
+
+* output/perm_Tstat_area/perm_tstat_con?_TFCE_maxVertex.csv (the maximum TFCE value among all vertices of the entire cortex for each permutation. It is used to correct for family-wise error)
+
+6) Apply family-wise error rate correction
+
+```
+cd output
+for i in lh rh; do 
+tfce_mediation vertex-calculate-fwep -i tstat_area_${i}_con1_TFCE.mgh perm_Tstat_area/perm_tstat_con1_TFCE_maxVertex.csv
+tfce_mediation vertex-calculate-fwep -i negtstat_area_${i}_con1_TFCE.mgh perm_Tstat_area/perm_tstat_con1_TFCE_maxVertex.csv
+```
+Explanation:
+Calculate 1-P(FWE) vertex image from max TFCE values from randomisation.
+
+Input:
+tstat_area_?h_con?_TFCE.mgh (TFCE transformed T-statistic surface image)
+perm_tstat_con?_TFCE_maxVertex.csv (List with maximum TFCE values) 
+Output:
+tstat_area_?h_con?_TFCE_FWEcorrP.mgh (1-P(FWE) corrected image)
+
+7) View results
+
+```
+tm_tools vertex-freeview-quick -i tstat_area_lh_con1_TFCE_FWEcorrP.mgh tstat_area_rh_con1_TFCE_FWEcorrP.mgh
+
 ```
 
 

@@ -39,7 +39,7 @@ cd TFCE_mediation
 sudo python setup.py install
 ```
 
-### Example vertex-based analysiss ###
+### Example work flow for vertex-based analyses ###
 
 1) Run standard [Freesurfer](https://surfer.nmr.mgh.harvard.edu/fswiki) (for vertex-based analyses) recon-all preprocessing of T1-weighted images.
 
@@ -47,16 +47,44 @@ sudo python setup.py install
 
 
 ```
-tfce_mediation step0-vertex -i sujectslist.csv area -p
+tfce_mediation step0-vertex -i subjectslist.csv area -p
 ```
 
+Explanation:
+Perform a spherical surface registration for each subject to the fsaverage resampling either area or thickness.
+
 Inputs:
-\t subjectslist.csv (a text file contain one column of subject IDs. Note, the IDs must match the folders those in the $SUBJECTS_DIR folder.)
-	area (the surface to include in the analysis. For basic use, this should be area or thickness)
+* subjectslist.csv (a text file contain one column of subject IDs. Note, the IDs must match the folders those in the $SUBJECTS_DIR folder.)
+* area (the surface to include in the analysis. For basic use, this should be area or thickness)
 
 Outputs:
-	?h.all.area.00.mgh (all subjects to the fsaverage template using spherical registration)
-	?h.all.area.03B.mgh (the above file after 3mm FWHM smoothing of the surface)
+* ?h.all.area.00.mgh (all subjects to the fsaverage template using spherical registration)
+* ?h.all.area.03B.mgh (the above file after 3mm FWHM smoothing of the surface)
 
-2) Multiple regression
+2) Optional: Box-Cox transformation of the white matter surface
 
+```
+tm_tools vertex-box-cox-transform -i lh.all.area.00.mgh 8
+tm_tools vertex-box-cox-transform -i rh.all.area.00.mgh 8
+```
+
+Explanation:
+It has been suggested that surface area follows roughly a lognormal distribution [(Winkler, et al., 2012)](https://surfer.nmr.mgh.harvard.edu/ftp/articles/2012/2012_-_Winkler_et_al._-_NeuroImage.pdf); therefore, it is possible using to normalize the unsmoothed images using a power transformation (Box-Cox) transformation.
+
+Inputs:
+* ?h.all.area.00.mgh (The unsmoothed concatenated surface area image for subjects included)
+* 8 (The number of processers to use)
+
+Outputs:
+* ?h.all.area.00.boxcox.mgh (Box-Cox transformed image)
+* ?h.all.area.03B.boxcox.mgh (Box-Cox transformed image after 3mm FWHM smoothing)
+
+3) Optional: orthonormalizing the regressors
+
+```
+tm_tools regressor-tools -i predictors.csv covariates.csv -o -n
+```
+
+Explanation:
+
+For the two-step multiple regression and mediation analyses using TFCE_mediation, it is recommended to scale (or whiten with orthonormalization) the regressors. The input file(s) should be dummy coded, and deliminated with comma (i.e., *.csv). The program returns either the orthogonalization of the input file(s) or it returns the residuals from a least squares regression to remove the effect of covariates from variable.

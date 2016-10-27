@@ -156,10 +156,10 @@ Explanation:
 Calculate 1-P(FWE) vertex image from max TFCE values from randomisation.
 
 Input:
-tstat_area_?h_con?_TFCE.mgh (TFCE transformed T-statistic surface image)
-perm_tstat_con?_TFCE_maxVertex.csv (List with maximum TFCE values) 
+* tstat_area_?h_con?_TFCE.mgh (TFCE transformed T-statistic surface image)
+* perm_tstat_con?_TFCE_maxVertex.csv (List with maximum TFCE values) 
 Output:
-tstat_area_?h_con?_TFCE_FWEcorrP.mgh (1-P(FWE) corrected image)
+* tstat_area_?h_con?_TFCE_FWEcorrP.mgh (1-P(FWE) corrected image)
 
 8) View results
 

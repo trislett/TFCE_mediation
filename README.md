@@ -67,7 +67,7 @@ Outputs:
 tm_tools vertex-box-cox-transform -i lh.all.area.00.mgh 8
 tm_tools vertex-box-cox-transform -i rh.all.area.00.mgh 8
 
-# replace the ?h.all.area.03B.mgh with lh.all.area.03B.boxcox.mgh
+# replace the ?h.all.area.03B.mgh with ?h.all.area.03B.boxcox.mgh
 for i in lh rh; do
 	mv ${i}.all.area.03B.mgh ${i}.all.area.00.backup.mgh;
 	mv ${i}.all.area.03B.boxcox.mgh ${i}.all.area.03B.mgh;

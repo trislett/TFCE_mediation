@@ -27,11 +27,14 @@ or
 
 ### Installation ###
 
-1) PIP Install (recommended)
+
+PIP Install (recommended) The python dependencies will automatically be installed.
 ```
 sudo pip install tfce-mediation
 ```
-2) Install from source
+OR 
+
+Install from source
 
 ```
 git clone https://github.com/trislett/TFCE_mediation.git

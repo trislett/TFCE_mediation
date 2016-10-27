@@ -54,7 +54,7 @@ Explanation:
 Perform a spherical surface registration for each subject to the fsaverage resampling either area or thickness.
 
 Inputs:
-* subjectslist.csv (a text file contain one column of subject IDs. Note, the IDs must match the folders those in the $SUBJECTS_DIR folder.)
+* subjectslist.csv (a text file contain one column of subject IDs. Note, the IDs must match those in the $SUBJECTS_DIR folder.)
 * area (the surface to include in the analysis. For basic use, this should be area or thickness)
 
 Outputs:

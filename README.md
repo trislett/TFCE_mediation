@@ -134,13 +134,11 @@ Explanation:
 Permutation testing using parallel processing. This script is a wrapper to make n=200 permution chunks, and parallelizing processing of the vertex-regress-randomise scipt for each chunk (in this case). i.e., each chunk to a different processor.
 
 Input: 
-
 * area (surface of interest)
 * 10000 (total number of permutations)
 * 8 (number of cores to used with GNU parallel)
 
 Output:
-
 * output/perm_Tstat_area/perm_tstat_con?_TFCE_maxVertex.csv (the maximum TFCE value among all vertices of the entire cortex for each permutation. It is used to correct for family-wise error)
 
 7) Apply family-wise error rate correction
@@ -157,7 +155,8 @@ Calculate 1-P(FWE) vertex image from max TFCE values from randomisation.
 
 Input:
 * tstat_area_?h_con?_TFCE.mgh (TFCE transformed T-statistic surface image)
-* perm_tstat_con?_TFCE_maxVertex.csv (List with maximum TFCE values) 
+* perm_tstat_con?_TFCE_maxVertex.csv (List with maximum TFCE values)
+
 Output:
 * tstat_area_?h_con?_TFCE_FWEcorrP.mgh (1-P(FWE) corrected image)
 

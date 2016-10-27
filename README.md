@@ -51,7 +51,7 @@ tfce_mediation step0-vertex -i sujectslist.csv area -p
 ```
 
 Inputs:
-	subjectslist.csv (a text file contain one column of subject IDs. Note, the IDs must match the folders those in the $SUBJECTS_DIR folder.)
+\t subjectslist.csv (a text file contain one column of subject IDs. Note, the IDs must match the folders those in the $SUBJECTS_DIR folder.)
 	area (the surface to include in the analysis. For basic use, this should be area or thickness)
 
 Outputs:

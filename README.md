@@ -39,7 +39,7 @@ cd TFCE_mediation
 sudo python setup.py install
 ```
 
-### Example work flow for vertex-based analyses ###
+### Example work-flow for vertex analyses ###
 
 1) Run standard [Freesurfer](https://surfer.nmr.mgh.harvard.edu/fswiki) (for vertex-based analyses) recon-all preprocessing of T1-weighted images.
 

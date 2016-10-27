@@ -102,9 +102,9 @@ def run(opts):
 		os.system("${FSLDIR}/bin/fsl_sub -t cmd_TFCE_randomise_%d" % (currentTime) )
 
 	if opts.voxel:
-		print "Run: tfce_mediation calculate_fweP_voxel to calculate (1-P[FWE]) image (after randomisation is finished)."
+		print "Run: tfce_mediation voxel-calculate-fwep to calculate (1-P[FWE]) image (after randomisation is finished)."
 	else:
-		print "Run: tfce_mediation calculate_fweP_vertex to calculate (1-P[FWE]) image (after randomisation is finished)."
+		print "Run: tfce_mediation vertex-calculate-fwep to calculate (1-P[FWE]) image (after randomisation is finished)."
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

@@ -66,10 +66,13 @@ Outputs:
 ```
 tm_tools vertex-box-cox-transform -i lh.all.area.00.mgh 8
 tm_tools vertex-box-cox-transform -i rh.all.area.00.mgh 8
+
+# replace the output
+mv ?h.all.area.03B.boxcox.mgh ?h.all.area.00.boxcox.mgh
 ```
 
 Explanation:
-It has been suggested that surface area follows roughly a lognormal distribution [(Winkler, et al., 2012)](https://surfer.nmr.mgh.harvard.edu/ftp/articles/2012/2012_-_Winkler_et_al._-_NeuroImage.pdf); therefore, it is possible using to normalize the unsmoothed images using a power transformation (Box-Cox) transformation.
+It has been suggested that surface area follows roughly a lognormal distribution [(Winkler, et al., 2012)](https://surfer.nmr.mgh.harvard.edu/ftp/articles/2012/2012_-_Winkler_et_al._-_NeuroImage.pdf); therefore, vertex-box-cox-transform normalizes the unsmoothed images using a power transformation (Box-Cox) transformation.
 
 Inputs:
 * ?h.all.area.00.mgh (The unsmoothed concatenated surface area image for subjects included)
@@ -82,9 +85,26 @@ Outputs:
 3) Optional: orthonormalizing the regressors
 
 ```
-tm_tools regressor-tools -i predictors.csv covariates.csv -o -n
+tm_tools regressor-tools -i predictors.csv covariates.csv -o -s
 ```
 
 Explanation:
 
-For the two-step multiple regression and mediation analyses using TFCE_mediation, it is recommended to scale (or whiten with orthonormalization) the regressors. The input file(s) should be dummy coded, and deliminated with comma (i.e., *.csv). The program returns either the orthogonalization of the input file(s) or it returns the residuals from a least squares regression to remove the effect of covariates from variable.
+For the two-step multiple regression and mediation analyses using TFCE_mediation, it is recommended to scale (or whiten with orthonormalization) the regressors. The input file(s) should be dummy coded, and deliminated with comma. The program returns either the orthogonalization of the input file(s) or it returns the residuals from a least squares regression to remove the effect of covariates from variable. In this example, we using the orthonormalization option (-o -s).
+
+Inputs:
+* predictors.csv (dummy-coded regressors of interest)
+* covariates.csv (dummy-coded regressors of no interest)
+
+Outputs:
+* predictors_orthogonized.csv (orthogonormalized regressors of interest)
+* covariates_orthogonized.csv (orthogonormalized regressors of no interest)
+
+4) Multiple Regression
+
+```
+mv ?h.all.area.03B.boxcox.mgh ?h.all.area.00.boxcox.mgh
+tfce_mediation step1-voxel-regress -i predictors_orthogonized.csv covariates_orthogonized.csv
+```
+
+

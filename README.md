@@ -194,8 +194,8 @@ Outputs:
 3) Remove the effect of covariates on regressors for mediation analysis
 
 ```
-tm_tools regressor-tools -r predictor_variable.csv covariates.csv -r -s
-tm_tools regressor-tools -r dependant_variable.csv covariates.csv -r -s
+tm_tools regressor-tools -i predictor_variable.csv covariates.csv -r -s
+tm_tools regressor-tools -i dependant_variable.csv covariates.csv -r -s
 ```
 
 Explanation:

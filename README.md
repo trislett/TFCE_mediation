@@ -202,11 +202,11 @@ Explanation:
 For mediation analyses using TFCE_mediation, the effect of covariates should be removed from all regressors of interest. ‘regressor-tools -r’ returns the residuals after regressing out the effect of the covariates. In the next step (voxel-step1-????), the covariates will regressed out from the 4D_image.
 
 Inputs:
-* ?_variable.csv (dummy-coded regressors of interest)
+* ?????_variable.csv (dummy-coded regressors of interest)
 * covariates.csv (dummy-coded regressors of no interest)
 
 Outputs:
-* ?_resids.csv (residuals of the variable of interest)
+* ?????_resids.csv (residuals of the variable of interest)
 * covariates_std_dm.csv (unit variance and demean covariates file)
 
 4) Mediation analysis
@@ -218,7 +218,7 @@ Explanation:
 Mediation analyses using TFCE_mediation in which the ‘predictor_variable’ is the independent variable, the 4d_image is the mediator, and the ‘dependent_variable’ is the dependent variable. 
 
 Inputs:
-* ????????_resids.csv (residuals of the variable of interest)
+* ?????_resids.csv (residuals of the variable of interest)
 * covariates_std_dm.csv (unit variance and demean covariates file)
 
 Outputs:

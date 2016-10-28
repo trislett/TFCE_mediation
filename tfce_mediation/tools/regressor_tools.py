@@ -8,7 +8,7 @@ import argparse as ap
 def sym(w):
 	return w.dot(inv(sqrtm(w.T.dot(w))))
 def writeCSV(base,tail,data):
-	np.savetxt(("%s_%s.csv" % (base,tail)), data, delimiter=",", fmt='%10.5f')
+	np.savetxt(("%s_%s.csv" % (base,tail)), data, delimiter=",", fmt='%10.8f')
 
 DESCRIPTION = """
 Simple program to condition the regressors for TFCE_mediation analyses. The program returns either the orthogonalization (i.e., --orthogonalize) of the input file(s) or it returns the residuals (ie. --residuals) from a least squares regression to remove the effect of covariates from variable.

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 #    Multiple regression with TFCE
 #    Copyright (C) 2016  Tristram Lett

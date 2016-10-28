@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 #    Various functions for TFCE_mediation
 #    Copyright (C) 2016  Tristram Lett, Lea Waller

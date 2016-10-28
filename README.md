@@ -72,7 +72,7 @@ tm_tools vertex-box-cox-transform -i rh.all.area.00.mgh 8
 
 # replace the ?h.all.area.03B.mgh with ?h.all.area.03B.boxcox.mgh
 for i in lh rh; do
-	mv ${i}.all.area.03B.mgh ${i}.all.area.00.backup.mgh;
+	mv ${i}.all.area.03B.mgh ${i}.all.area.03B.backup.mgh;
 	mv ${i}.all.area.03B.boxcox.mgh ${i}.all.area.03B.mgh;
 done
 ```
@@ -154,7 +154,7 @@ for i in lh rh; do
 done
 ```
 Explanation:
-Calculate 1-P(FWE) vertex image from max TFCE values from randomisation.
+Calculate 1-P(FWE) vertex image from max TFCE values from randomisation. Note, the max TFCE values is determined from both the left and right hemisphere; therefore, there is only one max TFCE file per contrast. It is appropiate to use it correct the positive and negative t-statistic values from each hemisphere.
 
 Input:
 * tstat_area_?h_con?_TFCE.mgh (TFCE transformed T-statistic surface image)

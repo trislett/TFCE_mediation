@@ -25,7 +25,7 @@ def run(opts):
 	label = opts.input[0]
 	img_allsurf = nib.freesurfer.mghformat.load(arg_allsurf)
 	alldata_full = img_allsurf.get_data()
-	vertices = np.genfromtxt(label, delimiter='  ', skip_header=2, usecols= (0), dtype='int16')
+	vertices = np.genfromtxt(label, delimiter='  ', skip_header=2, usecols= (0), dtype='int32')
 	values = np.zeros((len(vertices),alldata_full.shape[3]))
 	ite=0
 	for i in vertices:

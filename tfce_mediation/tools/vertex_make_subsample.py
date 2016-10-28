@@ -21,7 +21,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 def run(opts):
 	arg_subgroupvariable = str(opts.input[0])
 	surftype = str(opts.input[1])
-	fwhm = str(opts.fhwm[0])
+	fwhm = str(opts.fwhm[0])
 	img_surf_lh = nib.freesurfer.mghformat.load('lh.all.%s.%s.mgh' % (surftype,fwhm))
 	img_surf_rh = nib.freesurfer.mghformat.load('rh.all.%s.%s.mgh' % (surftype,fwhm))
 	subgroupvariable = np.genfromtxt(arg_subgroupvariable, delimiter=',')

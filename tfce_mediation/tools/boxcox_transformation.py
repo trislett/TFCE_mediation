@@ -49,7 +49,7 @@ def run(opts):
 	surface = str(opts.input[0])
 	num_cores = int(opts.input[1])
 	surf_name = surface.split('.mgh',1)[0]
-	if len(surface.split('.00.',1))==0:
+	if len(surface.split('.00.',1))==1:
 		print "Please input unsmoothed surface. e.g., ?h.all.???.00.mgh"
 		exit()
 	surf_gen = surface.split('.00.',1)[0]

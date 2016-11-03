@@ -14,7 +14,7 @@ Required
 Recommended
 
 * [FSL](http://fsl.fmrib.ox.ac.uk/fsl/fslwiki)
-* [Neurodebian reprository](http://neuro.debian.net/)
+* [Neurodebian repository](http://neuro.debian.net/)
 * [PIP](https://pip.pypa.io/en/stable/installing/)
 
 Recommended for parallelization:

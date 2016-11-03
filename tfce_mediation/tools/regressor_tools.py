@@ -21,11 +21,11 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 	#input type
 	group = ap.add_mutually_exclusive_group(required=True)
 	group.add_argument("-i", "--input",
-		help="Two csv files: [dependent_var] [covariates]", 
+		help="Two csv files: [regressor(s)] [covariates]", 
 		nargs=2, 
 		metavar=('*.csv', '*.csv'))
 	group.add_argument("-f", "--file",  
-		help="One csv file: [regressors]", 
+		help="One csv file: [regressors(s)]", 
 		nargs=1, 
 		metavar=('*.csv'))
 
@@ -82,7 +82,6 @@ def run(opts):
 			else:
 				out_pred = out_regressors[:,:-(covars.shape[1])]
 				out_covars = regressors_orthog[:,-covars.shape[1]:]
-			out_covars = regressors_orthog[:,-covars.shape[1]:]
 			writeCSV(pred_nocsv,'orthogonal',out_pred)
 			writeCSV(covars_nocsv,'orthogonal',out_covars)
 

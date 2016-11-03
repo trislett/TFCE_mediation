@@ -40,7 +40,7 @@ class _Usage(ap._HelpAction):
 	def __call__(self, parser, namespace, values, option_string=None):
 		splist = []
 		splist.append(regressor_tools)
-		splist.append(plot_permutions)
+		splist.append(plot_permutations)
 		splist.append(voxel_cluster_step1)
 		splist.append(voxel_cluster_step2)
 		splist.append(voxel_extract_mean_values)
@@ -77,9 +77,9 @@ regressor_tools = subparsers.add_parser("regressor-tools", help="For the two-ste
 regressor_tools.set_defaults(func = tfce_mediation.tools.regressor_tools.run)
 tfce_mediation.tools.regressor_tools.getArgumentParser(regressor_tools)
 
-plot_permutions = subparsers.add_parser("plot-permutions", help="Plot the maximum TFCE values from permutation analysis as a histogram, and plot the critical values.")
-plot_permutions.set_defaults(func = tfce_mediation.tools.plot_permutions.run)
-tfce_mediation.tools.plot_permutions.getArgumentParser(plot_permutions)
+plot_permutations = subparsers.add_parser("plot-permutations", help="Plot the maximum TFCE values from permutation analysis as a histogram, and plot the critical values.")
+plot_permutations.set_defaults(func = tfce_mediation.tools.plot_permutations.run)
+tfce_mediation.tools.plot_permutations.getArgumentParser(plot_permutations)
 
 voxel_cluster_step1 = subparsers.add_parser("voxel-cluster-step1", help="Python wrapper to run FSL's cluster_results on pFWE corrected statistics voxel images. The default threshold is 0.95 (i.e., pFWE<0.05)")
 voxel_cluster_step1.set_defaults(func = tfce_mediation.tools.voxel_cluster_step1.run)

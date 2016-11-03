@@ -1,4 +1,4 @@
-from . import plot_permutions
+from . import plot_permutations
 from . import regressor_tools
 
 from . import boxcox_transformation

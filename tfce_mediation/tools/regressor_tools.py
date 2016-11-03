@@ -21,7 +21,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 	#input type
 	group = ap.add_mutually_exclusive_group(required=True)
 	group.add_argument("-i", "--input",
-		help="Two csv files: [regressor(s)] [covariates]", 
+		help="Two csv files: [regressor(s)] [covariates]. Please note that if the -r option is used, the regressor(s) will be treated as dependent variable(s).", 
 		nargs=2, 
 		metavar=('*.csv', '*.csv'))
 	group.add_argument("-f", "--file",  
@@ -29,6 +29,15 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		nargs=1, 
 		metavar=('*.csv'))
 
+	#options
+	ap.add_argument("-d", "--demean", 
+		help="demean columns", 
+		action="store_true")
+	ap.add_argument("-s", "--stddemean", 
+		help="demean and standardize columns", 
+		action="store_true")
+
+	#which tool to use
 	proceducetype = ap.add_mutually_exclusive_group(required=True)
 	proceducetype.add_argument("-o", "--orthogonalize", 
 		help="orthogonalize the inputs", 
@@ -40,13 +49,6 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		help="Just demean or standardize the regressors. i.e., no regression or orthogonization",
 		action="store_true")
 
-	#options
-	ap.add_argument("-d", "--demean", 
-		help="demean columns", 
-		action="store_true")
-	ap.add_argument("-s", "--stddemean", 
-		help="demean and standardize columns", 
-		action="store_true")
 	return ap
 
 

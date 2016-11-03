@@ -76,10 +76,11 @@ def run(opts):
 		if opts.file:
 			writeCSV(regressors_nocsv,'orthogonal',out_regressors)
 		if opts.input:
-			out_pred = out_regressors[:,:-(covars.shape[1])]
 			if covars.ndim==1:
+				out_pred = out_regressors[:,0]
 				out_covars = regressors_orthog[:,-1:]
 			else:
+				out_pred = out_regressors[:,:-(covars.shape[1])]
 				out_covars = regressors_orthog[:,-covars.shape[1]:]
 			out_covars = regressors_orthog[:,-covars.shape[1]:]
 			writeCSV(pred_nocsv,'orthogonal',out_pred)

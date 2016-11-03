@@ -195,7 +195,7 @@ Outputs:
 
 ```
 tm_tools regressor-tools -i predictor_variable.csv covariates.csv -r -s
-tm_tools regressor-tools -i dependant_variable.csv covariates.csv -r -s
+tm_tools regressor-tools -i dependent_variable.csv covariates.csv -r -s
 ```
 
 Explanation:
@@ -212,7 +212,7 @@ Outputs:
 4) Mediation analysis
 
 ```
-tfce_mediation step1-voxel-regress -i predictor_ resids.csv covariates_std_dm.csv dependant_resids.csv -m M
+tfce_mediation step1-voxel-regress -i predictor_resids.csv covariates_std_dm.csv dependent_resids.csv -m M
 ```
 Explanation:
 Mediation analyses using TFCE_mediation in which the ‘predictor_variable’ is the independent variable, the 4d_image is the mediator, and the ‘dependent_variable’ is the dependent variable. 
@@ -225,6 +225,11 @@ Outputs:
 * output_med_M/SobelZ_M.nii.gz (the untransformed Sobel Z-statistics of the indirect effect)
 * output_med_M/SobelZ_M_TFCE.nii.gz (the TFCE transformed Z-statistics)
 * output_med_M/maxTFCE_contrast_value.csv (the maximum TFCE values of the statistics image)
+
+
+Note, different mediation models can be performed.
+![Mediation type schematic](tfce_mediation/doc/mediation_type.png "Schematic")
+
 
 5) Permuation Testing (Randomization)
 

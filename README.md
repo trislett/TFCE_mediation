@@ -95,7 +95,7 @@ tm_tools regressor-tools -i predictors.csv covariates.csv -o -s
 ```
 
 Explanation:
-For the two-step multiple regression and mediation analyses using TFCE_mediation, it is recommended to scale (or orthonormalization) the regressors. The input file(s) should be dummy coded, and comma deliminated. The program returns either the orthogonalization of the input file(s) or it returns the residuals from a least squares regression to remove the effect of covariates from variable. In this example, we using the orthonormalization option (-o -s).
+For the two-step multiple regression and mediation analyses using TFCE_mediation, it is recommended to scale (or orthonormalization) the regressors. The input file(s) should be [dummy coded](http://www.ats.ucla.edu/stat/mult_pkg/faq/general/dummy.htm), and comma deliminated. The program returns either the orthogonalization of the input file(s) or it returns the residuals from a least squares regression to remove the effect of covariates from variable. In this example, we using the orthonormalization option (-o -s).
 
 Inputs:
 * predictors.csv (dummy-coded regressors of interest)

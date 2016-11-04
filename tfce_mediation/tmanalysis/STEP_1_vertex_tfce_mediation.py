@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 #    Vertex-wise mediation with TFCE
 #    Copyright (C) 2016  Tristram Lett

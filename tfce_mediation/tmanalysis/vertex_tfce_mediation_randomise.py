@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 #    Randomise vertex-based mediation with TFCE
 #    Copyright (C) 2016  Tristram Lett

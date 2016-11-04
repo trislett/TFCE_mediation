@@ -62,7 +62,7 @@ Outputs:
 * ?h.all.area.00.mgh (all subjects to the fsaverage template using spherical registration)
 * ?h.all.area.03B.mgh (the above file after 3mm FWHM smoothing of the surface)
 
-3) Optional: Box-Cox transformation of the white matter surface
+3) Optional: Box-Cox transformation
 
 ```
 tm_tools vertex-box-cox-transform -i lh.all.area.00.mgh 8
@@ -80,7 +80,7 @@ It has been suggested that surface area follows roughly a lognormal distribution
 
 Inputs:
 * ?h.all.area.00.mgh (The unsmoothed concatenated surface area image for subjects included)
-* 8 (The number of processers to use)
+* 8 (The number of processors to use)
 
 Outputs:
 * ?h.all.area.00.boxcox.mgh (Box-Cox transformed image)

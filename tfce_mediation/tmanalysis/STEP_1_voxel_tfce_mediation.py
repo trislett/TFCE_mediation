@@ -29,10 +29,14 @@ DESCRIPTION = "Voxel-wise mediation with TFCE"
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	ap.add_argument("-i", "--input", 
-		nargs = 3, 
-		help = "[predictor file] [covariate file] [dependent file]", 
-		metavar = ('*.csv', '*.csv', '*.csv'), 
+		nargs = 2, 
+		help = "[predictor file] [dependent file]", 
+		metavar = ('*.csv', '*.csv'), 
 		required = True)
+	ap.add_argument("-c", "--covariates", 
+		nargs = 1, 
+		help = "[covariate file]", 
+		metavar = ('*.csv'))
 	ap.add_argument("-m", "--medtype", 
 		nargs = 1, 
 		help = "Voxel-wise mediation type", 
@@ -47,8 +51,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 
 def run(opts):
 	arg_predictor = opts.input[0]
-	arg_covars = opts.input[1]
-	arg_depend = opts.input[2]
+	arg_depend = opts.input[1]
 	medtype = opts.medtype[0]
 
 	if not os.path.exists("python_temp"):
@@ -62,7 +65,6 @@ def run(opts):
 	data_index = data_mask>0.99
 	num_voxel = np.load('python_temp/num_voxel.npy')
 	pred_x = np.genfromtxt(arg_predictor, delimiter=",")
-	covars = np.genfromtxt(arg_covars, delimiter=",")
 	depend_y = np.genfromtxt(arg_depend, delimiter=",")
 
 	#TFCE
@@ -70,12 +72,16 @@ def run(opts):
 	calcTFCE = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac) # i.e. default: H=2, E=2, 26 neighbour connectivity
 
 	#step1
-	x_covars = np.column_stack([np.ones(n),covars])
-	y = resid_covars(x_covars,raw_nonzero)
+	if opts.covariates:
+		arg_covars = opts.covariates[0]
+		covars = np.genfromtxt(arg_covars, delimiter=",")
+		x_covars = np.column_stack([np.ones(n),covars])
+		y = resid_covars(x_covars,raw_nonzero)
+	else:
+		y = raw_nonzero.T
 
 	#save
 	np.save('python_temp/pred_x',pred_x)
-	np.save('python_temp/covars',covars)
 	np.save('python_temp/depend_y',depend_y)
 	np.save('python_temp/adjac',adjac)
 	np.save('python_temp/medtype',medtype)

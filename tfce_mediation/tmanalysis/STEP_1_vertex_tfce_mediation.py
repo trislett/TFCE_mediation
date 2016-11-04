@@ -193,7 +193,6 @@ def run(opts):
 		merge_y = np.hstack((y_lh,y_rh))
 		del y_lh
 		del y_rh
-		merge_y = np.hstack((y_lh,y_rh))
 	else:
 	#no covariates
 		merge_y=np.hstack((data_lh.T,data_rh.T))

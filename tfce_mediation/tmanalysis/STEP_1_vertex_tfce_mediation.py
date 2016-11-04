@@ -67,7 +67,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		type=int,
 		nargs=1,
 		default=[3])
-	adjac.add_argument("-c", "--adjfiles",
+	adjac.add_argument("-a", "--adjfiles",
 		help="Load custom adjacency set for each hemisphere.",
 		nargs=2,
 		metavar=('*.npy', '*.npy'))

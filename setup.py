@@ -6,7 +6,7 @@ from numpy.distutils.command import build_src
 from numpy.distutils.misc_util import Configuration
 
 PACKAGE_NAME = "tfce_mediation"
-BUILD_REQUIRES = ["numpy", "scipy", "cython", "scikit-learn", "matplotlib", "joblib", "nibabel", "math"]
+BUILD_REQUIRES = ["numpy", "scipy", "cython", "scikit-learn", "matplotlib", "joblib", "nibabel"]
 
 CLASSIFIERS = ["Development Status :: 3 - Alpha",
   "Environment :: Console",

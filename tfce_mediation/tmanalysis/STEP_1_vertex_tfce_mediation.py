@@ -31,10 +31,14 @@ DESCRIPTION = "Vertex-wise mediation with TFCE."
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 
 	ap.add_argument("-i", "--input", 
-		nargs=3, 
-		help="[predictor file] [covariate file] [dependent file]", 
-		metavar=('*.csv', '*.csv', '*.csv'), 
+		nargs=2, 
+		help="[predictor file] [dependent file]", 
+		metavar=('*.csv', '*.csv'), 
 		required=True)
+	ap.add_argument("-c", "--covariates", 
+		nargs=1, 
+		help="[covariate file]", 
+		metavar=('*.csv'))
 	ap.add_argument("-s", "--surface", 
 		nargs=1, 
 		metavar=('area or thickness'),
@@ -80,15 +84,13 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 def run(opts):
 	scriptwd = os.environ['TM_DIR']
 	arg_predictor = opts.input[0]
-	arg_covars = opts.input[1]
-	arg_depend = opts.input[2]
+	arg_depend = opts.input[1]
 	surface = opts.surface[0]
 	medtype = opts.medtype[0]
 	FWHM = opts.fwhm[0]
 
 	#load variables
 	pred_x = np.genfromtxt(arg_predictor, delimiter=",")
-	covars = np.genfromtxt(arg_covars, delimiter=",")
 	depend_y = np.genfromtxt(arg_depend, delimiter=",")
 
 	#load data
@@ -169,7 +171,6 @@ def run(opts):
 		os.mkdir("python_temp_med_%s" % surface)
 
 	np.save("python_temp_med_%s/pred_x" % surface,pred_x)
-	np.save("python_temp_med_%s/covars" % surface,covars)
 	np.save("python_temp_med_%s/depend_y" % surface,depend_y)
 	np.save("python_temp_med_%s/num_subjects" % surface,n)
 	np.save("python_temp_med_%s/num_vertex" % surface,num_vertex)
@@ -180,18 +181,25 @@ def run(opts):
 	np.save("python_temp_med_%s/bin_mask_rh" % (surface),bin_mask_rh)
 	np.save("python_temp_med_%s/adjac_lh" % (surface),adjac_lh)
 	np.save("python_temp_med_%s/adjac_rh" % (surface),adjac_rh)
-	np.save('python_temp_med_%s/optstfce' % (surface), opts.tfce)
+	np.save("python_temp_med_%s/optstfce" % (surface), opts.tfce)
 
 	#step1
-	x_covars = np.column_stack([np.ones(n),covars])
-	y_lh = resid_covars(x_covars,data_lh)
-	y_rh = resid_covars(x_covars,data_rh)
+	if opts.covariates:
+		arg_covars = opts.covariates[0]
+		covars = np.genfromtxt(arg_covars, delimiter=",")
+		x_covars = np.column_stack([np.ones(n),covars])
+		y_lh = resid_covars(x_covars,data_lh)
+		y_rh = resid_covars(x_covars,data_rh)
+		merge_y = np.hstack((y_lh,y_rh))
+		del y_lh
+		del y_rh
+		merge_y = np.hstack((y_lh,y_rh))
+	else:
+	#no covariates
+		merge_y=np.hstack((data_lh.T,data_rh.T))
 	del data_lh
 	del data_rh
-	merge_y = np.hstack((y_lh,y_rh))
 	np.save("python_temp_med_%s/merge_y" % (surface),merge_y.astype(np.float32, order = "C"))
-	del y_lh
-	del y_rh
 
 	#step2 mediation
 	SobelZ = calc_sobelz(medtype, pred_x, depend_y, merge_y, n, num_vertex)

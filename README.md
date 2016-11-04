@@ -210,7 +210,7 @@ Outputs:
 4) Mediation analysis
 
 ```
-tfce_mediation step1-voxel-regress -i predictor_resids.csv covariates_std_dm.csv dependent_resids.csv -m M
+tfce_mediation step1-voxel-regress -i predictor_resids.csv dependent_resids.csv -c covariates_std_dm.csv -m M
 ```
 Explanation:
 Mediation analyses using TFCE_mediation in which the ‘predictor_variable’ is the independent variable, the 4d_image is the mediator, and the ‘dependent_variable’ is the dependent variable. 

@@ -4,9 +4,10 @@ import sys
 from distutils.command.sdist import sdist
 from numpy.distutils.command import build_src
 from numpy.distutils.misc_util import Configuration
+from setuptools import setup
 
 PACKAGE_NAME = "tfce_mediation"
-BUILD_REQUIRES = ["numpy", "scipy", "cython", "scikit-learn", "matplotlib", "joblib", "nibabel"]
+BUILD_REQUIRES = ["numpy", "scipy", "matplotlib", "nibabel", "cython", "scikit-learn", "joblib"]
 
 CLASSIFIERS = ["Development Status :: 3 - Alpha",
   "Environment :: Console",
@@ -50,12 +51,12 @@ cmdclass = {"sdist": sdist}
 if os.path.exists('MANIFEST'):
   os.remove('MANIFEST')
 
-from setuptools import setup
+
 
 if parse_setuppy_commands():
   from numpy.distutils.core import setup
 
-setup(name = PACKAGE_NAME, version = "0.1.0.dev7",
+setup(name = PACKAGE_NAME, version = "0.1.0.dev8",
   maintainer = "Tristram Lett",
   maintainer_email = "tristram.lett@charite.de",
   description = "TFCE_mediation",
@@ -66,7 +67,7 @@ setup(name = PACKAGE_NAME, version = "0.1.0.dev7",
   license = "GNU General Public License v3 or later (GPLv3+)",
   classifiers = CLASSIFIERS,
   install_requires = BUILD_REQUIRES,
-  setup_requires = BUILD_REQUIRES,
+#  setup_requires = BUILD_REQUIRES,
   cmdclass = cmdclass,
   configuration = configuration
 )

@@ -32,7 +32,7 @@ sudo pip install tfce-mediation
 ```
 OR 
 
-Install from source
+Install from source (requires the following python packages: numpy, scipy, matplotlib, nibabel, cython, scikit-learn, joblib):
 
 ```
 git clone https://github.com/trislett/TFCE_mediation.git

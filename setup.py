@@ -2,8 +2,6 @@ import os
 import sys
 
 from distutils.command.sdist import sdist
-from numpy.distutils.command import build_src
-from numpy.distutils.misc_util import Configuration
 from setuptools import setup
 
 PACKAGE_NAME = "tfce_mediation"
@@ -51,12 +49,10 @@ cmdclass = {"sdist": sdist}
 if os.path.exists('MANIFEST'):
   os.remove('MANIFEST')
 
-
-
 if parse_setuppy_commands():
   from numpy.distutils.core import setup
 
-setup(name = PACKAGE_NAME, version = "0.1.0.dev8",
+setup(name = PACKAGE_NAME, version = "0.1.0.dev9",
   maintainer = "Tristram Lett",
   maintainer_email = "tristram.lett@charite.de",
   description = "TFCE_mediation",
@@ -67,7 +63,6 @@ setup(name = PACKAGE_NAME, version = "0.1.0.dev8",
   license = "GNU General Public License v3 or later (GPLv3+)",
   classifiers = CLASSIFIERS,
   install_requires = BUILD_REQUIRES,
-#  setup_requires = BUILD_REQUIRES,
   cmdclass = cmdclass,
   configuration = configuration
 )

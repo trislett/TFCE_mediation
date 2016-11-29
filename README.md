@@ -3,7 +3,7 @@ Fast regression and mediation analysis of vertex or voxel MR data with TFCE
 
 ### Dependencies ###
 
-TFCE_mediation should work with any UNIX based systemt. It has been tested on Ubuntu 14.04 and 16.04, Arch Linux, and OSX   
+TFCE_mediation should work with any UNIX based system. It has been tested on Ubuntu 14.04 and 16.04, Arch Linux, and OSX   
    
 Required   
    

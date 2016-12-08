@@ -22,7 +22,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 
 def run(opts):
 	arg_allsurf = opts.input[0]
-	label = opts.input[0]
+	label = opts.label[0]
 	img_allsurf = nib.freesurfer.mghformat.load(arg_allsurf)
 	alldata_full = img_allsurf.get_data()
 	vertices = np.genfromtxt(label, delimiter='  ', skip_header=2, usecols= (0), dtype='int32')

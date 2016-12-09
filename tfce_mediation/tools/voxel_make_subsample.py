@@ -8,9 +8,9 @@ DESCRIPTION = "Creates a subgroub based on missing data from an analysis. The su
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatter_class=ap.RawTextHelpFormatter)):
 	ap.add_argument("-i", "--input", 
-		help="[1D Subgrouping Variable] [surface (area or thickness)]", 
-		nargs=2, 
-		metavar=('*.csv','surface'))
+		help="[1D Subgrouping Variable]", 
+		nargs=1, 
+		metavar=('*.csv'))
 	return ap
 
 def run(opts):
@@ -35,7 +35,6 @@ def run(opts):
 #write data
 	np.save('python_temp/raw_nonzero',subdata.T)
 	np.save('python_temp/raw_nonzero_orignal',table)
-	np.save('python_temp/datadim',datadim)
 	np.save('python_temp/num_subjects',num_subjects_new)
 	np.save('python_temp/num_subjects_orignal',num_subjects)
 	np.save('python_temp/masking_variable',masking_variable)

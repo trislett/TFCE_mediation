@@ -8,7 +8,7 @@ DESCRIPTION = "Creates a subgroub based on missing data from an analysis. The su
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatter_class=ap.RawTextHelpFormatter)):
 	ap.add_argument("-i", "--input", 
-		help="1D Subgrouping Variable] [surface (area or thickness)]", 
+		help="[1D Subgrouping Variable] [surface (area or thickness)]", 
 		nargs=2, 
 		metavar=('*.csv','surface'))
 	return ap

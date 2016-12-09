@@ -45,6 +45,7 @@ class _Usage(ap._HelpAction):
 		splist.append(voxel_cluster_step2)
 		splist.append(voxel_extract_mean_values)
 		splist.append(voxel_build_nifti4d_from_npy)
+		splist.append(voxel_make_subsample)
 		splist.append(vertex_freeview_quick)
 		splist.append(vertex_cluster_step1)
 		splist.append(vertex_cluster_step2)
@@ -96,6 +97,10 @@ tfce_mediation.tools.voxel_extract_mean_values.getArgumentParser(voxel_extract_m
 voxel_build_nifti4d_from_npy = subparsers.add_parser("voxel-npy-to-nifti", help="Convert numpy voxel data (from python_temp) to 4D nifti image")
 voxel_build_nifti4d_from_npy.set_defaults(func = tfce_mediation.tools.voxel_build_nifti4d_from_npy.run)
 tfce_mediation.tools.voxel_build_nifti4d_from_npy.getArgumentParser(voxel_build_nifti4d_from_npy)
+
+voxel_make_subsample = subparsers.add_parser("voxel-make-subsample", help="Creates a subgroub based on missing data from an analysis. The subgrouping variable should be a 1D text file list with missing variables coded as a string (e.g. NA or NaN).")
+voxel_make_subsample.set_defaults(func = tfce_mediation.tools.voxel_make_subsample.run)
+tfce_mediation.tools.voxel_make_subsample.getArgumentParser(voxel_make_subsample)
 
 vertex_freeview_quick = subparsers.add_parser("vertex-freeview-quick", help="Python wrapper to view voxel-wise results using freeview.")
 vertex_freeview_quick.set_defaults(func = tfce_mediation.tools.vertex_freeview_quick.run)

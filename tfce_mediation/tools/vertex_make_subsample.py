@@ -10,7 +10,8 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 	ap.add_argument("-i", "--input", 
 		help="1D Subgrouping Variable] [surface (area or thickness)]", 
 		nargs=2, 
-		metavar=('*.csv','surface'))
+		metavar=('*.csv','surface'),
+		required=True)
 	ap.add_argument("-f", "--fwhm", 
 		help="FWHM of all surface file (Default: %(default)s))",
 		nargs=1,

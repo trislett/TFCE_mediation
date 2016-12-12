@@ -16,7 +16,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		required=True)
 	ap.add_argument("-t", "--threshold", 
 		help="1-P(FWE) threshold (default is 0.95)", 
-		default=[0.95], 
+		default=[0.95],
 		nargs=1)
 	return ap
 
@@ -24,7 +24,7 @@ def run(opts):
 
 	statimage=str(opts.image[0])
 	hemi=str(opts.hemi)
-	thresh=opts.threshold[0]
+	thresh=float(opts.threshold[0])
 
 	os.system("mkdir -p cluster_results; $FREESURFER_HOME/bin/mri_surfcluster --in %s --thmin %1.2f --hemi %s --subject fsaverage --o cluster_results/$(basename %s .mgh)_maskedvalues.mgh --olab cluster_results/$(basename %s .mgh).label --ocn cluster_results/$(basename %s .mgh)_label_surface.mgh > cluster_results/$(basename %s .mgh).output" % (statimage,thresh,hemi,statimage,statimage,statimage,statimage))
 

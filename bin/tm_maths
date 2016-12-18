@@ -174,7 +174,7 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		help="Output variance image across subjects",
 		action='store_true')
 	parser.add_argument("--scale", 
-		help="Convert  Z statistic image to 1-p image",
+		help="Scaled data to have zero mean and unit variance",
 		action='store_true')
 	parser.add_argument("--whiten", 
 		help="Whiten data (rescale by dividing by the standard deviation across all observations)",

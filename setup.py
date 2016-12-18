@@ -38,6 +38,7 @@ def configuration(parent_package = "", top_path = None):
 
   CONFIG.add_scripts(os.path.join("bin", PACKAGE_NAME))
   CONFIG.add_scripts(os.path.join("bin", "tm_tools"))
+  CONFIG.add_scripts(os.path.join("bin", "tm_maths"))
   CONFIG.add_scripts(os.path.join("bin", "submit_condor_jobs_file"))
 
   CONFIG.add_subpackage(PACKAGE_NAME)
@@ -52,7 +53,7 @@ if os.path.exists('MANIFEST'):
 if parse_setuppy_commands():
   from numpy.distutils.core import setup
 
-setup(name = PACKAGE_NAME, version = "0.1.2",
+setup(name = PACKAGE_NAME, version = "0.1.3",
   maintainer = "Tristram Lett",
   maintainer_email = "tristram.lett@charite.de",
   description = "TFCE_mediation",

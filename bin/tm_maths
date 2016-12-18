@@ -1,0 +1,357 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import numpy as np
+import nibabel as nib
+import argparse as ap
+from scipy import stats
+from scipy.cluster.vq import whiten
+from sklearn import preprocessing
+
+DESCRIPTION = "Basic functions on Nifti or MGH."
+
+def converter_try(vals):
+	resline = []
+	try:
+		resline.append(int(vals))
+		num_check=1
+	except ValueError:
+		try:
+			resline.append(float(vals))
+			num_check=1
+		except ValueError:
+			resline.append(vals)
+			num_check=0
+	return num_check
+
+def loadnifti(imagename):
+	if imagename.endswith('.nii.gz'):
+		os.system("zcat %s > temp.nii" % imagename)
+		img = nib.load('temp.nii')
+		img_data = img.get_data()
+		os.system("rm temp.nii")
+	else:
+		img = nib.load(imagename)
+		img_data = img.get_data()
+	return (img,img_data)
+
+def loadmgh(imagename):
+	img = nib.freesurfer.mghformat.load(imagename)
+	img_data = img.get_data()
+	data = np.squeeze(img_data)
+	return (img,data)
+
+def savenifti(imgdata, img, index, imagename):
+	outdata = imgdata.astype(np.float32, order = "C")
+	if imgdata.ndim == 2:
+		imgout = np.zeros(img.shape)
+	elif imgdata.ndim == 1:
+		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2]))
+	else:
+		print 'error'
+	imgout[index]=outdata
+	nib.save(nib.Nifti1Image(imgout.astype(np.float32, order = "C"),img.affine),imagename)
+
+def savemgh(imgdata, index, img, imagename):
+	outdata = imgdata.astype(np.float32, order = "C")
+	if imgdata.ndim == 2:
+		imgout = np.zeros(img.shape)
+	elif imgdata.ndim == 1:
+		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2]))
+	else:
+		print 'error'
+	imgout[index,0,0]=outdata
+	nib.save(nib.freesurfer.mghformat.MGHImage(imgout.astype(np.float32, order = "C"),img.affine),imagename)
+
+
+def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
+#input
+	datatype = parser.add_mutually_exclusive_group(required=True)
+	datatype.add_argument("--voxel", 
+		help="Voxel input",
+		metavar=('*.nii.gz'),
+		nargs=1)
+	datatype.add_argument("--vertex", 
+		help="Vertex input",
+		metavar=('*.mgh'),
+		nargs=1)
+
+#outname
+	parser.add_argument("-o", "--outname", 
+		nargs=1, 
+		help="Output basename", 
+		required=True)
+
+#optional mask
+	parser.add_argument("--mask", 
+		nargs=1, 
+		help="Input mask (recommended)", 
+		metavar=('*.[mgh or nii.gz]'))
+
+#math opts
+	parser.add_argument("-a", "--add", 
+		nargs=1, 
+		help="Add by number",
+		action='append',
+		metavar=('FLOAT'))
+	parser.add_argument("-s", "--subtract", 
+		nargs=1, 
+		help="Subtract by number",
+		action='append',
+		metavar=('FLOAT'))
+	parser.add_argument("-m", "--multiply", 
+		nargs=1, 
+		help="Multiple by number",
+		action='append',
+		metavar=('FLOAT'))
+	parser.add_argument("-d", "--divide", 
+		nargs=1, 
+		help="Divide by number",
+		action='append',
+		metavar=('FLOAT'))
+	parser.add_argument("-p","--power", 
+		nargs=1, 
+		help="Raise image to specified power. e.g., --power 0.5 takes the square root.",
+		action='append',
+		metavar=('FLOAT'))
+	parser.add_argument("-ln", "--naturallog", 
+		help="Natural log of image",
+		action='store_true')
+	parser.add_argument("-log", "--log10", 
+		help="Log base 10 of image", 
+		action='store_true')
+
+#math opts with image
+	parser.add_argument("-ai", "--addimage", 
+		nargs=1, 
+		help="Add image", 
+		metavar=('image'))
+	parser.add_argument("-si", "--subtractimage", 
+		nargs=1, 
+		help="Subtract image", 
+		metavar=('image'))
+	parser.add_argument("-mi", "--multiplyimage", 
+		nargs=1, 
+		help="Multiple image", 
+		metavar=('image'))
+	parser.add_argument("-di", "--divideimage", 
+		nargs=1, 
+		help="Divide image", 
+		metavar=('image'))
+
+#thresholding
+	parser.add_argument("-b", "--binarize", 
+		nargs=1,
+		help="Binarize image by threshold.",
+		metavar=('FLOAT'))
+	parser.add_argument("-t", "--threshold", 
+		nargs=1,
+		help="Zero everything below the number",
+		metavar=('FLOAT'))
+	parser.add_argument("-u", "--upperthreshold", 
+		nargs=1,
+		help="Zero everything above the number",
+		metavar=('FLOAT'))
+
+#stats junk
+	parser.add_argument("--ptoz", 
+		help="Convert 1-p image to Z statistic image",
+		action='store_true')
+	parser.add_argument("--ztop", 
+		help="Convert  Z statistic image to 1-p image",
+		action='store_true')
+	parser.add_argument("--ttop", 
+		nargs=1,
+		help="Convert T statistic image to 1-p image (two-sided p-values). Degrees of freedom must be inputted",
+		metavar=('dof'))
+
+#multi-subject operations
+	parser.add_argument("--mean", 
+		help="Output mean image across subjects",
+		action='store_true')
+	parser.add_argument("--variance", 
+		help="Output variance image across subjects",
+		action='store_true')
+	parser.add_argument("--scale", 
+		help="Convert  Z statistic image to 1-p image",
+		action='store_true')
+	parser.add_argument("--whiten", 
+		help="Whiten data (rescale by dividing by the standard deviation across all observations)",
+		action='store_true')
+	parser.add_argument("--percentthreshold",
+		help="Percent non-zero values across all subjects (useful for building masks or checking data)",
+		nargs=1,
+		metavar=('FLOAT'))
+	return parser
+
+def run(opts):
+
+# set image type
+	if opts.voxel:
+		tempname='temp_img.nii'
+		outname='%s.nii.gz' % sys.argv[4]
+		img, img_data = loadnifti(opts.voxel[0])
+	if opts.vertex:
+		tempname='temp_img.mgh'
+		outname='%s.mgh' % sys.argv[4]
+		img, img_data = loadmgh(opts.vertex[0])
+	if opts.mask:
+		tempmaskname='temp_mask'
+	if opts.mask:
+		if opts.mask[0] != 'temp_mask':
+			if opts.voxel:
+				mask , mask_data = loadnifti(opts.mask[0])
+			if opts.vertex:
+				mask , mask_data = loadmgh(opts.mask[0])
+			mask_index = mask_data>.99
+	else:
+		if len(img.shape) == 4:
+			if opts.voxel:
+				mean_data = np.mean(img_data,axis=3)
+				mask_index = (mean_data != 0)
+			if opts.vertex:
+				mask_index = (img_data != 0)
+		else:
+			mask_index = (img_data != 0)
+	img_data_trunc = img_data[mask_index]
+
+# Initiating convoluted solution to doing multiple math functions in python
+	argcount=0
+	argdone=0
+	headflag=0
+	argcmd=np.array([])
+	functionlist= ["-ai", "--addimage","-si", "--subtractimage","-mi", "--multiplyimage","-di", "--divideimage"] # options that input stings
+	if sys.argv[5]=='--mask':
+		headcmd="%s %s %s %s %s %s" % (sys.argv[1],sys.argv[2],sys.argv[3],tempname,sys.argv[5],sys.argv[6])
+		midcmd="%s %s %s %s %s %s" % (sys.argv[1],tempname,sys.argv[3],tempname, sys.argv[5],tempmaskname)
+		tailcmd="%s %s %s %s %s %s" % (sys.argv[1],tempname,sys.argv[3],outname,sys.argv[5],tempmaskname)
+		argcount=7
+	else:
+		headcmd="%s %s %s %s" % (sys.argv[1],sys.argv[2],sys.argv[3],tempname)
+		midcmd="%s %s %s %s" % (sys.argv[1],tempname,sys.argv[3],tempname)
+		tailcmd="%s %s %s %s" % (sys.argv[1],tempname,sys.argv[3],outname)
+		argcount=5
+	while argdone==0:
+		if not( (argcount+1) == len(sys.argv) or (argcount+2) == len(sys.argv)):
+			if (converter_try(sys.argv[(argcount+1)])==1) or (sys.argv[argcount] in functionlist):
+				if headflag == 0:
+					tempcmd ="%s %s %s" % (headcmd, sys.argv[argcount], sys.argv[(argcount+1)])
+					argcmd=np.append(argcmd,tempcmd)
+					headflag=1
+				else:
+					tempcmd="%s %s %s" % (midcmd, sys.argv[argcount], sys.argv[(argcount+1)])
+					argcmd=np.append(argcmd,tempcmd)
+				argcount+=2
+			else:
+				if headflag == 0:
+					tempcmd="%s %s" % (headcmd, sys.argv[argcount])
+					argcmd=np.append(argcmd,tempcmd)
+					headflag=1
+				else: 
+					tempcmd="%s %s" % (midcmd, sys.argv[argcount])
+					argcmd=np.append(argcmd,tempcmd)
+				argcount+=1
+		else:
+			if (argcount+2) == len(sys.argv):
+				tempcmd="%s %s %s" % (tailcmd, sys.argv[argcount], sys.argv[argcount+1])
+				argcmd=np.append(argcmd,tempcmd)
+				argdone=1
+			else:
+				tempcmd="%s %s" % (tailcmd, sys.argv[argcount])
+				argcmd=np.append(argcmd,tempcmd)
+				argdone=1
+
+
+	for i in range(len(argcmd)):
+		subopts = parser.parse_args(argcmd[i].split())
+
+		if subopts.voxel:
+			if subopts.voxel[0] != 'temp_img.nii':
+				tempname='temp_img.nii'
+		if subopts.vertex:
+			if subopts.vertex[0] != 'temp_img.nii':
+				tempname='temp_img.mgh'
+		if subopts.add:
+				img_data_trunc += np.array(subopts.add[0]).astype(np.float)
+		if subopts.subtract:
+				img_data_trunc -= np.array(subopts.subtract[0]).astype(np.float)
+		if subopts.multiply:
+				img_data_trunc *= np.array(subopts.multiply[0]).astype(np.float)
+		if subopts.divide:
+				img_data_trunc /= np.array(subopts.divide[0]).astype(np.float)
+		if subopts.power:
+				img_data_trunc = np.power(img_data_trunc, np.array(subopts.power[0]).astype(np.float))
+		if subopts.naturallog:
+				img_data_trunc = np.log(img_data_trunc)
+		if subopts.log10:
+				img_data_trunc = np.log10(img_data_trunc)
+		if subopts.addimage:
+			if subopts.voxel:
+				_, tempimgdata = loadnifti(subopts.addimage[0])
+				tempimgdata=tempimgdata[mask_index]
+			if subopts.vertex:
+				_, tempimgdata = loadnifti(subopts.addimage[0])
+				tempimgdata=tempimgdata[mask_index]
+			img_data_trunc+=tempimgdata
+		if subopts.subtractimage:
+			if subopts.voxel:
+				_, tempimgdata = loadnifti(subopts.subtractimage[0])
+				tempimgdata=tempimgdata[mask_index]
+			if subopts.vertex:
+				_, tempimgdata = loadnifti(subopts.subtractimage[0])
+				tempimgdata=tempimgdata[mask_index]
+			img_data_trunc-=tempimgdata
+		if subopts.multiplyimage:
+			if subopts.voxel:
+				_, tempimgdata = loadnifti(subopts.multiplyimage[0])
+				tempimgdata=tempimgdata[mask_index]
+			if subopts.vertex:
+				_, tempimgdata = loadnifti(subopts.multiplyimage[0])
+				tempimgdata=tempimgdata[mask_index]
+			img_data_trunc*=tempimgdata
+		if subopts.divideimage:
+			if subopts.voxel:
+				_, tempimgdata = loadnifti(subopts.divideimage[0])
+				tempimgdata=tempimgdata[mask_index]
+			if subopts.vertex:
+				_, tempimgdata = loadnifti(subopts.divideimage[0])
+				tempimgdata=tempimgdata[mask_index]
+			img_data_trunc/=tempimgdata
+		# Functions
+		if subopts.binarize:
+			img_data_trunc[img_data_trunc >= np.array(subopts.binarize[0]).astype(np.float)] = 1
+			img_data_trunc[img_data_trunc < np.array(subopts.binarize[0]).astype(np.float)] = 0
+		if subopts.threshold:
+			img_data_trunc[img_data_trunc < np.array(subopts.threshold[0]).astype(np.float)] = 0
+		if subopts.upperthreshold:
+			img_data_trunc[img_data_trunc > np.array(subopts.upperthreshold[0]).astype(np.float)] = 0
+		# Transformations
+		if subopts.ptoz:
+			img_data_trunc = stats.norm.ppf(1-img_data_trunc)
+		if subopts.ztop:
+			img_data_trunc = 1 - stats.norm.cdf(img_data_trunc)
+		if subopts.ttop: 
+			img_data_trunc = 1 - stats.t.sf(np.abs(img_data_trunc), np.array(subopts.ttop[0]).astype(np.int))*2
+		if subopts.mean:
+			img_data_trunc = np.mean(img_data_trunc, axis=1)
+		if subopts.variance:
+			img_data_trunc = np.var(img_data_trunc, axis=1)
+		if subopts.whiten:
+			img_data_trunc = whiten(img_data_trunc.T).T
+		if subopts.scale:
+			img_data_trunc = preprocessing.scale(img_data_trunc.T).T
+		if subopts.percentthreshold:
+			nsubs = img_data_trunc.shape[1]
+			img_data_trunc[img_data_trunc >= np.array(subopts.percentthreshold[0]).astype(np.float)] = 1
+			img_data_trunc = np.sum(img_data_trunc, axis=1)/nsubs
+	if opts.voxel:
+		savenifti(img_data_trunc, img, mask_index, outname)
+	if opts.vertex:
+		savenifti(img_data_trunc, img, mask_index, outname)
+
+
+if __name__ == "__main__":
+	parser = getArgumentParser()
+	opts = parser.parse_args()
+	run(opts)

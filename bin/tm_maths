@@ -339,7 +339,7 @@ def run(opts):
 			img_data_trunc = preprocessing.scale(img_data_trunc.T).T
 		if subopts.percentthreshold:
 			nsubs = img_data_trunc.shape[1]
-			img_data_trunc[img_data_trunc >= np.array(subopts.percentthreshold[0]).astype(np.float)] = 1
+			img_data_trunc[img_data_trunc > np.array(subopts.percentthreshold[0]).astype(np.float)] = 1
 			img_data_trunc = np.sum(img_data_trunc, axis=1)/nsubs
 	if opts.voxel:
 		savenifti(img_data_trunc, img, mask_index, outname)

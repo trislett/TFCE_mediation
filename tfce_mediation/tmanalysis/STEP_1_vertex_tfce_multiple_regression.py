@@ -185,11 +185,11 @@ def run(opts):
 		img_binmgh_lh = nib.freesurfer.mghformat.load(opts.binmask[0])
 		binmgh_lh = img_binmgh_lh.get_data()
 		binmgh_lh = np.squeeze(binmgh_lh)
-		img_binmgh_rh = nib.freesurfer.mghformat.load(opts.binmask[0])
+		img_binmgh_rh = nib.freesurfer.mghformat.load(opts.binmask[1])
 		binmgh_rh = img_binmgh_rh.get_data()
 		binmgh_rh = np.squeeze(binmgh_rh)
-		bin_mask_lh = binmgh_lh>1
-		bin_mask_rh = binmgh_rh>1
+		bin_mask_lh = binmgh_lh>.99
+		bin_mask_rh = binmgh_rh>.99
 	else:
 		bin_mask_lh = mean_lh>0
 		bin_mask_rh = mean_rh>0

@@ -189,11 +189,15 @@ def run(opts):
 # set image type
 	if opts.voxel:
 		tempname='temp_img.nii'
-		outname='%s.nii.gz' % sys.argv[4]
+		outname=sys.argv[4]
+		outname=outname.split('.gz',1)[0]
+		outname=outname.split('.nii',1)[0]
+		outname='%s.nii.gz' % outname
 		img, img_data = loadnifti(opts.voxel[0])
 	if opts.vertex:
 		tempname='temp_img.mgh'
-		outname='%s.mgh' % sys.argv[4]
+		outname=sys.argv[4].split('.mgh',1)[0]
+		outname='%s.mgh' % outname
 		img, img_data = loadmgh(opts.vertex[0])
 	if opts.mask:
 		tempmaskname='temp_mask'

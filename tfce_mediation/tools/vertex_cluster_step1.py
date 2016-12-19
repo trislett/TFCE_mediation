@@ -7,15 +7,18 @@ DESCRIPTION = "Python wrapper to run mri_surfcluster on PFWE corrected statistic
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	ap.add_argument("-i", "--image", 
-		help="stat_image.nii.gz", 
+		help="stat_image_?h.mgh", 
 		nargs=1, 
-		metavar=('*.nii.gz'), 
+		metavar=('*.mgh'), 
+		required=True)
+	ap.add_argument("--hemi", help="Hemisphere", 
+		choices=['lh', 'rh'],
 		required=True)
 	ap.add_argument("-t", "--threshold", 
 		help="1-P(FWE) threshold (default is 0.95)", 
-		default=[0.95], 
+		default=[0.95],
 		nargs=1)
-return ap
+	return ap
 
 def run(opts):
 

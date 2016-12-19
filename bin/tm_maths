@@ -39,8 +39,7 @@ def loadnifti(imagename):
 def loadmgh(imagename):
 	img = nib.freesurfer.mghformat.load(imagename)
 	img_data = img.get_data()
-	data = np.squeeze(img_data)
-	return (img,data)
+	return (img,img_data)
 
 def savenifti(imgdata, img, index, imagename):
 	outdata = imgdata.astype(np.float32, order = "C")
@@ -53,7 +52,7 @@ def savenifti(imgdata, img, index, imagename):
 	imgout[index]=outdata
 	nib.save(nib.Nifti1Image(imgout.astype(np.float32, order = "C"),img.affine),imagename)
 
-def savemgh(imgdata, index, img, imagename):
+def savemgh(imgdata, img, index, imagename):
 	outdata = imgdata.astype(np.float32, order = "C")
 	if imgdata.ndim == 2:
 		imgout = np.zeros(img.shape)
@@ -61,7 +60,7 @@ def savemgh(imgdata, index, img, imagename):
 		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2]))
 	else:
 		print 'error'
-	imgout[index,0,0]=outdata
+	imgout[index]=outdata
 	nib.save(nib.freesurfer.mghformat.MGHImage(imgout.astype(np.float32, order = "C"),img.affine),imagename)
 
 
@@ -207,11 +206,8 @@ def run(opts):
 			mask_index = mask_data>.99
 	else:
 		if len(img.shape) == 4:
-			if opts.voxel:
-				mean_data = np.mean(img_data,axis=3)
-				mask_index = (mean_data != 0)
-			if opts.vertex:
-				mask_index = (img_data != 0)
+			mean_data = np.mean(img_data,axis=3)
+			mask_index = (mean_data != 0)
 		else:
 			mask_index = (img_data != 0)
 	img_data_trunc = img_data[mask_index]
@@ -348,7 +344,7 @@ def run(opts):
 	if opts.voxel:
 		savenifti(img_data_trunc, img, mask_index, outname)
 	if opts.vertex:
-		savenifti(img_data_trunc, img, mask_index, outname)
+		savemgh(img_data_trunc, img, mask_index, outname)
 
 
 if __name__ == "__main__":

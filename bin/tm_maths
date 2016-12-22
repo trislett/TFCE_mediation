@@ -184,7 +184,7 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=1,
 		metavar=('FLOAT'))
 	parser.add_argument("--fwegamma",
-		help="TFCE image is converted to 1-P value image using the CDF from fitting a gamma distribution to the maximum permuted TFCE values (csv file). Check PDF line fit on the histogram of maximum permuted values.",
+		help="TFCE image is converted to 1-P value image using the CDF from fitting a gamma distribution to the maximum permuted TFCE values. Check PDF line fit on the histogram of maximum permuted values.",
 		nargs=1,
 		metavar=('*_TFCE_maxVertex.csv'))
 	parser.add_argument("--fwejohnsonsb",

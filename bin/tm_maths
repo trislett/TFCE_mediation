@@ -165,6 +165,14 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=1,
 		help="Convert T statistic image to 1-p image (two-sided p-values). Degrees of freedom must be inputted",
 		metavar=('dof'))
+	parser.add_argument("--fwegamma",
+		help="TFCE image is converted to 1-P value image using the CDF from fitting a gamma distribution to the maximum permuted TFCE values. Check PDF line fit on the histogram of maximum permuted values.",
+		nargs=1,
+		metavar=('*_TFCE_maxVertex.csv'))
+	parser.add_argument("--fwejohnsonsb",
+		help="TFCE image is converted to 1-P value image using the CDF from fitting a Johnson SB distribution to the maximum permuted TFCE values. Johnson SB should fit better than gamma distribution. Check PDF line fit on the histogram of maximum permuted values.",
+		nargs=1,
+		metavar=('*_TFCE_maxVertex.csv'))
 
 #multi-subject operations
 	parser.add_argument("--mean", 
@@ -183,14 +191,7 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		help="Percent non-zero values across all subjects (useful for building masks or checking data)",
 		nargs=1,
 		metavar=('FLOAT'))
-	parser.add_argument("--fwegamma",
-		help="TFCE image is converted to 1-P value image using the CDF from fitting a gamma distribution to the maximum permuted TFCE values. Check PDF line fit on the histogram of maximum permuted values.",
-		nargs=1,
-		metavar=('*_TFCE_maxVertex.csv'))
-	parser.add_argument("--fwejohnsonsb",
-		help="TFCE image is converted to 1-P value image using the CDF from fitting a Johnson SB distribution to the maximum permuted TFCE values. Johnson SB should fit better than gamma distribution. Check PDF line fit on the histogram of maximum permuted values.",
-		nargs=1,
-		metavar=('*_TFCE_maxVertex.csv'))
+
 	return parser
 
 def run(opts):

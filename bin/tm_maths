@@ -8,6 +8,7 @@ import argparse as ap
 from scipy import stats
 from scipy.cluster.vq import whiten
 from sklearn import preprocessing
+import matplotlib.pyplot as plt
 
 DESCRIPTION = "Basic functions on Nifti or MGH."
 
@@ -182,6 +183,14 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		help="Percent non-zero values across all subjects (useful for building masks or checking data)",
 		nargs=1,
 		metavar=('FLOAT'))
+	parser.add_argument("--fwegamma",
+		help="TFCE image is converted to 1-P imaging using the CDF from fitting a gamma distribution to the maximum permuted TFCE values (csv file). Check PDF line fit to the histogram of maximum permuted values.",
+		nargs=1,
+		metavar=('*_TFCE_maxVertex.csv'))
+	parser.add_argument("--fwejohnsonsb",
+		help="TFCE image is converted to 1-P imaging using the CDF from fitting a Johnson SB distribution to the maximum permuted TFCE values. Johnson SB should fit better than gamma distribution. Check PDF line fit to the histogram of maximum permuted values.",
+		nargs=1,
+		metavar=('*_TFCE_maxVertex.csv'))
 	return parser
 
 def run(opts):
@@ -221,7 +230,7 @@ def run(opts):
 	argdone=0
 	headflag=0
 	argcmd=np.array([])
-	functionlist= ["-ai", "--addimage","-si", "--subtractimage","-mi", "--multiplyimage","-di", "--divideimage"] # options that input stings
+	functionlist= ["-ai", "--addimage","-si", "--subtractimage","-mi", "--multiplyimage","-di", "--divideimage", "--fwegamma", '--fwejohnsonsb'] # options that input stings
 	if sys.argv[5]=='--mask':
 		headcmd="%s %s %s %s %s %s" % (sys.argv[1],sys.argv[2],sys.argv[3],tempname,sys.argv[5],sys.argv[6])
 		midcmd="%s %s %s %s %s %s" % (sys.argv[1],tempname,sys.argv[3],tempname, sys.argv[5],tempmaskname)
@@ -346,11 +355,32 @@ def run(opts):
 			nsubs = img_data_trunc.shape[1]
 			img_data_trunc[img_data_trunc > np.array(subopts.percentthreshold[0]).astype(np.float)] = 1
 			img_data_trunc = np.sum(img_data_trunc, axis=1)/nsubs
+		if subopts.fwegamma:
+			arg_maxTFCE = str(opts.fwegamma[0])
+			y = np.genfromtxt(arg_maxTFCE, delimiter=',')
+			x = np.linspace(0, y.max(), 100)
+			param = stats.gamma.fit(y)
+			img_data_trunc = stats.gamma.cdf(img_data_trunc, *param)
+			pdf_fitted = stats.gamma.pdf(x, *param)
+			plt.plot(x, pdf_fitted, color='r')
+			# plot the histogram
+			plt.hist(y, normed=True, bins=100)
+			plt.show()
+		if subopts.fwejohnsonsb:
+			arg_maxTFCE = str(opts.fwejohnsonsb[0])
+			y = np.genfromtxt(arg_maxTFCE, delimiter=',')
+			x = np.linspace(0, y.max(), 100)
+			param = stats.johnsonsb.fit(y)
+			img_data_trunc = stats.johnsonsb.cdf(img_data_trunc, *param)
+			pdf_fitted = stats.johnsonsb.pdf(x, *param)
+			plt.plot(x, pdf_fitted, color='r')
+			# plot the histogram
+			plt.hist(y, normed=True, bins=100)
+			plt.show()
 	if opts.voxel:
 		savenifti(img_data_trunc, img, mask_index, outname)
 	if opts.vertex:
 		savemgh(img_data_trunc, img, mask_index, outname)
-
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

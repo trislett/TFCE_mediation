@@ -8,7 +8,10 @@ import argparse as ap
 from scipy import stats
 from scipy.cluster.vq import whiten
 from sklearn import preprocessing
+from sklearn.cluster import KMeans
+from sklearn.decomposition import FastICA, PCA
 import matplotlib.pyplot as plt
+
 
 DESCRIPTION = "Basic functions on Nifti or MGH."
 
@@ -27,25 +30,33 @@ def converter_try(vals):
 	return num_check
 
 def loadnifti(imagename):
-	if imagename.endswith('.nii.gz'):
-		os.system("zcat %s > temp.nii" % imagename)
-		img = nib.load('temp.nii')
-		img_data = img.get_data()
-		os.system("rm temp.nii")
+	if os.path.exists(imagename): # check if file exists
+		if imagename.endswith('.nii.gz'):
+			os.system("zcat %s > temp.nii" % imagename)
+			img = nib.load('temp.nii')
+			img_data = img.get_data()
+			os.system("rm temp.nii")
+		else:
+			img = nib.load(imagename)
+			img_data = img.get_data()
 	else:
-		img = nib.load(imagename)
-		img_data = img.get_data()
+		print "Cannot find input image: %s" % imagename
+		exit()
 	return (img,img_data)
 
 def loadmgh(imagename):
-	img = nib.freesurfer.mghformat.load(imagename)
-	img_data = img.get_data()
+	if os.path.exists(imagename): # check if file exists
+		img = nib.freesurfer.mghformat.load(imagename)
+		img_data = img.get_data()
+	else:
+		print "Cannot find input image: %s" % imagename
+		exit()
 	return (img,img_data)
 
 def savenifti(imgdata, img, index, imagename):
 	outdata = imgdata.astype(np.float32, order = "C")
 	if imgdata.ndim == 2:
-		imgout = np.zeros(img.shape)
+		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2],outdata.shape[1]))
 	elif imgdata.ndim == 1:
 		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2]))
 	else:
@@ -56,7 +67,7 @@ def savenifti(imgdata, img, index, imagename):
 def savemgh(imgdata, img, index, imagename):
 	outdata = imgdata.astype(np.float32, order = "C")
 	if imgdata.ndim == 2:
-		imgout = np.zeros(img.shape)
+		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2],outdata.shape[1]))
 	elif imgdata.ndim == 1:
 		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2]))
 	else:
@@ -188,9 +199,17 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		help="Whiten data (rescale by dividing by the standard deviation across all observations)",
 		action='store_true')
 	parser.add_argument("--percentthreshold",
-		help="Percent non-zero values across all subjects (useful for building masks or checking data)",
+		help="Percent greater than threshold (i.e.,--percentthreshold 0 for non-zero values) values across all subjects (useful for building masks or checking data)",
 		nargs=1,
 		metavar=('FLOAT'))
+	parser.add_argument("--kmeans",
+		help="Input the number of clusters (e.g.,--kmeans 8 for eight clusters). Outputs k-means cluster labels as an image, and the cluster center for each subject (scale or whiten beforehand).",
+		nargs=1,
+		metavar=('INT'))
+	parser.add_argument("--fastica",
+		help="Input the number of components (e.g.,--fastica 8 for eight components). Outputs the recovered sources, and the component fit for each subject.",
+		nargs=1,
+		metavar=('INT'))
 
 	return parser
 
@@ -351,7 +370,7 @@ def run(opts):
 		if subopts.whiten:
 			img_data_trunc = whiten(img_data_trunc.T).T
 		if subopts.scale:
-			img_data_trunc = preprocessing.scale(img_data_trunc.T).T
+			img_data_trunc = preprocessing.scale(img_data_trunc, axis=1)
 		if subopts.percentthreshold:
 			nsubs = img_data_trunc.shape[1]
 			img_data_trunc[img_data_trunc > np.array(subopts.percentthreshold[0]).astype(np.float)] = 1
@@ -378,6 +397,14 @@ def run(opts):
 			# plot the histogram
 			plt.hist(y, normed=True, bins=100)
 			plt.show()
+		if subopts.kmeans:
+			kmeans = KMeans(n_clusters=int(subopts.kmeans[0])).fit(img_data_trunc)
+			img_data_trunc = (kmeans.labels_ + 1)
+			np.savetxt("%s.cluster_centres.csv" % sys.argv[4],kmeans.cluster_centers_.T, fmt='%10.5f', delimiter=',')
+		if subopts.fastica:
+			ica = FastICA(n_components=int(subopts.fastica[0]),max_iter=2000).fit(img_data_trunc)
+			img_data_trunc = ica.transform(img_data_trunc)
+			np.savetxt("%s.ICA_components.csv" % sys.argv[4],ica.components_.T, fmt='%10.8f', delimiter=',')
 	if opts.voxel:
 		savenifti(img_data_trunc, img, mask_index, outname)
 	if opts.vertex:

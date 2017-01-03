@@ -10,8 +10,8 @@ from scipy.cluster.vq import whiten
 from sklearn import preprocessing
 from sklearn.cluster import KMeans
 from sklearn.decomposition import FastICA, PCA
+from tfce_mediation import cynumstats
 import matplotlib.pyplot as plt
-
 
 DESCRIPTION = "Basic functions on Nifti or MGH."
 
@@ -176,6 +176,10 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=1,
 		help="Convert T statistic image to 1-p image (two-sided p-values). Degrees of freedom must be inputted",
 		metavar=('dof'))
+	parser.add_argument("--resids", 
+		nargs=1,
+		help="Regress out covariates, and return residuals",
+		metavar=('*.csv'))
 	parser.add_argument("--fwegamma",
 		help="TFCE image is converted to 1-P value image using the CDF from fitting a gamma distribution to the maximum permuted TFCE values. Check PDF line fit on the histogram of maximum permuted values.",
 		nargs=1,
@@ -254,7 +258,7 @@ def run(opts):
 	argdone=0
 	headflag=0
 	argcmd=np.array([])
-	functionlist= ["-ai", "--addimage","-si", "--subtractimage","-mi", "--multiplyimage","-di", "--divideimage", "--fwegamma", '--fwejohnsonsb'] # options that input stings
+	functionlist= ["-ai", "--addimage","-si", "--subtractimage","-mi", "--multiplyimage","-di", "--divideimage", "--fwegamma", "--fwejohnsonsb", "--resids"] # options that input stings
 	if sys.argv[5]=='--mask':
 		headcmd="%s %s %s %s %s %s" % (sys.argv[1],sys.argv[2],sys.argv[3],tempname,sys.argv[5],sys.argv[6])
 		midcmd="%s %s %s %s %s %s" % (sys.argv[1],tempname,sys.argv[3],tempname, sys.argv[5],tempmaskname)
@@ -367,6 +371,10 @@ def run(opts):
 			img_data_trunc = 1 - stats.norm.cdf(img_data_trunc)
 		if subopts.ttop: 
 			img_data_trunc = 1 - stats.t.sf(np.abs(img_data_trunc), np.array(subopts.ttop[0]).astype(np.int))*2
+		if subopts.resids:
+			covars = np.genfromtxt(subopts.resids[0],delimiter=",")
+			x_covars = np.column_stack([np.ones(covars.shape[0]),covars])
+			img_data_trunc = cynumstats.resid_covars(x_covars,img_data_trunc).T
 		if subopts.mean:
 			img_data_trunc = np.mean(img_data_trunc, axis=1)
 		if subopts.variance:
@@ -407,18 +415,20 @@ def run(opts):
 			np.savetxt("%s.cluster_centres.csv" % sys.argv[4],kmeans.cluster_centers_.T, fmt='%10.5f', delimiter=',')
 		if subopts.pca:
 			pca = PCA(n_components=int(subopts.pca[0]), whiten=True)
-			img_data_trunc = pca.fit_transform(img_data_trunc)
-			xaxis = np.arange(pca.n_components_) + 1
-			plt.plot(xaxis, pca.explained_variance_, 'ro-', linewidth=2)
+			fitcomps = pca.fit_transform(img_data_trunc.T)
+			img_data_trunc = pca.components_.T
+			xaxis = np.arange(fitcomps.shape[1]) + 1
+			plt.plot(xaxis, pca.explained_variance_ratio_, 'ro-', linewidth=2)
 			plt.title('Scree Plot')
 			plt.xlabel('Principal Component')
-			plt.ylabel('Eigenvalue')
+			plt.ylabel('Explained Variance Ratio')
 			plt.show()
-			np.savetxt("%s.PCA_components.csv" % sys.argv[4],pca.components_.T, fmt='%10.8f', delimiter=',')
+			np.savetxt("%s.PCA_fit.csv" % sys.argv[4], fitcomps, fmt='%10.8f', delimiter=',')
 		if subopts.fastica:
-			ica = FastICA(n_components=int(subopts.fastica[0]),max_iter=2000)
-			img_data_trunc = ica.fit_transform(img_data_trunc)
-			np.savetxt("%s.ICA_components.csv" % sys.argv[4],ica.components_.T, fmt='%10.8f', delimiter=',')
+			ica = FastICA(n_components=int(subopts.fastica[0]),max_iter=5000)
+			fitcomps = ica.fit_transform(img_data_trunc.T)
+			img_data_trunc = ica.components_.T
+			np.savetxt("%s.ICA_fit.csv" % sys.argv[4],fitcomps, fmt='%10.8f', delimiter=',')
 	if opts.voxel:
 		savenifti(img_data_trunc, img, mask_index, outname)
 	if opts.vertex:

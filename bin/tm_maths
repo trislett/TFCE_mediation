@@ -206,6 +206,10 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		help="Input the number of clusters (e.g.,--kmeans 8 for eight clusters). Outputs k-means cluster labels as an image, and the cluster center for each subject (scale or whiten beforehand).",
 		nargs=1,
 		metavar=('INT'))
+	parser.add_argument("--pca",
+		help="Input the number of components (e.g.,--pca 12 for 12 components). Scree plot is displayed. Outputs the recovered sources, and the component fit for each subject. (--scale (normalization) before PCA)",
+		nargs=1,
+		metavar=('INT'))
 	parser.add_argument("--fastica",
 		help="Input the number of components (e.g.,--fastica 8 for eight components). Outputs the recovered sources, and the component fit for each subject.",
 		nargs=1,
@@ -401,9 +405,19 @@ def run(opts):
 			kmeans = KMeans(n_clusters=int(subopts.kmeans[0])).fit(img_data_trunc)
 			img_data_trunc = (kmeans.labels_ + 1)
 			np.savetxt("%s.cluster_centres.csv" % sys.argv[4],kmeans.cluster_centers_.T, fmt='%10.5f', delimiter=',')
+		if subopts.pca:
+			pca = PCA(n_components=int(subopts.pca[0]), whiten=True)
+			img_data_trunc = pca.fit_transform(img_data_trunc)
+			xaxis = np.arange(pca.n_components_) + 1
+			plt.plot(xaxis, pca.explained_variance_, 'ro-', linewidth=2)
+			plt.title('Scree Plot')
+			plt.xlabel('Principal Component')
+			plt.ylabel('Eigenvalue')
+			plt.show()
+			np.savetxt("%s.PCA_components.csv" % sys.argv[4],pca.components_.T, fmt='%10.8f', delimiter=',')
 		if subopts.fastica:
-			ica = FastICA(n_components=int(subopts.fastica[0]),max_iter=2000).fit(img_data_trunc)
-			img_data_trunc = ica.transform(img_data_trunc)
+			ica = FastICA(n_components=int(subopts.fastica[0]),max_iter=2000)
+			img_data_trunc = ica.fit_transform(img_data_trunc)
 			np.savetxt("%s.ICA_components.csv" % sys.argv[4],ica.components_.T, fmt='%10.8f', delimiter=',')
 	if opts.voxel:
 		savenifti(img_data_trunc, img, mask_index, outname)

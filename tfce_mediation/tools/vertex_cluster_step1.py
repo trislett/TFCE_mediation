@@ -16,7 +16,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		required=True)
 	ap.add_argument("-t", "--threshold", 
 		help="1-P(FWE) threshold (default is 0.95)", 
-		default=[0.95],
+		default=['0.95'],
 		nargs=1)
 	return ap
 

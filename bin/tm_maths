@@ -1,5 +1,21 @@
 #!/usr/bin/env python
 
+#    tm_maths: math functions for vertex and voxel images
+#    Copyright (C) 2016 Lea Waller, Tristram Lett
+
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import os
 import sys
 import numpy as np
@@ -185,7 +201,7 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=1,
 		metavar=('*_TFCE_maxVertex.csv'))
 	parser.add_argument("--fwejohnsonsb",
-		help="TFCE image is converted to 1-P value image using the CDF from fitting a Johnson SB distribution to the maximum permuted TFCE values. Johnson SB should fit better than gamma distribution. Check PDF line fit on the histogram of maximum permuted values.",
+		help="TFCE image is converted to 1-P value image using the CDF from fitting a Johnson SB distribution to the maximum permuted TFCE values. Johnson SB should fit better than a gamma distribution. Check PDF line fit on the histogram of maximum permuted values.",
 		nargs=1,
 		metavar=('*_TFCE_maxVertex.csv'))
 
@@ -206,12 +222,13 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		help="Percent greater than threshold (i.e.,--percentthreshold 0 for non-zero values) values across all subjects (useful for building masks or checking data)",
 		nargs=1,
 		metavar=('FLOAT'))
+#dimension reduction
 	parser.add_argument("--kmeans",
 		help="Input the number of clusters (e.g.,--kmeans 8 for eight clusters). Outputs k-means cluster labels as an image, and the cluster center for each subject (scale or whiten beforehand).",
 		nargs=1,
 		metavar=('INT'))
 	parser.add_argument("--pca",
-		help="Input the number of components (e.g.,--pca 12 for 12 components). Scree plot is displayed. Outputs the recovered sources, and the component fit for each subject. (--scale (normalization) before PCA)",
+		help="Input the number of components (e.g.,--pca 12 for 12 components). Scree plot is displayed. Outputs the recovered sources, and the component fit for each subject. (scale before PCA)",
 		nargs=1,
 		metavar=('INT'))
 	parser.add_argument("--fastica",

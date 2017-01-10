@@ -25,9 +25,10 @@ from scipy import stats
 from scipy.cluster.vq import whiten
 from sklearn import preprocessing
 from sklearn.cluster import KMeans
-from sklearn.decomposition import FastICA, PCA
+from sklearn.decomposition import FastICA, PCA, MiniBatchSparsePCA
 from tfce_mediation import cynumstats
 import matplotlib.pyplot as plt
+import math
 
 DESCRIPTION = "Basic functions on Nifti or MGH."
 
@@ -91,6 +92,15 @@ def savemgh(imgdata, img, index, imagename):
 	imgout[index]=outdata
 	nib.save(nib.freesurfer.mghformat.MGHImage(imgout.astype(np.float32, order = "C"),img.affine),imagename)
 
+#find nearest permuted TFCE max value that corresponse to family-wise error rate 
+def find_nearest(array,value,p_array):
+	idx = np.searchsorted(array, value, side="left")
+	if idx == len(p_array):
+		return p_array[idx-1]
+	elif math.fabs(value - array[idx-1]) < math.fabs(value - array[idx]):
+		return p_array[idx-1]
+	else:
+		return p_array[idx]
 
 def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 #input
@@ -168,10 +178,6 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		metavar=('image'))
 
 #thresholding
-	parser.add_argument("-b", "--binarize", 
-		nargs=1,
-		help="Binarize image by threshold.",
-		metavar=('FLOAT'))
 	parser.add_argument("-t", "--threshold", 
 		nargs=1,
 		help="Zero everything below the number",
@@ -180,7 +186,9 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=1,
 		help="Zero everything above the number",
 		metavar=('FLOAT'))
-
+	parser.add_argument("-b", "--binarize",
+		help="Binarize non-zero values of an image.",
+		action='store_true')
 #stats junk
 	parser.add_argument("--ptoz", 
 		help="Convert 1-p image to Z statistic image (assumes the 1-p-value images is one sided)",
@@ -190,12 +198,16 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		action='store_true')
 	parser.add_argument("--ttop", 
 		nargs=1,
-		help="Convert T statistic image to 1-p image (two-sided p-values). Degrees of freedom must be inputted",
+		help="Convert T statistic image to 1-p image (two-sided p-values). Degrees of freedom must be inputed",
 		metavar=('dof'))
 	parser.add_argument("--resids", 
 		nargs=1,
 		help="Regress out covariates, and return residuals",
 		metavar=('*.csv'))
+	parser.add_argument("--fwep",
+		help="TFCE image is converted to 1-P value image using the maximum permuted TFCE values.",
+		nargs=1,
+		metavar=('*_TFCE_maxVertex.csv'))
 	parser.add_argument("--fwegamma",
 		help="TFCE image is converted to 1-P value image using the CDF from fitting a gamma distribution to the maximum permuted TFCE values. Check PDF line fit on the histogram of maximum permuted values.",
 		nargs=1,
@@ -228,13 +240,18 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=1,
 		metavar=('INT'))
 	parser.add_argument("--pca",
-		help="Input the number of components (e.g.,--pca 12 for 12 components). Scree plot is displayed. Outputs the recovered sources, and the component fit for each subject. (scale before PCA)",
+		help="Principal component analysis. Input the number of components (e.g.,--pca 12 for 12 components). Scree plot is displayed. Outputs the recovered sources, and the component fit for each subject.",
 		nargs=1,
 		metavar=('INT'))
 	parser.add_argument("--fastica",
-		help="Input the number of components (e.g.,--fastica 8 for eight components). Outputs the recovered sources, and the component fit for each subject.",
+		help="Independent component analysis. Input the number of components (e.g.,--fastica 8 for eight components). Outputs the recovered sources, and the component fit for each subject.",
 		nargs=1,
 		metavar=('INT'))
+	parser.add_argument("--mbspca",
+		help="Mini-batch sparse principal component analysis. Input the number of components (e.g.,--mbspca 8 for eight components). Outputs the recovered sources, and the component fit for each subject.",
+		nargs=1,
+		metavar=('INT'))
+
 
 	return parser
 
@@ -374,8 +391,7 @@ def run(opts):
 			img_data_trunc/=tempimgdata
 		# Functions
 		if subopts.binarize:
-			img_data_trunc[img_data_trunc >= np.array(subopts.binarize[0]).astype(np.float)] = 1
-			img_data_trunc[img_data_trunc < np.array(subopts.binarize[0]).astype(np.float)] = 0
+			img_data_trunc[img_data_trunc != 0] = 1
 		if subopts.threshold:
 			img_data_trunc[img_data_trunc < np.array(subopts.threshold[0]).astype(np.float)] = 0
 		if subopts.upperthreshold:
@@ -404,6 +420,16 @@ def run(opts):
 			nsubs = img_data_trunc.shape[1]
 			img_data_trunc[img_data_trunc > np.array(subopts.percentthreshold[0]).astype(np.float)] = 1
 			img_data_trunc = np.sum(img_data_trunc, axis=1)/nsubs
+		if subopts.fwep:
+			arg_maxTFCE = str(opts.fwep[0])
+			y = np.sort(np.genfromtxt(arg_maxTFCE, delimiter=','))
+			p_array=np.zeros(y.shape)
+			num_perm=y.shape[0]
+			for j in xrange(num_perm):
+				p_array[j] = np.true_divide(j,num_perm)
+			for k in xrange(len(img_data_trunc)):
+				img_data_trunc[k] = find_nearest(y,img_data_trunc[k],p_array)
+			print "The accuracy is p = 0.05 +/- %.4f" % (2*(np.sqrt(0.05*0.95/num_perm)))
 		if subopts.fwegamma:
 			arg_maxTFCE = str(opts.fwegamma[0])
 			y = np.genfromtxt(arg_maxTFCE, delimiter=',')
@@ -431,9 +457,9 @@ def run(opts):
 			img_data_trunc = (kmeans.labels_ + 1)
 			np.savetxt("%s.cluster_centres.csv" % sys.argv[4],kmeans.cluster_centers_.T, fmt='%10.5f', delimiter=',')
 		if subopts.pca:
-			pca = PCA(n_components=int(subopts.pca[0]), whiten=True)
+			pca = PCA(n_components=int(subopts.pca[0]))
 			fitcomps = pca.fit_transform(img_data_trunc.T)
-			img_data_trunc = pca.components_.T
+			img_data_trunc = -np.array( (pca.components_ - pca.components_.mean(axis=0)) / pca.components_.std(axis=0) ).T # normalizing the outputs
 			xaxis = np.arange(fitcomps.shape[1]) + 1
 			plt.plot(xaxis, pca.explained_variance_ratio_, 'ro-', linewidth=2)
 			plt.title('Scree Plot')
@@ -442,10 +468,15 @@ def run(opts):
 			plt.show()
 			np.savetxt("%s.PCA_fit.csv" % sys.argv[4], fitcomps, fmt='%10.8f', delimiter=',')
 		if subopts.fastica:
-			ica = FastICA(n_components=int(subopts.fastica[0]),max_iter=5000)
+			ica = FastICA(n_components=int(subopts.fastica[0]),max_iter=5000,  tol=0.0001)
 			fitcomps = ica.fit_transform(img_data_trunc.T)
-			img_data_trunc = ica.components_.T
+			img_data_trunc = -np.array( (ica.components_ - ica.components_.mean(axis=0)) / ica.components_.std(axis=0) ).T # normalizing the outputs
 			np.savetxt("%s.ICA_fit.csv" % sys.argv[4],fitcomps, fmt='%10.8f', delimiter=',')
+		if subopts.mbspca:
+			spca = MiniBatchSparsePCA(n_components=int(subopts.mbspca[0]), alpha=0.01, n_jobs=-1)
+			fitcomps = spca.fit_transform(img_data_trunc.T)
+			img_data_trunc = -np.array( (spca.components_ - spca.components_.mean(axis=0)) / spca.components_.std(axis=0) ).T # normalizing the outputs
+			np.savetxt("%s.mbSPCA_fit.csv" % sys.argv[4],fitcomps, fmt='%10.8f', delimiter=',')
 	if opts.voxel:
 		savenifti(img_data_trunc, img, mask_index, outname)
 	if opts.vertex:

@@ -21,9 +21,9 @@ import sys
 import numpy as np
 import nibabel as nib
 import argparse as ap
-from scipy import stats
+from scipy import stats, signal
 from scipy.cluster.vq import whiten
-from sklearn import preprocessing
+from sklearn import preprocessing, mixture
 from sklearn.cluster import KMeans
 from sklearn.decomposition import FastICA, PCA, MiniBatchSparsePCA
 from tfce_mediation import cynumstats
@@ -102,6 +102,23 @@ def find_nearest(array,value,p_array):
 	else:
 		return p_array[idx]
 
+def write_comp(analysis_name,data, sigdata, outmask, i, img_flag,img, mask_index):
+	outimage = np.zeros_like(data)
+	outimage[outmask] = sigdata
+	if img_flag == 1:
+		if np.abs(sigdata.max()) >  np.abs(sigdata.min()):
+			outname = "%s/%s_Comp%d_positive.mgh" % (analysis_name,analysis_name,int(i+1))
+		else:
+			outname = "%s/%s_Comp%d_negative.mgh" % (analysis_name,analysis_name,int(i+1))
+		savemgh(outimage, img, mask_index, outname)
+	else:
+		if np.abs(sigdata.max()) >  np.abs(sigdata.min()):
+			outname = "%s/%s_Comp%d_positive.nii.gz" % (analysis_name,analysis_name,int(i+1))
+		else:
+			outname = "%s/%s_Comp%d_negative.nii.gz" % (analysis_name,analysis_name,int(i+1))
+		savenifti(outimage, img, mask_index, outname)
+
+
 def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 #input
 	datatype = parser.add_mutually_exclusive_group(required=True)
@@ -158,6 +175,9 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 	parser.add_argument("-log", "--log10", 
 		help="Log base 10 of image", 
 		action='store_true')
+	parser.add_argument("--abs", 
+		help="Absolute value of image", 
+		action='store_true')
 
 #math opts with image
 	parser.add_argument("-ai", "--addimage", 
@@ -176,6 +196,10 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=1, 
 		help="Divide image", 
 		metavar=('image'))
+	parser.add_argument("-c", "--concatenate", 
+		nargs=1, 
+		help="Concatenate images", 
+		metavar=('image'))
 
 #thresholding
 	parser.add_argument("-t", "--threshold", 
@@ -189,7 +213,8 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 	parser.add_argument("-b", "--binarize",
 		help="Binarize non-zero values of an image.",
 		action='store_true')
-#stats junk
+
+#stats 
 	parser.add_argument("--ptoz", 
 		help="Convert 1-p image to Z statistic image (assumes the 1-p-value images is one sided)",
 		action='store_true')
@@ -234,23 +259,33 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		help="Percent greater than threshold (i.e.,--percentthreshold 0 for non-zero values) values across all subjects (useful for building masks or checking data)",
 		nargs=1,
 		metavar=('FLOAT'))
+
+#signal processing
+	parser.add_argument("--detrend", 
+		help="Removes the linear trend from time series data.",
+		action='store_true')
+
 #dimension reduction
-	parser.add_argument("--kmeans",
-		help="Input the number of clusters (e.g.,--kmeans 8 for eight clusters). Outputs k-means cluster labels as an image, and the cluster center for each subject (scale or whiten beforehand).",
-		nargs=1,
-		metavar=('INT'))
 	parser.add_argument("--pca",
 		help="Principal component analysis. Input the number of components (e.g.,--pca 12 for 12 components). Scree plot is displayed. Outputs the recovered sources, and the component fit for each subject.",
 		nargs=1,
 		metavar=('INT'))
+	parser.add_argument("--kmeans",
+		help="Input the number of clusters (e.g.,--kmeans 8 for eight clusters). Outputs k-means cluster labels as an image, and the cluster center for each subject (scale or whiten beforehand).",
+		nargs=1,
+		metavar=('INT'))
 	parser.add_argument("--fastica",
-		help="Independent component analysis. Input the number of components (e.g.,--fastica 8 for eight components). Outputs the recovered sources, and the component fit for each subject.",
+		help="Independent component analysis. Input the number of components (e.g.,--fastica 8 for eight components). Outputs the recovered sources, and the component fit for each subject. (recommended to scale first)",
 		nargs=1,
 		metavar=('INT'))
 	parser.add_argument("--mbspca",
-		help="Mini-batch sparse principal component analysis. Input the number of components (e.g.,--mbspca 8 for eight components). Outputs the recovered sources, and the component fit for each subject.",
+		help="Mini-batch sparse principal component analysis. Input the number of components (e.g.,--mbspca 8 for eight components). Outputs the recovered sources, and the component fit for each subject. This analysis uses parallel processing. (recommended to scale first)",
 		nargs=1,
 		metavar=('INT'))
+	parser.add_argument("--gmm",
+		help="Apply a three-component Gaussian mixture model to threshold dimension reduction images. Input a basename for the analysis (e.g.,--gmm lh_ica_area). Outputs the regions with greater than 95 percent posterior probability in the outermost curves.",
+		nargs=1,
+		metavar=('string'))
 
 
 	return parser
@@ -281,7 +316,7 @@ def run(opts):
 			mask_index = mask_data>.99
 	else:
 		if len(img.shape) == 4:
-			mean_data = np.mean(img_data,axis=3)
+			mean_data = np.mean(np.abs(img_data),axis=3)
 			mask_index = (mean_data != 0)
 		else:
 			mask_index = (img_data != 0)
@@ -292,7 +327,7 @@ def run(opts):
 	argdone=0
 	headflag=0
 	argcmd=np.array([])
-	functionlist= ["-ai", "--addimage","-si", "--subtractimage","-mi", "--multiplyimage","-di", "--divideimage", "--fwegamma", "--fwejohnsonsb", "--resids"] # options that input stings
+	functionlist= ["-ai", "--addimage","-si", "--subtractimage","-mi", "--multiplyimage","-di", "--divideimage", "-c", "--concatenate", "--fwep" ,"--fwegamma", "--fwejohnsonsb", "--resids", "--gmm"] # options that input stings
 	if sys.argv[5]=='--mask':
 		headcmd="%s %s %s %s %s %s" % (sys.argv[1],sys.argv[2],sys.argv[3],tempname,sys.argv[5],sys.argv[6])
 		midcmd="%s %s %s %s %s %s" % (sys.argv[1],tempname,sys.argv[3],tempname, sys.argv[5],tempmaskname)
@@ -357,6 +392,8 @@ def run(opts):
 				img_data_trunc = np.log(img_data_trunc)
 		if subopts.log10:
 				img_data_trunc = np.log10(img_data_trunc)
+		if subopts.abs:
+				img_data_trunc = np.abs(img_data_trunc)
 		if subopts.addimage:
 			if subopts.voxel:
 				_, tempimgdata = loadnifti(subopts.addimage[0])
@@ -389,6 +426,14 @@ def run(opts):
 				_, tempimgdata = loadnifti(subopts.divideimage[0])
 				tempimgdata=tempimgdata[mask_index]
 			img_data_trunc/=tempimgdata
+		if subopts.concatenate:
+			if subopts.voxel:
+				_, tempimgdata = loadnifti(subopts.concatenate[0])
+				tempimgdata=tempimgdata[mask_index]
+			if subopts.vertex:
+				_, tempimgdata = loadnifti(subopts.concatenate[0])
+				tempimgdata=tempimgdata[mask_index]
+			img_data_trunc = np.column_stack((img_data_trunc,tempimgdata))
 		# Functions
 		if subopts.binarize:
 			img_data_trunc[img_data_trunc != 0] = 1
@@ -420,6 +465,8 @@ def run(opts):
 			nsubs = img_data_trunc.shape[1]
 			img_data_trunc[img_data_trunc > np.array(subopts.percentthreshold[0]).astype(np.float)] = 1
 			img_data_trunc = np.sum(img_data_trunc, axis=1)/nsubs
+		if subopts.detrend:
+			img_data_trunc = signal.detrend(img_data_trunc)
 		if subopts.fwep:
 			arg_maxTFCE = str(opts.fwep[0])
 			y = np.sort(np.genfromtxt(arg_maxTFCE, delimiter=','))
@@ -468,7 +515,7 @@ def run(opts):
 			plt.show()
 			np.savetxt("%s.PCA_fit.csv" % sys.argv[4], fitcomps, fmt='%10.8f', delimiter=',')
 		if subopts.fastica:
-			ica = FastICA(n_components=int(subopts.fastica[0]),max_iter=5000,  tol=0.0001)
+			ica = FastICA(n_components=int(subopts.fastica[0]),max_iter=5000,  tol=0.0000001)
 			fitcomps = ica.fit_transform(img_data_trunc.T)
 			img_data_trunc = -np.array( (ica.components_ - ica.components_.mean(axis=0)) / ica.components_.std(axis=0) ).T # normalizing the outputs
 			np.savetxt("%s.ICA_fit.csv" % sys.argv[4],fitcomps, fmt='%10.8f', delimiter=',')
@@ -477,6 +524,35 @@ def run(opts):
 			fitcomps = spca.fit_transform(img_data_trunc.T)
 			img_data_trunc = -np.array( (spca.components_ - spca.components_.mean(axis=0)) / spca.components_.std(axis=0) ).T # normalizing the outputs
 			np.savetxt("%s.mbSPCA_fit.csv" % sys.argv[4],fitcomps, fmt='%10.8f', delimiter=',')
+	if subopts.gmm:
+		analysis_name = subopts.gmm[0]
+		numComponents = img_data_trunc.shape[1]
+		gmm = mixture.GaussianMixture(n_components=3)
+		posterior_prob_threshold = 0.95
+
+		if subopts.vertex:
+			img_flag = 1
+		else:
+			img_flag = 0 
+		if os.path.exists(analysis_name):
+			print '%s directory exists' % analysis_name
+			exit()
+		else:
+			os.makedirs(analysis_name)
+
+		for i in range(numComponents):
+			data = img_data_trunc[:,i]
+			X = data[:, np.newaxis]
+			gmm.fit(X)
+			pred_props = gmm.predict_proba(X)
+			for j in range(3):
+				sigdata = np.array([])
+				sigdata = data[(pred_props[:,j] >= posterior_prob_threshold)]
+				if sigdata.size != 0:
+					write_comp(analysis_name, data, sigdata , (pred_props[:,j] >= posterior_prob_threshold), i, img_flag, img, mask_index)
+					print 'Comp %d, Dist%d, Minimum = %1.2f, Maximum = %1.2f' % ((i+1),j,X[pred_props[:,j] >= posterior_prob_threshold,0].min(), X[pred_props[:,j] >= posterior_prob_threshold,0].max())
+
+
 	if opts.voxel:
 		savenifti(img_data_trunc, img, mask_index, outname)
 	if opts.vertex:

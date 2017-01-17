@@ -155,6 +155,10 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		help="Input mask (recommended)", 
 		metavar=('*.[mgh or nii.gz]'))
 
+	parser.add_argument("--fullmask", 
+		help="Mask includes whole image instead of using non-zero data (not recommended).", 
+		action='store_true')
+
 #math opts
 	parser.add_argument("-a", "--add", 
 		nargs=1, 
@@ -308,7 +312,10 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		help="Apply a three-component Gaussian mixture model to threshold dimension reduction images. Input a basename for the analysis (e.g.,--gmm lh_ica_area). Outputs the regions with greater than 95 percent posterior probability in the outermost curves.",
 		nargs=1,
 		metavar=('string'))
-
+	parser.add_argument("--timeplot",
+		help="Generates a figure of the components over time (or subjects) as jpeg. Input a basename for the analysis (e.g.,--timeplot lh_ica_area_plots).",
+		nargs=1,
+		metavar=('string'))
 
 	return parser
 
@@ -336,6 +343,9 @@ def run(opts):
 			if opts.vertex:
 				mask , mask_data = loadmgh(opts.mask[0])
 			mask_index = mask_data>.99
+	elif opts.fullmask:
+		mask_index=np.zeros((img_data.shape[0],img_data.shape[1],img_data.shape[2]))
+		mask_index = (mask_index == 0)
 	else:
 		if len(img.shape) == 4:
 			mean_data = np.mean(np.abs(img_data),axis=3)
@@ -349,7 +359,7 @@ def run(opts):
 	argdone=0
 	headflag=0
 	argcmd=np.array([])
-	functionlist= ["-ai", "--addimage","-si", "--subtractimage","-mi", "--multiplyimage","-di", "--divideimage", "-c", "--concatenate", "--fwep" ,"--fwegamma", "--fwejohnsonsb", "--resids", "--gmm"] # options that input stings
+	functionlist= ["-ai", "--addimage","-si", "--subtractimage","-mi", "--multiplyimage","-di", "--divideimage", "-c", "--concatenate", "--fwep" ,"--fwegamma", "--fwejohnsonsb", "--resids", "--gmm", "--timeplot"] # options that input stings
 	if sys.argv[5]=='--mask':
 		headcmd="%s %s %s %s %s %s" % (sys.argv[1],sys.argv[2],sys.argv[3],tempname,sys.argv[5],sys.argv[6])
 		midcmd="%s %s %s %s %s %s" % (sys.argv[1],tempname,sys.argv[3],tempname, sys.argv[5],tempmaskname)
@@ -547,9 +557,17 @@ def run(opts):
 			plt.ylabel('Explained Variance Ratio')
 			plt.show()
 			np.savetxt("%s.PCA_fit.csv" % sys.argv[4], zscaler(fitcomps.T).T, fmt='%10.8f', delimiter=',')
+			np.savetxt("%s.PCA_var_explained_ratio.csv" % sys.argv[4], pca.explained_variance_ratio_, fmt='%10.8f', delimiter=',')
 		if subopts.fastica:
 			ica = FastICA(n_components=int(subopts.fastica[0]),max_iter=5000,  tol=0.0000001)
 			fitcomps = ica.fit_transform(img_data_trunc.T)
+#			var = np.sum(ica.mixing_**2, axis=0) * np.array(np.sum(img_data_trunc.T**2, axis=1))[:int(ica.mixing_.shape[1])] / (img_data_trunc.shape[0] * img_data_trunc.shape[1] - 1)
+#			var /= var.sum()
+#			order_var = np.argsort(-var)
+#			fitcomps = fitcomps[:,order_var]
+#			img_data_trunc = zscaler(ica.components_[order_var,:]).T # standardizing the outputs
+#			np.savetxt("%s.ICA_fit.csv" % sys.argv[4],zscaler(fitcomps.T).T, fmt='%10.8f', delimiter=',')
+#			np.savetxt("%s.ICA_var_explained_ratio.csv" % sys.argv[4], var[order_var], fmt='%10.8f', delimiter=',')
 			img_data_trunc = zscaler(ica.components_).T # standardizing the outputs
 			np.savetxt("%s.ICA_fit.csv" % sys.argv[4],zscaler(fitcomps.T).T, fmt='%10.8f', delimiter=',')
 		if subopts.mbspca:
@@ -588,6 +606,30 @@ def run(opts):
 					if sigdata.size != 0:
 						write_comp(analysis_name, data, sigdata , (pred_props[:,j] >= posterior_prob_threshold), i, img_flag, img, mask_index)
 						print 'Comp %d, Dist%d, Minimum = %1.2f, Maximum = %1.2f' % ((i+1),j,X[pred_props[:,j] >= posterior_prob_threshold,0].min(), X[pred_props[:,j] >= posterior_prob_threshold,0].max())
+		if subopts.timeplot:
+			# first test if fitcomps exists
+			try:
+				fitcomps
+			except NameError:
+				print "Run dimension reduction first (e.g. --pca, --fastica, etc.)"
+				exit()
+			# generate graphs
+			analysis_name = subopts.timeplot[0]
+			components = zscaler(fitcomps.T).T
+			subs=np.array(range(components.shape[0]))+1
+
+			if os.path.exists(analysis_name):
+				print '%s directory exists' % analysis_name
+				exit()
+			else:
+				os.makedirs(analysis_name)
+			for i in range(components.shape[1]):
+				plt.plot(subs, components[:,i], 'ro-', linewidth=2)
+				plt.title('Component %d Plot' % (i+1))
+				plt.xlabel('Time or Subject')
+				plt.savefig('%s/%s_comp%d.jpg' % (analysis_name,analysis_name,(i+1)))
+				plt.clf()
+
 
 #write out
 	if opts.voxel:

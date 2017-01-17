@@ -1,11 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import os
 import numpy as np
 import nibabel as nib
 import argparse as ap
-
-DESCRIPTION = "Fast merging for Nifti or MGH images"
 
 def loadnifti(imagename):
 	if os.path.exists(imagename): # check if file exists
@@ -53,8 +51,10 @@ def savemgh(imgdata, img, index, imagename):
 	imgout[index]=outdata
 	nib.save(nib.freesurfer.mghformat.MGHImage(imgout.astype(np.float32, order = "C"),img.affine),imagename)
 
+DESCRIPTION = "Fast merging for Nifti or MGH images"
+
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatter_class=ap.RawTextHelpFormatter)):
-	datatype = parser.add_mutually_exclusive_group(required=True)
+	datatype = ap.add_mutually_exclusive_group(required=True)
 	datatype.add_argument("--voxel", 
 		help="Voxel input",
 		action="store_true")
@@ -64,19 +64,6 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 	ap.add_argument("-o", "--output", nargs=1, help="[4D_image]", metavar=('*.nii.gz'), required=True)
 	ap.add_argument("-i", "--input", nargs='+', help="[3Dimage] ...", metavar=('*.nii.gz'), required=True)
 	ap.add_argument("-m", "--mask", nargs=1, help="[3Dimage]", metavar=('*.nii.gz'))
-
-
-
-
-#input
-	datatype = parser.add_mutually_exclusive_group(required=True)
-	datatype.add_argument("--voxel", 
-		help="Voxel input",
-		action="store_true")
-	datatype.add_argument("--vertex", 
-		help="Vertex input",
-		action="store_true")
-
 	return ap
 
 def run(opts):
@@ -100,20 +87,18 @@ def run(opts):
 
 	for i in xrange(numMerge):
 		print "merging image %s" % opts.input[i]
-		if i == 0:
-			print "first volume"
-		else:
+		if i > 0:
 			if opts.voxel:
 				_, tempimgdata = loadnifti(opts.input[i])
 			if opts.vertex:
 				_, tempimgdata = loadmgh(opts.input[i])
+
 			tempimgdata=tempimgdata[mask_index]
 			img_data_trunc = np.column_stack((img_data_trunc,tempimgdata))
 	if opts.voxel:
 		savenifti(img_data_trunc, img, mask_index, outname)
 	if opts.vertex:
-		savemgh((img_data_trunc, img, mask_index, outname)
-
+		savemgh(img_data_trunc, img, mask_index, outname)
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

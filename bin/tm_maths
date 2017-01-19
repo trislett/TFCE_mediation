@@ -286,6 +286,10 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 	parser.add_argument("--detrend", 
 		help="Removes the linear trend from time series data.",
 		action='store_true')
+	parser.add_argument("--pcacompression",
+		help="Applies the inverse solution from the projected features of a principal component analysis. Input the number of components (e.g.,--pcacompression 40). Scree plot is displayed. The output retains the axes with the maximum variance.",
+		nargs=1,
+		metavar=('INT'))
 
 #dimension reduction
 	parser.add_argument("--pca",
@@ -507,6 +511,7 @@ def run(opts):
 		if subopts.percentthreshold:
 			nsubs = img_data_trunc.shape[1]
 			img_data_trunc[img_data_trunc > np.array(subopts.percentthreshold[0]).astype(np.float)] = 1
+			img_data_trunc[img_data_trunc <= np.array(subopts.percentthreshold[0]).astype(np.float)] = 0
 			img_data_trunc = np.sum(img_data_trunc, axis=1)/nsubs
 		if subopts.detrend:
 			img_data_trunc = signal.detrend(img_data_trunc)
@@ -546,6 +551,18 @@ def run(opts):
 			kmeans = KMeans(n_clusters=int(subopts.kmeans[0])).fit(img_data_trunc)
 			img_data_trunc = (kmeans.labels_ + 1)
 			np.savetxt("%s.cluster_centres.csv" % sys.argv[4],kmeans.cluster_centers_.T, fmt='%10.5f', delimiter=',')
+		if subopts.pcacompression:
+			pca = PCA(n_components=int(subopts.pcacompression[0]))
+			fitcomps = pca.fit_transform(img_data_trunc.T)
+			X_proj = pca.transform(img_data_trunc.T)
+			X_rec = pca.inverse_transform(X_proj)
+			img_data_trunc = X_rec.T
+			xaxis = np.arange(fitcomps.shape[1]) + 1
+			plt.plot(xaxis, pca.explained_variance_ratio_, 'ro-', linewidth=2)
+			plt.title('Scree Plot')
+			plt.xlabel('Principal Component')
+			plt.ylabel('Explained Variance Ratio')
+			plt.show()
 		if subopts.pca:
 			pca = PCA(n_components=int(subopts.pca[0]))
 			fitcomps = pca.fit_transform(img_data_trunc.T)
@@ -561,6 +578,10 @@ def run(opts):
 		if subopts.fastica:
 			ica = FastICA(n_components=int(subopts.fastica[0]),max_iter=5000,  tol=0.0000001)
 			fitcomps = ica.fit_transform(img_data_trunc.T)
+			img_data_trunc = zscaler(ica.components_).T # standardizing the outputs
+			np.savetxt("%s.ICA_fit.csv" % sys.argv[4],zscaler(fitcomps.T).T, fmt='%10.8f', delimiter=',')
+
+### For ICA removal of noise components (this is a placeholder for its own script)
 #			var = np.sum(ica.mixing_**2, axis=0) * np.array(np.sum(img_data_trunc.T**2, axis=1))[:int(ica.mixing_.shape[1])] / (img_data_trunc.shape[0] * img_data_trunc.shape[1] - 1)
 #			var /= var.sum()
 #			order_var = np.argsort(-var)
@@ -568,8 +589,15 @@ def run(opts):
 #			img_data_trunc = zscaler(ica.components_[order_var,:]).T # standardizing the outputs
 #			np.savetxt("%s.ICA_fit.csv" % sys.argv[4],zscaler(fitcomps.T).T, fmt='%10.8f', delimiter=',')
 #			np.savetxt("%s.ICA_var_explained_ratio.csv" % sys.argv[4], var[order_var], fmt='%10.8f', delimiter=',')
-			img_data_trunc = zscaler(ica.components_).T # standardizing the outputs
-			np.savetxt("%s.ICA_fit.csv" % sys.argv[4],zscaler(fitcomps.T).T, fmt='%10.8f', delimiter=',')
+			if os.path.exists('ICA_temp'):
+				print 'ICA_temp directory exists'
+				exit()
+			else:
+				os.makedirs('ICA_temp')
+			np.save('ICA_temp/signals.npy',fitcomps)
+			np.save('ICA_temp/mixing.npy',ica.mixing_)
+			np.save('ICA_temp/mean.npy',ica.mean_)
+
 		if subopts.mbspca:
 			spca = MiniBatchSparsePCA(n_components=int(subopts.mbspca[0]), alpha=0.01, n_jobs=-1)
 			fitcomps = spca.fit_transform(img_data_trunc.T)

@@ -11,13 +11,13 @@ mv *_FA.nii.gz FAimages/
 for i in `cat subjects`; do echo mri_convert $SUBJECTS_DIR/${i}/mri/brainmask.mgz T1images/${i}_T1_brain.nii.gz --out_orientation RAS; done | parallel -j 8
 
 # echo nl_FAtoStd.sh for all subjects (FA to T1 using MI; T1 to Standard image using SyN)
-for i in `cat subjects`; do echo $TFCE_mediation/misc_scripts/nl_FAtoStd.sh ${PWD}/FAimages/${i}*FA*z ${PWD}/T1images/${i}*T1*z ${FSLDIR}/data/standard/MNI152_T1_1mm_brain.nii.gz; done > cmd_FAtoStd
+for i in `cat subjects`; do echo $TFCE_mediation/tfce_mediation/misc_scripts/nl_FAtoStd.sh ${PWD}/FAimages/${i}*FA*z ${PWD}/T1images/${i}*T1*z ${FSLDIR}/data/standard/MNI152_T1_1mm_brain.nii.gz; done > cmd_FAtoStd
 
 # Use your favourite tool for parallelization (htcondor used here). Note, this step will use a lot of disk space.
-$TFCE_mediation/tools/submit_condor_jobs_file cmd_FAtoStd
+$TFCE_mediation/tfce_mediation/tools/submit_condor_jobs_file cmd_FAtoStd
 
 # Create FA skeleton
-$TFCE_mediation/misc_scripts/create_skeleton.sh -t 0.2 -m -s
+$TFCE_mediation/tfce_mediation/misc_scripts/create_skeleton.sh -t 0.2 -m -s
 
 # Run statistics using TFCE_mediation or randomise.
 

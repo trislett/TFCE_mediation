@@ -14,3 +14,5 @@ from . import voxel_cluster_step2
 from . import voxel_extract_mean_values
 from . import voxel_build_nifti4d_from_npy
 from . import voxel_make_subsample
+from . import tm_merge
+from . import tm_remove_components

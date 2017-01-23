@@ -22,7 +22,7 @@ import nibabel as nib
 import argparse as ap
 from tfce_mediation.pyfunc import *
 
-DESCRIPTION = "Fast merging for Nifti or MGH images"
+DESCRIPTION = "Efficient merging for Nifti or MGH images"
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatter_class=ap.RawTextHelpFormatter)):
 	datatype = ap.add_mutually_exclusive_group(required=True)
@@ -75,7 +75,4 @@ if __name__ == "__main__":
 	parser = getArgumentParser()
 	opts = parser.parse_args()
 	run(opts)
-
-
-
 

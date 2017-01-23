@@ -23,7 +23,7 @@ import pickle
 
 from tfce_mediation.pyfunc import loadnifti,loadmgh,savenifti,savemgh
 
-DESCRIPTION = "Remove noise components and rebuild image. Run tm_maths --fastica --timeplots first."
+DESCRIPTION = "Remove noise components from ICA and rebuild image. Run tm_maths --fastica --timeplots first."
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatter_class=ap.RawTextHelpFormatter)):
 	datatype = ap.add_mutually_exclusive_group(required=True)
@@ -33,14 +33,14 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 	datatype.add_argument("--vertex", 
 		help="Vertex input",
 		action="store_true")
-	ap.add_argument("-o", "--output", 
-		help="[Output Image Basename]",
-		nargs=1, 
-		required=True)
 	ap.add_argument("-i", "--input", 
 		help="Text file of compoments to remove (as a single column).",
 		nargs=1, 
 		metavar=('*[.txt or .csv]'), 
+		required=True)
+	ap.add_argument("-o", "--output", 
+		help="[Output Image Basename]",
+		nargs=1, 
 		required=True)
 	ap.add_argument("--clean", 
 		help="Remove the ICA_temp directory.", 

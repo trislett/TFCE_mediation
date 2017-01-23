@@ -134,6 +134,13 @@ vertex_threshold_image = subparsers.add_parser("vertex-threshold-image", help="C
 vertex_threshold_image.set_defaults(func = tfce_mediation.tools.vertex_threshold_image.run)
 tfce_mediation.tools.vertex_threshold_image.getArgumentParser(vertex_threshold_image)
 
+tm_merge = subparsers.add_parser("merge-images", help="Efficient merging for Nifti or MGH images")
+tm_merge.set_defaults(func = tfce_mediation.tools.tm_merge.run)
+tfce_mediation.tools.tm_merge.getArgumentParser(tm_merge)
+
+tm_remove_components = subparsers.add_parser("remove-components", help="Remove noise components from ICA and rebuild image. Run first tm_maths --fastica ?? --timeplots ?????.")
+tm_remove_components.set_defaults(func = tfce_mediation.tools.tm_remove_components.run)
+tfce_mediation.tools.tm_remove_components.getArgumentParser(tm_remove_components)
 
 parser.add_argument('--verbosehelp', action=_HelpAction, help='Display help for each sub-command.')  # add custom help
 parser.add_argument('--usage', action=_Usage, help='Display usage for sub-command.')  # add printout usage

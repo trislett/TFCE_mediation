@@ -582,7 +582,7 @@ def run(opts):
 				plt.plot(subs, components[:,i], 'ro-', linewidth=2)
 				plt.title('Component %d Plot' % (i+1))
 				plt.xlabel('Time or Subject (units)')
-				plt.savefig('%s/%s_comp%d.jpg' % (analysis_name,analysis_name,(i+1)))
+				plt.savefig('%s/%s_timeplot_comp%d.jpg' % (analysis_name,analysis_name,(i+1)))
 				plt.clf()
 
 				ps = np.abs(np.fft.fft(components[:,i]))**2
@@ -592,7 +592,7 @@ def run(opts):
 
 				plt.title('Component %d Powerspectrum' % (i+1))
 				plt.xlabel('Unit Frequency (Hz / 100)')
-				plt.savefig('%s/%s_comp%d_power.jpg' % (analysis_name,analysis_name,(i+1)))
+				plt.savefig('%s/%s_power_comp%d.jpg' % (analysis_name,analysis_name,(i+1)))
 				plt.clf()
 
 

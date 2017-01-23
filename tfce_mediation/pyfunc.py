@@ -17,9 +17,9 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import sys
 import numpy as np
 import nibabel as nib
+import math
 from scipy.stats import linregress
 
 from .cynumstats import calc_beta_se
@@ -146,3 +146,93 @@ def calc_sobelz(medtype, pred_x, depend_y, merge_y, n, num_vertex, alg = "aroian
 		print("Unknown indirect test algorithm")
 		exit()
 	return SobelZ
+
+### tm_maths functions ###
+
+
+def converter_try(vals):
+	resline = []
+	try:
+		resline.append(int(vals))
+		num_check=1
+	except ValueError:
+		try:
+			resline.append(float(vals))
+			num_check=1
+		except ValueError:
+			resline.append(vals)
+			num_check=0
+	return num_check
+
+def loadnifti(imagename):
+	if os.path.exists(imagename): # check if file exists
+		if imagename.endswith('.nii.gz'):
+			os.system("zcat %s > temp.nii" % imagename)
+			img = nib.load('temp.nii')
+			img_data = img.get_data()
+			os.system("rm temp.nii")
+		else:
+			img = nib.load(imagename)
+			img_data = img.get_data()
+	else:
+		print "Cannot find input image: %s" % imagename
+		exit()
+	return (img,img_data)
+
+def loadmgh(imagename):
+	if os.path.exists(imagename): # check if file exists
+		img = nib.freesurfer.mghformat.load(imagename)
+		img_data = img.get_data()
+	else:
+		print "Cannot find input image: %s" % imagename
+		exit()
+	return (img,img_data)
+
+def savenifti(imgdata, img, index, imagename):
+	outdata = imgdata.astype(np.float32, order = "C")
+	if imgdata.ndim == 2:
+		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2],outdata.shape[1]))
+	elif imgdata.ndim == 1:
+		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2]))
+	else:
+		print 'error'
+	imgout[index]=outdata
+	nib.save(nib.Nifti1Image(imgout.astype(np.float32, order = "C"),img.affine),imagename)
+
+def savemgh(imgdata, img, index, imagename):
+	outdata = imgdata.astype(np.float32, order = "C")
+	if imgdata.ndim == 2:
+		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2],outdata.shape[1]))
+	elif imgdata.ndim == 1:
+		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2]))
+	else:
+		print 'error'
+	imgout[index]=outdata
+	nib.save(nib.freesurfer.mghformat.MGHImage(imgout.astype(np.float32, order = "C"),img.affine),imagename)
+
+#find nearest permuted TFCE max value that corresponse to family-wise error rate 
+def find_nearest(array,value,p_array):
+	idx = np.searchsorted(array, value, side="left")
+	if idx == len(p_array):
+		return p_array[idx-1]
+	elif math.fabs(value - array[idx-1]) < math.fabs(value - array[idx]):
+		return p_array[idx-1]
+	else:
+		return p_array[idx]
+
+# Z standardize or whiten
+def zscaler(X, axis=0, w_mean=True, w_std=True):
+	data = np.copy(X)
+	if w_mean:
+		data -= np.mean(data, axis)
+	if w_std:
+		data /= np.std(data, axis)
+	return data
+
+#max-min standardization
+def minmaxscaler(X, axis=0):
+	X = (X - X.min(axis)) / (X.max(axis) - X.min(axis))
+	return X
+
+
+

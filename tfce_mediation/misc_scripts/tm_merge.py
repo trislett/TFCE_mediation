@@ -1,55 +1,26 @@
 #!/usr/bin/env python
 
+#    tm_merge: efficiently merge *mgh or *nii.gz files
+#    Copyright (C) 2016 Tristram Lett
+
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import os
 import numpy as np
 import nibabel as nib
 import argparse as ap
-
-def loadnifti(imagename):
-	if os.path.exists(imagename): # check if file exists
-		if imagename.endswith('.nii.gz'):
-			os.system("zcat %s > temp.nii" % imagename)
-			img = nib.load('temp.nii')
-			img_data = img.get_data()
-			os.system("rm temp.nii")
-		else:
-			img = nib.load(imagename)
-			img_data = img.get_data()
-	else:
-		print "Cannot find input image: %s" % imagename
-		exit()
-	return (img,img_data)
-
-def loadmgh(imagename):
-	if os.path.exists(imagename): # check if file exists
-		img = nib.freesurfer.mghformat.load(imagename)
-		img_data = img.get_data()
-	else:
-		print "Cannot find input image: %s" % imagename
-		exit()
-	return (img,img_data)
-
-def savenifti(imgdata, img, index, imagename):
-	outdata = imgdata.astype(np.float32, order = "C")
-	if imgdata.ndim == 2:
-		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2],outdata.shape[1]))
-	elif imgdata.ndim == 1:
-		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2]))
-	else:
-		print 'error'
-	imgout[index]=outdata
-	nib.save(nib.Nifti1Image(imgout.astype(np.float32, order = "C"),img.affine),imagename)
-
-def savemgh(imgdata, img, index, imagename):
-	outdata = imgdata.astype(np.float32, order = "C")
-	if imgdata.ndim == 2:
-		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2],outdata.shape[1]))
-	elif imgdata.ndim == 1:
-		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2]))
-	else:
-		print 'error'
-	imgout[index]=outdata
-	nib.save(nib.freesurfer.mghformat.MGHImage(imgout.astype(np.float32, order = "C"),img.affine),imagename)
+from tfce_mediation.pyfunc import *
 
 DESCRIPTION = "Fast merging for Nifti or MGH images"
 

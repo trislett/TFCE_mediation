@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #    tm_maths: math functions for vertex and voxel images
-#    Copyright (C) 2016 Lea Waller, Tristram Lett
+#    Copyright (C) 2016 Tristram Lett
 
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -16,120 +16,22 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
 import os
 import sys
 import numpy as np
-import nibabel as nib
 import argparse as ap
+import pickle
 from scipy import stats, signal
+import matplotlib.pyplot as plt
 from sklearn import mixture
 from sklearn.cluster import KMeans
 from sklearn.decomposition import FastICA, PCA, MiniBatchSparsePCA, NMF
+
 from tfce_mediation import cynumstats
-import matplotlib.pyplot as plt
-import math
+from tfce_mediation.pyfunc import converter_try, loadnifti, loadmgh, savenifti, savemgh, zscaler, minmaxscaler, find_nearest
 
 DESCRIPTION = "Basic functions on Nifti or MGH."
-
-def converter_try(vals):
-	resline = []
-	try:
-		resline.append(int(vals))
-		num_check=1
-	except ValueError:
-		try:
-			resline.append(float(vals))
-			num_check=1
-		except ValueError:
-			resline.append(vals)
-			num_check=0
-	return num_check
-
-def loadnifti(imagename):
-	if os.path.exists(imagename): # check if file exists
-		if imagename.endswith('.nii.gz'):
-			os.system("zcat %s > temp.nii" % imagename)
-			img = nib.load('temp.nii')
-			img_data = img.get_data()
-			os.system("rm temp.nii")
-		else:
-			img = nib.load(imagename)
-			img_data = img.get_data()
-	else:
-		print "Cannot find input image: %s" % imagename
-		exit()
-	return (img,img_data)
-
-def loadmgh(imagename):
-	if os.path.exists(imagename): # check if file exists
-		img = nib.freesurfer.mghformat.load(imagename)
-		img_data = img.get_data()
-	else:
-		print "Cannot find input image: %s" % imagename
-		exit()
-	return (img,img_data)
-
-def savenifti(imgdata, img, index, imagename):
-	outdata = imgdata.astype(np.float32, order = "C")
-	if imgdata.ndim == 2:
-		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2],outdata.shape[1]))
-	elif imgdata.ndim == 1:
-		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2]))
-	else:
-		print 'error'
-	imgout[index]=outdata
-	nib.save(nib.Nifti1Image(imgout.astype(np.float32, order = "C"),img.affine),imagename)
-
-def savemgh(imgdata, img, index, imagename):
-	outdata = imgdata.astype(np.float32, order = "C")
-	if imgdata.ndim == 2:
-		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2],outdata.shape[1]))
-	elif imgdata.ndim == 1:
-		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2]))
-	else:
-		print 'error'
-	imgout[index]=outdata
-	nib.save(nib.freesurfer.mghformat.MGHImage(imgout.astype(np.float32, order = "C"),img.affine),imagename)
-
-#find nearest permuted TFCE max value that corresponse to family-wise error rate 
-def find_nearest(array,value,p_array):
-	idx = np.searchsorted(array, value, side="left")
-	if idx == len(p_array):
-		return p_array[idx-1]
-	elif math.fabs(value - array[idx-1]) < math.fabs(value - array[idx]):
-		return p_array[idx-1]
-	else:
-		return p_array[idx]
-
-def write_comp(analysis_name,data, sigdata, outmask, i, img_flag,img, mask_index):
-	outimage = np.zeros_like(data)
-	outimage[outmask] = sigdata
-	if img_flag == 1:
-		if np.abs(sigdata.max()) >  np.abs(sigdata.min()):
-			outname = "%s/%s_Comp%d_positive.mgh" % (analysis_name,analysis_name,int(i+1))
-		else:
-			outname = "%s/%s_Comp%d_negative.mgh" % (analysis_name,analysis_name,int(i+1))
-		savemgh(outimage, img, mask_index, outname)
-	else:
-		if np.abs(sigdata.max()) >  np.abs(sigdata.min()):
-			outname = "%s/%s_Comp%d_positive.nii.gz" % (analysis_name,analysis_name,int(i+1))
-		else:
-			outname = "%s/%s_Comp%d_negative.nii.gz" % (analysis_name,analysis_name,int(i+1))
-		savenifti(outimage, img, mask_index, outname)
-
-# Z standardize or whiten
-def zscaler(X, axis=0, w_mean=True, w_std=True):
-	if w_mean:
-		X -= np.mean(X, axis)
-	if w_std:
-		X /= np.std(X, axis)
-	return X
-
-#max-min standardization
-def minmaxscaler(X, axis=0):
-	X = (X - X.min(axis)) / (X.max(axis) - X.min(axis))
-	return X
-
 
 def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 #input
@@ -312,10 +214,10 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		help="Non-Negative Matrix Factorization (NMF). Input the number of components (e.g.,--nmf 8 for eight components). Outputs the recovered sources, and the component fit for each subject.",
 		nargs=1,
 		metavar=('INT'))
-	parser.add_argument("--gmm",
-		help="Apply a three-component Gaussian mixture model to threshold dimension reduction images. Input a basename for the analysis (e.g.,--gmm lh_ica_area). Outputs the regions with greater than 95 percent posterior probability in the outermost curves.",
-		nargs=1,
-		metavar=('string'))
+#	parser.add_argument("--gmm",
+#		help="Apply a three-component Gaussian mixture model to threshold dimension reduction images. Input a basename for the analysis (e.g.,--gmm lh_ica_area). Outputs the regions with greater than 95 percent posterior probability in the outermost curves.",
+#		nargs=1,
+#		metavar=('string'))
 	parser.add_argument("--timeplot",
 		help="Generates a figure of the components over time (or subjects) as jpeg. Input a basename for the analysis (e.g.,--timeplot lh_ica_area_plots).",
 		nargs=1,
@@ -551,12 +453,14 @@ def run(opts):
 			kmeans = KMeans(n_clusters=int(subopts.kmeans[0])).fit(img_data_trunc)
 			img_data_trunc = (kmeans.labels_ + 1)
 			np.savetxt("%s.cluster_centres.csv" % sys.argv[4],kmeans.cluster_centers_.T, fmt='%10.5f', delimiter=',')
+
+## PCA ##
 		if subopts.pcacompression:
 			pca = PCA(n_components=int(subopts.pcacompression[0]))
 			fitcomps = pca.fit_transform(img_data_trunc.T)
 			X_proj = pca.transform(img_data_trunc.T)
 			X_rec = pca.inverse_transform(X_proj)
-			img_data_trunc = X_rec.T
+			img_data_trunc = np.copy(X_rec.T)
 			xaxis = np.arange(fitcomps.shape[1]) + 1
 			plt.plot(xaxis, pca.explained_variance_ratio_, 'ro-', linewidth=2)
 			plt.title('Scree Plot')
@@ -566,74 +470,95 @@ def run(opts):
 		if subopts.pca:
 			pca = PCA(n_components=int(subopts.pca[0]))
 			fitcomps = pca.fit_transform(img_data_trunc.T)
-			img_data_trunc = zscaler(pca.components_).T # standardizing the outputs
+			pca_comps = np.copy(pca.components_)
+			img_data_trunc = zscaler(pca_comps.T) # standardizing the outputs
 			xaxis = np.arange(fitcomps.shape[1]) + 1
 			plt.plot(xaxis, pca.explained_variance_ratio_, 'ro-', linewidth=2)
 			plt.title('Scree Plot')
 			plt.xlabel('Principal Component')
 			plt.ylabel('Explained Variance Ratio')
 			plt.show()
-			np.savetxt("%s.PCA_fit.csv" % sys.argv[4], zscaler(fitcomps.T).T, fmt='%10.8f', delimiter=',')
+			np.savetxt("%s.PCA_fit.csv" % sys.argv[4], zscaler(fitcomps, w_mean=False), fmt='%10.8f', delimiter=',')
 			np.savetxt("%s.PCA_var_explained_ratio.csv" % sys.argv[4], pca.explained_variance_ratio_, fmt='%10.8f', delimiter=',')
+
+## ICA ##
 		if subopts.fastica:
 			ica = FastICA(n_components=int(subopts.fastica[0]),max_iter=5000,  tol=0.0000001)
-			fitcomps = ica.fit_transform(img_data_trunc.T)
-			img_data_trunc = zscaler(ica.components_).T # standardizing the outputs
-			np.savetxt("%s.ICA_fit.csv" % sys.argv[4],zscaler(fitcomps.T).T, fmt='%10.8f', delimiter=',')
-
-### For ICA removal of noise components (this is a placeholder for its own script)
-#			var = np.sum(ica.mixing_**2, axis=0) * np.array(np.sum(img_data_trunc.T**2, axis=1))[:int(ica.mixing_.shape[1])] / (img_data_trunc.shape[0] * img_data_trunc.shape[1] - 1)
-#			var /= var.sum()
-#			order_var = np.argsort(-var)
-#			fitcomps = fitcomps[:,order_var]
-#			img_data_trunc = zscaler(ica.components_[order_var,:]).T # standardizing the outputs
-#			np.savetxt("%s.ICA_fit.csv" % sys.argv[4],zscaler(fitcomps.T).T, fmt='%10.8f', delimiter=',')
-#			np.savetxt("%s.ICA_var_explained_ratio.csv" % sys.argv[4], var[order_var], fmt='%10.8f', delimiter=',')
+			fitcomps = ica.fit_transform(img_data_trunc).T
+			ica_comps = np.copy(ica.components_)
+			img_data_trunc = zscaler(ica_comps.T) # standardizing the outputs
+			np.savetxt("%s.ICA_fit.csv" % sys.argv[4],zscaler(fitcomps), fmt='%10.8f', delimiter=',')
+			#save outputs and ica functions for potential ica removal
 			if os.path.exists('ICA_temp'):
 				print 'ICA_temp directory exists'
 				exit()
 			else:
 				os.makedirs('ICA_temp')
 			np.save('ICA_temp/signals.npy',fitcomps)
-			np.save('ICA_temp/mixing.npy',ica.mixing_)
-			np.save('ICA_temp/mean.npy',ica.mean_)
+			pickle.dump( ica, open( "ICA_temp/icasave.p", "wb" ) )
+			tempmask=mask_index*1
+			if opts.voxel:
+				savenifti(tempmask[tempmask==1], img, mask_index, 'ICA_temp/mask.nii.gz')
+			else:
+				savemgh(tempmask[tempmask==1], img, mask_index, 'ICA_temp/mask.mgh')
 
 		if subopts.mbspca:
 			spca = MiniBatchSparsePCA(n_components=int(subopts.mbspca[0]), alpha=0.01, n_jobs=-1)
 			fitcomps = spca.fit_transform(img_data_trunc.T)
-			img_data_trunc = zscaler(spca.components_).T # standardizing the outputs
-			np.savetxt("%s.mbSPCA_fit.csv" % sys.argv[4],zscaler(fitcomps.T).T, fmt='%10.8f', delimiter=',')
+			img_data_trunc = zscaler(spca.components_.T) # standardizing the outputs
+			np.savetxt("%s.mbSPCA_fit.csv" % sys.argv[4],zscaler(fitcomps, w_mean=False), fmt='%10.8f', delimiter=',')
 		if subopts.nmf:
 			nnmf = NMF(n_components=int(subopts.nmf[0]), init='nndsvda')
 			fitcomps = nnmf.fit_transform(img_data_trunc.T)
 			img_data_trunc = nnmf.components_.T
 			np.savetxt("%s.nmf_fit.csv" % sys.argv[4],fitcomps, fmt='%10.8f', delimiter=',')
-		if subopts.gmm:
-			analysis_name = subopts.gmm[0]
-			numComponents = img_data_trunc.shape[1]
-			gmm = mixture.GaussianMixture(n_components=3)
-			posterior_prob_threshold = 0.95
+#		if subopts.gmm:
+#			analysis_name = subopts.gmm[0]
+#			numComponents = img_data_trunc.shape[1]
+#			gmm = mixture.GaussianMixture(n_components=3)
+#			posterior_prob_threshold = 0.95
 
-			if subopts.vertex:
-				img_flag = 1
-			else:
-				img_flag = 0 
-			if os.path.exists(analysis_name):
-				print '%s directory exists' % analysis_name
-				exit()
-			else:
-				os.makedirs(analysis_name)
-			for i in range(numComponents):
-				data = img_data_trunc[:,i]
-				X = data[:, np.newaxis]
-				gmm.fit(X)
-				pred_props = gmm.predict_proba(X)
-				for j in range(3):
-					sigdata = np.array([])
-					sigdata = data[(pred_props[:,j] >= posterior_prob_threshold)]
-					if sigdata.size != 0:
-						write_comp(analysis_name, data, sigdata , (pred_props[:,j] >= posterior_prob_threshold), i, img_flag, img, mask_index)
-						print 'Comp %d, Dist%d, Minimum = %1.2f, Maximum = %1.2f' % ((i+1),j,X[pred_props[:,j] >= posterior_prob_threshold,0].min(), X[pred_props[:,j] >= posterior_prob_threshold,0].max())
+#			if subopts.vertex:
+#				img_flag = 1
+#			else:
+#				img_flag = 0 
+#			if os.path.exists(analysis_name):
+#				print '%s directory exists' % analysis_name
+#				exit()
+#			else:
+#				os.makedirs(analysis_name)
+#			for i in range(numComponents):
+#				marker = []
+#				data = np.copy(img_data_trunc[:,i])
+#				X = data[:, np.newaxis]
+#				gmm.fit(X)
+#				pred_props = gmm.predict_proba(X)
+
+#				tempmeans = np.zeros(3)
+#				for k in range(3):
+#					tempmeans[k] = X[pred_props[:,k]>posterior_prob_threshold].mean()
+#				MaxValue=np.nanmax(tempmeans)
+#				marker = tempmeans==MaxValue
+#				marker = marker * 1
+
+#				for j in range(3):
+#					ismaxvalue = np.copy(marker[j])
+#					if np.isnan(tempmeans[j]) != True:
+#						outthr = np.zeros_like(data)
+#						outthr[pred_props[:,j] >= posterior_prob_threshold] = np.copy(data[(pred_props[:,j] >= posterior_prob_threshold)])
+#						if ismaxvalue == 1:
+#							outcompname = "%s/%s_Comp%d_upper" % (analysis_name,analysis_name,int(i+1))
+#						if ismaxvalue == 0:
+#							outcompname = "%s/%s_Comp%d_lower" % (analysis_name,analysis_name,int(i+1))
+#						if opts.vertex:
+#							outcompname = "%s.mgh" % outcompname
+#							savemgh(outthr, img, mask_index, outcompname)
+#						if opts.voxel:
+#							outcompname = "%s.nii.gz" % outcompname
+#							savenifti(outthr, img, mask_index, outcompname)
+##						write_comp(analysis_name, data, sigdata , (pred_props[:,j] >= posterior_prob_threshold), i, img_flag, img, mask_index, ismaxvalue)
+#						print 'Comp %d, Dist%d, Minimum = %1.2f, Maximum = %1.2f' % ((i+1),j,X[pred_props[:,j] >= posterior_prob_threshold,0].min(), X[pred_props[:,j] >= posterior_prob_threshold,0].max())
+#					ismaxvalue = 0
 		if subopts.timeplot:
 			# first test if fitcomps exists
 			try:
@@ -643,8 +568,10 @@ def run(opts):
 				exit()
 			# generate graphs
 			analysis_name = subopts.timeplot[0]
-			components = zscaler(fitcomps.T).T
+			components = np.copy(fitcomps)
+			components = zscaler(components)
 			subs=np.array(range(components.shape[0]))+1
+			time_step = 1 / 100
 
 			if os.path.exists(analysis_name):
 				print '%s directory exists' % analysis_name
@@ -654,8 +581,18 @@ def run(opts):
 			for i in range(components.shape[1]):
 				plt.plot(subs, components[:,i], 'ro-', linewidth=2)
 				plt.title('Component %d Plot' % (i+1))
-				plt.xlabel('Time or Subject')
+				plt.xlabel('Time or Subject (units)')
 				plt.savefig('%s/%s_comp%d.jpg' % (analysis_name,analysis_name,(i+1)))
+				plt.clf()
+
+				ps = np.abs(np.fft.fft(components[:,i]))**2
+				freqs = np.fft.fftfreq(components[:,i].size, time_step)
+				idx = np.argsort(freqs)
+				plt.plot(np.abs(freqs[idx]), ps[idx])
+
+				plt.title('Component %d Powerspectrum' % (i+1))
+				plt.xlabel('Unit Frequency (Hz / 100)')
+				plt.savefig('%s/%s_comp%d_power.jpg' % (analysis_name,analysis_name,(i+1)))
 				plt.clf()
 
 

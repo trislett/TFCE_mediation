@@ -215,7 +215,7 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=1,
 		metavar=('INT'))
 	parser.add_argument("--gmm",
-		help="Apply a three-component Gaussian mixture model to threshold dimension reduction images. Input a basename for the analysis (e.g.,--gmm lh_ica_area). Outputs the regions with greater than 95 percent posterior probability in the outermost curves.",
+		help="Apply a three-component Gaussian mixture model to threshold dimension reduction images. Input a basename for the analysis (e.g.,--gmm lh_ica_area). Outputs the regions with greater than 50 percent posterior probability.",
 		nargs=1,
 		metavar=('string'))
 	parser.add_argument("--timeplot",

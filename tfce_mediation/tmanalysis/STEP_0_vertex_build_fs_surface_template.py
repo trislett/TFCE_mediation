@@ -39,6 +39,8 @@ def getArgumentParser(parser = argparse.ArgumentParser(description = DESCRIPTION
 
 def run(opts):
 	subjects = np.genfromtxt(str(opts.input[0]), delimiter=",", dtype=None)
+	if subjects.dtype.kind in np.typecodes['AllInteger']:
+		subjects = np.array(map(str, subjects))
 	surface = str(opts.input[1])
 
 	os.system('echo "Current SUBJECTS_DIR is: " $SUBJECTS_DIR;')

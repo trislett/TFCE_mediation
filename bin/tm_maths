@@ -31,6 +31,34 @@ from sklearn.decomposition import FastICA, PCA, MiniBatchSparsePCA, NMF
 from tfce_mediation import cynumstats
 from tfce_mediation.pyfunc import converter_try, loadnifti, loadmgh, savenifti, savemgh, zscaler, minmaxscaler, find_nearest
 
+def loadtwomgh(imagename):
+	import nibabel as nib
+	if os.path.exists(imagename): # check if file exists
+		lh_imagename = imagename
+		rh_imagename = 'rh.%s' % (imagename.split('lh.',1)[1])
+		if os.path.exists(rh_imagename): # check if file exists
+			# truncated both hemispheres into a single array
+			lh_img = nib.freesurfer.mghformat.load(lh_imagename)
+			lh_img_data = lh_img.get_data()
+			lh_mean_data = np.mean(np.abs(lh_img_data),axis=3)
+			lh_mask_index = (lh_mean_data != 0)
+			rh_img = nib.freesurfer.mghformat.load(rh_imagename)
+			rh_img_data = rh_img.get_data()
+			rh_mean_data = np.mean(np.abs(rh_img_data),axis=3)
+			rh_mask_index = (rh_mean_data != 0)
+			lh_img_data_trunc = lh_img_data[lh_mask_index]
+			rh_img_data_trunc = rh_img_data[rh_mask_index]
+			img_data_trunc = np.vstack((lh_img_data_trunc,rh_img_data_trunc))
+			midpoint = lh_img_data_trunc.shape[0]
+		else:
+			print "Cannot find input image: %s" % rh_imagename
+			exit()
+	else:
+		print "Cannot find input image: %s" % imagename
+		exit()
+	return (img_data_trunc, midpoint, lh_img, rh_img, lh_mask_index, rh_mask_index)
+
+
 DESCRIPTION = "Basic functions on Nifti or MGH."
 
 def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
@@ -43,6 +71,10 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 	datatype.add_argument("--vertex", 
 		help="Vertex input",
 		metavar=('*.mgh'),
+		nargs=1)
+	datatype.add_argument("--bothhemi", 
+		help="Special case in which vertex images from both hemispheres are input and processed together. Input only the left hemisphere, and the program will automatically load the right hemisphere.",
+		metavar=('lh.*.mgh'),
 		nargs=1)
 
 #outname
@@ -215,7 +247,7 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=1,
 		metavar=('INT'))
 	parser.add_argument("--gmm",
-		help="Apply a three-component Gaussian mixture model to threshold dimension reduction images. Input a basename for the analysis (e.g.,--gmm lh_ica_area). Outputs the regions with greater than 50 percent posterior probability.",
+		help="EXPERIMENTAL (an updated tool will be available soon). Apply a three-component Gaussian mixture model to threshold dimension reduction images. Input a basename for the analysis (e.g.,--gmm lh_ica_area). Outputs the regions with greater than 50 percent posterior probability.",
 		nargs=1,
 		metavar=('string'))
 	parser.add_argument("--timeplot",
@@ -228,37 +260,45 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 def run(opts):
 
 # set image type
-	if opts.voxel:
-		tempname='temp_img.nii'
-		outname=sys.argv[4]
-		outname=outname.split('.gz',1)[0]
-		outname=outname.split('.nii',1)[0]
-		outname='%s.nii.gz' % outname
-		img, img_data = loadnifti(opts.voxel[0])
-	if opts.vertex:
+
+	if opts.bothhemi:
 		tempname='temp_img.mgh'
 		outname=sys.argv[4].split('.mgh',1)[0]
 		outname='%s.mgh' % outname
-		img, img_data = loadmgh(opts.vertex[0])
-	if opts.mask:
-		tempmaskname='temp_mask'
-	if opts.mask:
-		if opts.mask[0] != 'temp_mask':
-			if opts.voxel:
-				mask , mask_data = loadnifti(opts.mask[0])
-			if opts.vertex:
-				mask , mask_data = loadmgh(opts.mask[0])
-			mask_index = mask_data>.99
-	elif opts.fullmask:
-		mask_index=np.zeros((img_data.shape[0],img_data.shape[1],img_data.shape[2]))
-		mask_index = (mask_index == 0)
+		img_data_trunc, midpoint, lh_img, rh_img, lh_mask_index, rh_mask_index = loadtwomgh(opts.bothhemi[0])
 	else:
-		if len(img.shape) == 4:
-			mean_data = np.mean(np.abs(img_data),axis=3)
-			mask_index = (mean_data != 0)
+		if opts.voxel:
+			tempname='temp_img.nii'
+			outname=sys.argv[4]
+			outname=outname.split('.gz',1)[0]
+			outname=outname.split('.nii',1)[0]
+			outname='%s.nii.gz' % outname
+			img, img_data = loadnifti(opts.voxel[0])
+		if opts.vertex:
+			tempname='temp_img.mgh'
+			outname=sys.argv[4].split('.mgh',1)[0]
+			outname='%s.mgh' % outname
+			img, img_data = loadmgh(opts.vertex[0])
+
+		if opts.mask:
+			tempmaskname='temp_mask'
+		if opts.mask:
+			if opts.mask[0] != 'temp_mask':
+				if opts.voxel:
+					mask , mask_data = loadnifti(opts.mask[0])
+				if opts.vertex:
+					mask , mask_data = loadmgh(opts.mask[0])
+				mask_index = mask_data>.99
+		elif opts.fullmask:
+			mask_index=np.zeros((img_data.shape[0],img_data.shape[1],img_data.shape[2]))
+			mask_index = (mask_index == 0)
 		else:
-			mask_index = (img_data != 0)
-	img_data_trunc = img_data[mask_index]
+			if len(img.shape) == 4:
+				mean_data = np.mean(np.abs(img_data),axis=3)
+				mask_index = (mean_data != 0)
+			else:
+				mask_index = (img_data != 0)
+		img_data_trunc = img_data[mask_index]
 
 # Initiating convoluted solution to doing multiple math functions in python
 	argcount=0
@@ -314,7 +354,10 @@ def run(opts):
 			if subopts.voxel[0] != 'temp_img.nii':
 				tempname='temp_img.nii'
 		if subopts.vertex:
-			if subopts.vertex[0] != 'temp_img.nii':
+			if subopts.vertex[0] != 'temp_img.mgh':
+				tempname='temp_img.mgh'
+		if subopts.bothhemi:
+			if subopts.bothhemi[0] != 'temp_img.mgh':
 				tempname='temp_img.mgh'
 		if subopts.add:
 				img_data_trunc += np.array(subopts.add[0]).astype(np.float)
@@ -496,11 +539,17 @@ def run(opts):
 				os.makedirs('ICA_temp')
 			np.save('ICA_temp/signals.npy',fitcomps)
 			pickle.dump( ica, open( "ICA_temp/icasave.p", "wb" ) )
-			tempmask=mask_index*1
-			if opts.voxel:
-				savenifti(tempmask[tempmask==1], img, mask_index, 'ICA_temp/mask.nii.gz')
+			if opts.bothhemi:
+				lh_tempmask=lh_mask_index*1
+				rh_tempmask=rh_mask_index*1
+				savemgh(lh_tempmask[lh_tempmask==1], lh_img, lh_mask_index, 'ICA_temp/lh_mask.mgh')
+				savemgh(rh_tempmask[rh_tempmask==1], rh_img, rh_mask_index, 'ICA_temp/rh_mask.mgh')
 			else:
-				savemgh(tempmask[tempmask==1], img, mask_index, 'ICA_temp/mask.mgh')
+				tempmask=mask_index*1
+				if opts.voxel:
+					savenifti(tempmask[tempmask==1], img, mask_index, 'ICA_temp/mask.nii.gz')
+				else:
+					savemgh(tempmask[tempmask==1], img, mask_index, 'ICA_temp/mask.mgh')
 
 		if subopts.mbspca:
 			spca = MiniBatchSparsePCA(n_components=int(subopts.mbspca[0]), alpha=0.01, n_jobs=-1)
@@ -542,12 +591,18 @@ def run(opts):
 				outthr = np.zeros_like(data)
 				outthr[outprob>posterior_prob_threshold] = np.copy(data[outprob>posterior_prob_threshold])
 				outcompname = "%s/%s_Comp%d" % (analysis_name,analysis_name,int(i+1))
-				if opts.vertex:
-					outcompname = "%s.mgh" % outcompname
-					savemgh(outthr, img, mask_index, outcompname)
+				if opts.bothhemi:
+					lh_outcompname = "%s/lh_%s_Comp%d.mgh" % (analysis_name,analysis_name,int(i+1))
+					rh_outcompname = "%s/rh_%s_Comp%d.mgh" % (analysis_name,analysis_name,int(i+1))
+					savemgh(outthr[:midpoint], lh_img, lh_mask_index, lh_outcompname)
+					savemgh(outthr[midpoint:], rh_img, rh_mask_index, rh_outcompname)
 				if opts.voxel:
 					outcompname = "%s.nii.gz" % outcompname
 					savenifti(outthr, img, mask_index, outcompname)
+				if opts.vertex:
+					outcompname = "%s.mgh" % outcompname
+					savemgh(outthr, img, mask_index, outcompname)
+
 				try:
 					pl_ = outthr[outthr>0.01].min()
 				except ValueError:
@@ -609,6 +664,9 @@ def run(opts):
 		savenifti(img_data_trunc, img, mask_index, outname)
 	if opts.vertex:
 		savemgh(img_data_trunc, img, mask_index, outname)
+	if opts.bothhemi:
+		savemgh(img_data_trunc[:midpoint], lh_img, lh_mask_index, 'lh.%s' % outname)
+		savemgh(img_data_trunc[midpoint:], rh_img, rh_mask_index, 'rh.%s' % outname)
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

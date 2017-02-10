@@ -20,6 +20,7 @@ import os
 import numpy as np
 import nibabel as nib
 import math
+from sys import exit
 from scipy.stats import linregress
 
 from .cynumstats import calc_beta_se

@@ -189,6 +189,32 @@ def loadmgh(imagename):
 		exit()
 	return (img,img_data)
 
+def loadtwomgh(imagename):
+	if os.path.exists(imagename): # check if file exists
+		lh_imagename = imagename
+		rh_imagename = 'rh.%s' % (imagename.split('lh.',1)[1])
+		if os.path.exists(rh_imagename): # check if file exists
+			# truncated both hemispheres into a single array
+			lh_img = nib.freesurfer.mghformat.load(lh_imagename)
+			lh_img_data = lh_img.get_data()
+			lh_mean_data = np.mean(np.abs(lh_img_data),axis=3)
+			lh_mask_index = (lh_mean_data != 0)
+			rh_img = nib.freesurfer.mghformat.load(rh_imagename)
+			rh_img_data = rh_img.get_data()
+			rh_mean_data = np.mean(np.abs(rh_img_data),axis=3)
+			rh_mask_index = (rh_mean_data != 0)
+			lh_img_data_trunc = lh_img_data[lh_mask_index]
+			rh_img_data_trunc = rh_img_data[rh_mask_index]
+			img_data_trunc = np.vstack((lh_img_data_trunc,rh_img_data_trunc))
+			midpoint = lh_img_data_trunc.shape[0]
+		else:
+			print "Cannot find input image: %s" % rh_imagename
+			exit()
+	else:
+		print "Cannot find input image: %s" % imagename
+		exit()
+	return (img_data_trunc, midpoint, lh_img, rh_img, lh_mask_index, rh_mask_index)
+
 def savenifti(imgdata, img, index, imagename):
 	outdata = imgdata.astype(np.float32, order = "C")
 	if imgdata.ndim == 2:

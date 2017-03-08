@@ -3,9 +3,9 @@ Fast regression and mediation analysis of vertex or voxel MR data with TFCE
 
 ### Citation ###
 
-Lett TA, Waller L, Tost H, Veer IM, Nazeri A, Erk S, Brandl EJ, Charlet K, Beck A, Vollstädt-Klein S, Jorde A, Keifer F, Heinz A, Meyer-Lindenberg A, Chakravarty MM, Walter H. Cortical Surface-Based Threshold-Free Cluster Enhancement and Cortexwise Mediation. Hum Brain Mapp (Accepted).
+Lett TA, Waller L, Tost H, Veer IM, Nazeri A, Erk S, Brandl EJ, Charlet K, Beck A, Vollstädt-Klein S, Jorde A, Keifer F, Heinz A, Meyer-Lindenberg A, Chakravarty MM, Walter H. Cortical Surface-Based Threshold-Free Cluster Enhancement and Cortexwise Mediation. Hum Brain Mapp (Accepted). 10.1002/hbm.23563
 
-The pre-print versions is available [here](tfce_mediation/doc/Lett et al. 2017 HBM Accepted.pdf) as well as the the [supporting information](tfce_mediation/doc/Lett et al. 2017 HBM supporting information.docx)
+The pre-print manuscript is available [here](tfce_mediation/doc/Lett et al. 2017 HBM Accepted.pdf) as well as the the [supporting information](tfce_mediation/doc/Lett et al. 2017 HBM supporting information.docx)
 
 ### Dependencies ###
 

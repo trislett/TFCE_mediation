@@ -5,6 +5,8 @@ Fast regression and mediation analysis of vertex or voxel MR data with TFCE
 
 Lett TA, Waller L, Tost H, Veer IM, Nazeri A, Erk S, Brandl EJ, Charlet K, Beck A, Vollstädt-Klein S, Jorde A, Keifer F, Heinz A, Meyer-Lindenberg A, Chakravarty MM, Walter H. Cortical Surface-Based Threshold-Free Cluster Enhancement and Cortexwise Mediation. Hum Brain Mapp (Accepted).
 
+The pre-print versions is available [here](tfce_mediation/doc/Lett et al. 2017 HBM Accepted.pdf) as well as the the [supporting information](tfce_mediation/doc/Lett et al. 2017 HBM supporting information.docx)
+
 ### Dependencies ###
 
 TFCE_mediation should work with any UNIX based system. It has been tested on Ubuntu 14.04 and 16.04, Arch Linux, and OSX   

@@ -219,9 +219,8 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=1,
 		metavar=('INT'))
 	parser.add_argument("--gmm",
-		help="EXPERIMENTAL (an updated tool will be available soon). Apply a three-component Gaussian mixture model to threshold dimension reduction images. Input a basename for the analysis (e.g.,--gmm lh_ica_area). Outputs the regions with greater than 50 percent posterior probability.",
-		nargs=1,
-		metavar=('string'))
+		help="Apply a three-component Gaussian mixture model to threshold dimension reduction images. Input a basename for the analysis (e.g.,--gmm lh_ica_area). Outputs the regions with greater than 66.7 percent posterior probability.",
+		action='store_true')
 	parser.add_argument("--timeplot",
 		help="Generates a figure of the components over time (or subjects) as jpeg. Input a basename for the analysis (e.g.,--timeplot lh_ica_area_plots).",
 		nargs=1,
@@ -534,65 +533,29 @@ def run(opts):
 			img_data_trunc = nnmf.components_.T
 			np.savetxt("%s.nmf_fit.csv" % sys.argv[4],fitcomps, fmt='%10.8f', delimiter=',')
 		if subopts.gmm:
-			analysis_name = subopts.gmm[0]
 			numComponents = img_data_trunc.shape[1]
 			gmm = mixture.GaussianMixture(n_components=3)
-			posterior_prob_threshold = 0.5
+			posterior_prob_threshold = 0.667
 
-			if os.path.exists(analysis_name):
-				print '%s directory exists' % analysis_name
-				exit()
-			else:
-				os.makedirs(analysis_name)
+
 			for i in range(numComponents):
-				marker = []
-				data = np.copy(img_data_trunc[:,i])
-				X = data[:, np.newaxis]
-				gmm.fit(X)
-				pred_props = gmm.predict_proba(X)
 
-				tempmax = np.zeros(3)
-				for k in range(3):
-					try:
-						tempmax[k] = data[pred_props[:,k]>posterior_prob_threshold].max()
-					except ValueError:
-						tempmax[k] = 0
-				MaxValue=np.nanmax(tempmax)
-				marker = tempmax==MaxValue
-				outprob = np.squeeze(pred_props[:,marker])
-				outthr = np.zeros_like(data)
-				outthr[outprob>posterior_prob_threshold] = np.copy(data[outprob>posterior_prob_threshold])
-				outcompname = "%s/%s_Comp%d" % (analysis_name,analysis_name,int(i+1))
-				if opts.bothhemi:
-					lh_outcompname = "%s/lh_%s_Comp%d.mgh" % (analysis_name,analysis_name,int(i+1))
-					rh_outcompname = "%s/rh_%s_Comp%d.mgh" % (analysis_name,analysis_name,int(i+1))
-					savemgh(outthr[:midpoint], lh_img, lh_mask_index, lh_outcompname)
-					savemgh(outthr[midpoint:], rh_img, rh_mask_index, rh_outcompname)
-				if opts.voxel:
-					outcompname = "%s.nii.gz" % outcompname
-					savenifti(outthr, img, mask_index, outcompname)
-				if opts.vertex:
-					outcompname = "%s.mgh" % outcompname
-					savemgh(outthr, img, mask_index, outcompname)
+				tempIC = np.copy(img_data_trunc[:,i])
+				X= np.array([[x] for x in tempIC])
 
-				try:
-					pl_ = outthr[outthr>0.01].min()
-				except ValueError:
-					pl_ = 0
-				try:
-					pu_ = outthr[outthr>0.01].max()
-				except ValueError:
-					pu_ = 0
-				try:
-					nl_ = outthr[outthr<-0.01].max()
-				except ValueError:
-					nl_ = 0
-				try:
-					nu_ = outthr[outthr<-0.01].min()
-				except ValueError:
-					nu_ = 0
-				print 'Comp %d, Positive, Lower = %1.2f, Upper = %1.2f' % (i+1,pl_,pu_)
-				print 'Comp %d, Negitive, Lower = %1.2f, Upper = %1.2f' % (i+1,nl_,nu_)
+				m = gmm.fit(X)
+				pred_props = m.predict_proba(X)
+
+				pos_mean_flag = np.argmax(m.means_)
+				neg_mean_flag = np.argmin(m.means_)
+
+				print 'Comp %d posterior means: Lower  %1.2f +/- %1.2f, Upper = %1.2f +/- %1.2f' % (int(i+1),m.means_[neg_mean_flag],m.covariances_[neg_mean_flag],m.means_[pos_mean_flag],m.covariances_[pos_mean_flag])
+
+				posteriormask = np.zeros((pred_props.shape[0]))
+				posteriormask[pred_props[:,neg_mean_flag]>posterior_prob_threshold]=1
+				posteriormask[pred_props[:,pos_mean_flag]>posterior_prob_threshold]=1
+				img_data_trunc[:,i]*=posteriormask
+
 
 		if subopts.timeplot:
 			# first test if fitcomps exists

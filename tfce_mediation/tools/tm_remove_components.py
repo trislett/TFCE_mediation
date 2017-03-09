@@ -33,6 +33,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 	datatype.add_argument("--vertex", 
 		help="Vertex input",
 		action="store_true")
+	datatype.add_argument("--bothhemi", 
+		help="Special case in which vertex images from both hemispheres are input and processed together.",
+		action="store_true")
 	ap.add_argument("-i", "--input", 
 		help="Text file of compoments to remove (as a single column).",
 		nargs=1, 
@@ -53,11 +56,18 @@ def run(opts):
 		print "ICA_temp not found"
 		exit()
 #load mask
-	if opts.voxel:
-		mask , mask_data = loadnifti('ICA_temp/mask.nii.gz')
-	if opts.vertex:
-		mask , mask_data = loadmgh('ICA_temp/mask.mgh')
-	mask_index = mask_data>.99
+	if opts.bothhemi:
+		lh_mask , lh_mask_data = loadmgh('ICA_temp/lh_mask.mgh')
+		rh_mask , rh_mask_data = loadmgh('ICA_temp/rh_mask.mgh')
+		lh_mask_index = (lh_mask_data != 0)
+		rh_mask_index = (rh_mask_data != 0)
+		midpoint = lh_mask_data[lh_mask_data==1].shape[0]
+	else:
+		if opts.voxel:
+			mask , mask_data = loadnifti('ICA_temp/mask.nii.gz')
+		if opts.vertex:
+			mask , mask_data = loadmgh('ICA_temp/mask.mgh')
+		mask_index = mask_data>.99
 
 #load data
 	rmcomps = np.genfromtxt(opts.input[0],delimiter=",",dtype='int')
@@ -79,6 +89,11 @@ def run(opts):
 		savenifti(X_rec.T, mask, mask_index, '%s.nii.gz' % outname)
 	if opts.vertex:
 		savemgh(X_rec.T, mask, mask_index, '%s.mgh' % outname)
+
+	if opts.bothhemi:
+		savemgh(X_rec.T[:midpoint], lh_mask, lh_mask_index, 'lh.%s.mgh' % outname)
+		savemgh(X_rec.T[midpoint:], rh_mask, rh_mask_index, 'rh.%s.mgh' % outname)
+
 	if opts.clean:
 		os.system("rm -rf ICA_temp")
 

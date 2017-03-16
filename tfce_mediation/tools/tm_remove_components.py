@@ -72,7 +72,7 @@ def run(opts):
 #load data
 	rmcomps = np.genfromtxt(opts.input[0],delimiter=",",dtype='int')
 	dump_ica = pickle.load( open( "ICA_temp/icasave.p", "rb" ) )
-	fitcomps = np.load('ICA_temp/signals.npy')
+	fitcomps = np.load('ICA_temp/signals.npy').T
 	selected=rmcomps-1
 #zero out unwanted components
 	fitcomps[:,selected] = 0
@@ -86,13 +86,13 @@ def run(opts):
 	outname=outname.split('.mgh',1)[0]
 
 	if opts.voxel:
-		savenifti(X_rec.T, mask, mask_index, '%s.nii.gz' % outname)
+		savenifti(X_rec, mask, mask_index, '%s.nii.gz' % outname)
 	if opts.vertex:
-		savemgh(X_rec.T, mask, mask_index, '%s.mgh' % outname)
+		savemgh(X_rec, mask, mask_index, '%s.mgh' % outname)
 
 	if opts.bothhemi:
-		savemgh(X_rec.T[:midpoint], lh_mask, lh_mask_index, 'lh.%s.mgh' % outname)
-		savemgh(X_rec.T[midpoint:], rh_mask, rh_mask_index, 'rh.%s.mgh' % outname)
+		savemgh(X_rec[:midpoint], lh_mask, lh_mask_index, 'lh.%s.mgh' % outname)
+		savemgh(X_rec[midpoint:], rh_mask, rh_mask_index, 'rh.%s.mgh' % outname)
 
 	if opts.clean:
 		os.system("rm -rf ICA_temp")

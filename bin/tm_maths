@@ -65,6 +65,10 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		help="Mask includes whole image instead of using non-zero data (not recommended).", 
 		action='store_true')
 
+	parser.add_argument("--outmask", 
+		help="Output binary mask(s) derived from input data. i.e. the mask of non-zero data. ", 
+		action='store_true')
+
 #math opts
 	parser.add_argument("-a", "--add", 
 		nargs=1, 
@@ -193,13 +197,13 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 		help="Removes the linear trend from time series data.",
 		action='store_true')
 	parser.add_argument("--pcacompression",
-		help="Applies the inverse solution from the projected features of a principal component analysis. Input the number of components (e.g.,--pcacompression 40). Scree plot is displayed. The output retains the axes with the maximum variance.",
+		help="Applies the inverse solution from the projected features of a principal component analysis. Input the number of components (e.g.,--pcacompression 40). The output retains the axes with the maximum variance.",
 		nargs=1,
 		metavar=('INT'))
 
 #dimension reduction
 	parser.add_argument("--pca",
-		help="Principal component analysis. Input the number of components (e.g.,--pca 12 for 12 components). Scree plot is displayed. Outputs the recovered sources, and the component fit for each subject.",
+		help="Principal component analysis (spatial). Input the number of components (e.g.,--pca 12 for 12 components). Outputs the recovered sources, and the component fit for each subject.",
 		nargs=1,
 		metavar=('INT'))
 	parser.add_argument("--kmeans",
@@ -250,7 +254,6 @@ def run(opts):
 			outname=sys.argv[4].split('.mgh',1)[0]
 			outname='%s.mgh' % outname
 			img, img_data = loadmgh(opts.vertex[0])
-
 		if opts.mask:
 			tempmaskname='temp_mask'
 		if opts.mask:
@@ -270,6 +273,18 @@ def run(opts):
 			else:
 				mask_index = (img_data != 0)
 		img_data_trunc = img_data[mask_index]
+
+#output created mask
+	if opts.outmask:
+		outmask = np.ones((img_data_trunc.shape[0]))
+		if opts.voxel:
+			savenifti(outmask, img, mask_index, 'mask.%s' % outname)
+		if opts.vertex:
+			savemgh(outmask, img, mask_index, 'mask.%s' % outname)
+		if opts.bothhemi:
+			savemgh(outmask[:midpoint], lh_img, lh_mask_index, 'mask.lh.%s' % outname)
+			savemgh(outmask[midpoint:], rh_img, rh_mask_index, 'mask.rh.%s' % outname)
+
 
 # Initiating convoluted solution to doing multiple math functions in python
 	argcount=0
@@ -463,13 +478,15 @@ def run(opts):
 			# plot the histogram
 			plt.hist(y, normed=True, bins=100)
 			plt.show()
+
+# Diminsion reduction
 		if subopts.kmeans:
 			kmeans = KMeans(n_clusters=int(subopts.kmeans[0])).fit(img_data_trunc)
 			img_data_trunc = (kmeans.labels_ + 1)
 			np.savetxt("%s.cluster_centres.csv" % sys.argv[4],kmeans.cluster_centers_.T, fmt='%10.5f', delimiter=',')
 
-## PCA ##
 		if subopts.pcacompression:
+			print "Temporal (or across subjects) PCA for compression"
 			pca = PCA(n_components=int(subopts.pcacompression[0]))
 			fitcomps = pca.fit_transform(img_data_trunc.T)
 			X_proj = pca.transform(img_data_trunc.T)
@@ -481,34 +498,41 @@ def run(opts):
 			plt.xlabel('Principal Component')
 			plt.ylabel('Explained Variance Ratio')
 			plt.show()
-		if subopts.pca:
-			pca = PCA(n_components=int(subopts.pca[0]))
-			fitcomps = pca.fit_transform(img_data_trunc.T)
-			pca_comps = np.copy(pca.components_)
-			img_data_trunc = zscaler(pca_comps.T) # standardizing the outputs
-			xaxis = np.arange(fitcomps.shape[1]) + 1
-			plt.plot(xaxis, pca.explained_variance_ratio_, 'ro-', linewidth=2)
-			plt.title('Scree Plot')
-			plt.xlabel('Principal Component')
-			plt.ylabel('Explained Variance Ratio')
-			plt.show()
-			np.savetxt("%s.PCA_fit.csv" % sys.argv[4], zscaler(fitcomps, w_mean=False), fmt='%10.8f', delimiter=',')
-			np.savetxt("%s.PCA_var_explained_ratio.csv" % sys.argv[4], pca.explained_variance_ratio_, fmt='%10.8f', delimiter=',')
 
-## ICA ##
+		if subopts.pca:
+			print "Spatial PCA."
+			pca = PCA(n_components=int(subopts.mbspca[0]))
+			S_ = pca.fit_transform(img_data_trunc).T
+			components = pca.components_.T
+			fitcomps = np.copy(S_).T
+			fitcomps = zscaler(fitcomps)
+			img_data_trunc =  np.copy(fitcomps.T)
+			np.savetxt("%s.PCA_fit.csv" % sys.argv[4],zscaler(components, w_mean=False), fmt='%10.8f', delimiter=',')
+			np.savetxt("%s.PCA_var_explained_ratio.csv" % sys.argv[4], pca.explained_variance_ratio_, fmt='%10.8f', delimiter=',')
+#			xaxis = np.arange(fitcomps.shape[0]) + 1
+#			plt.plot(xaxis, pca.explained_variance_ratio_, 'ro-', linewidth=2)
+#			plt.title('Scree Plot')
+#			plt.xlabel('Principal Component')
+#			plt.ylabel('Explained Variance Ratio')
+#			plt.show()
+
 		if subopts.fastica:
-			ica = FastICA(n_components=int(subopts.fastica[0]),max_iter=5000,  tol=0.0000001)
-			fitcomps = ica.fit_transform(img_data_trunc.T)
-			ica_comps = np.copy(ica.components_)
-			img_data_trunc = zscaler(ica_comps.T) # standardizing the outputs
-			np.savetxt("%s.ICA_fit.csv" % sys.argv[4],zscaler(fitcomps), fmt='%10.8f', delimiter=',')
+			ica = FastICA(n_components=int(subopts.fastica[0]),max_iter=5000,  tol=0.0001)
+			S_ = ica.fit_transform(img_data_trunc).T
+			components = ica.components_.T
+			#scaling
+			fitcomps = np.copy(S_)
+			fitcomps = zscaler(fitcomps)
+			img_data_trunc =  np.copy(fitcomps.T) # ram shouldn't be an issue here...
+			np.savetxt("%s.ICA_fit.csv" % sys.argv[4],zscaler(components), fmt='%10.8f', delimiter=',')
+
 			#save outputs and ica functions for potential ica removal
 			if os.path.exists('ICA_temp'):
 				print 'ICA_temp directory exists'
 				exit()
 			else:
 				os.makedirs('ICA_temp')
-			np.save('ICA_temp/signals.npy',fitcomps)
+			np.save('ICA_temp/signals.npy',S_)
 			pickle.dump( ica, open( "ICA_temp/icasave.p", "wb" ) )
 			if opts.bothhemi:
 				lh_tempmask=lh_mask_index*1
@@ -524,19 +548,27 @@ def run(opts):
 
 		if subopts.mbspca:
 			spca = MiniBatchSparsePCA(n_components=int(subopts.mbspca[0]), alpha=0.01, n_jobs=-1)
-			fitcomps = spca.fit_transform(img_data_trunc.T)
-			img_data_trunc = zscaler(spca.components_.T) # standardizing the outputs
-			np.savetxt("%s.mbSPCA_fit.csv" % sys.argv[4],zscaler(fitcomps, w_mean=False), fmt='%10.8f', delimiter=',')
+			S_ = spca.fit_transform(img_data_trunc).T
+			components = spca.components_.T
+			fitcomps = np.copy(S_)
+			fitcomps = zscaler(fitcomps)
+			fitcomps = zscaler(fitcomps.T, w_std=False).T # centre data
+			img_data_trunc =  np.copy(fitcomps.T)
+			np.savetxt("%s.mbSPCA_fit.csv" % sys.argv[4],zscaler(components), fmt='%10.8f', delimiter=',')
+
 		if subopts.nmf:
 			nnmf = NMF(n_components=int(subopts.nmf[0]), init='nndsvda')
-			fitcomps = nnmf.fit_transform(img_data_trunc.T)
-			img_data_trunc = nnmf.components_.T
-			np.savetxt("%s.nmf_fit.csv" % sys.argv[4],fitcomps, fmt='%10.8f', delimiter=',')
+			S_ = nnmf.fit_transform(img_data_trunc).T
+			components = nnmf.components_.T
+			fitcomps = np.copy(S_)
+			fitcomps = zscaler(fitcomps, w_mean=False)
+			img_data_trunc =  np.copy(fitcomps.T)
+			np.savetxt("%s.nmf_fit.csv" % sys.argv[4],zscaler(components, w_mean=False), fmt='%10.8f', delimiter=',')
+
 		if subopts.gmm:
 			numComponents = img_data_trunc.shape[1]
 			gmm = mixture.GaussianMixture(n_components=3)
 			posterior_prob_threshold = 0.667
-
 
 			for i in range(numComponents):
 
@@ -566,8 +598,8 @@ def run(opts):
 				exit()
 			# generate graphs
 			analysis_name = subopts.timeplot[0]
-			components = np.copy(fitcomps)
-			components = zscaler(components)
+#			components = np.copy(fitcomps)
+			components = zscaler(components.T).T
 			subs=np.array(range(components.shape[0]))+1
 			time_step = 1 / 100
 
@@ -576,6 +608,7 @@ def run(opts):
 				exit()
 			else:
 				os.makedirs(analysis_name)
+			plt.figure(figsize=(10,5))
 			for i in range(components.shape[1]):
 				plt.plot(subs, components[:,i], 'ro-', linewidth=2)
 				plt.title('Component %d Plot' % (i+1))

@@ -105,6 +105,6 @@ else
 	while read -r i; do eval $i; done <cmd_skel_parallel
 fi
 
-${SCRIPTPATH}/mergeNifTi.py -o all_FA_skeletonised.nii.gz -m mean_FA_skeleton_mask.nii.gz -i skel_*
+tm_tools merge-images --voxel -o all_FA_skeletonised.nii.gz -m mean_FA_skeleton_mask.nii.gz -i skel_*
 rm skel_*
 rm cmd_skel_parallel

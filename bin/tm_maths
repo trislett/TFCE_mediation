@@ -419,8 +419,8 @@ def run(opts):
 			img_data_trunc[img_data_trunc > np.array(subopts.upperthreshold[0]).astype(np.float)] = 0
 		# Transformations
 		if subopts.ptoz:
+			img_data_trunc[img_data_trunc<=0.5] = 0.5 # only positive direction
 			img_data_trunc = stats.norm.ppf(img_data_trunc)
-			img_data_trunc[img_data_trunc<0] = 0
 		if subopts.ztop:
 			img_data_trunc = 1 - stats.norm.cdf(img_data_trunc)
 		if subopts.ttop: 
@@ -509,7 +509,7 @@ def run(opts):
 			img_data_trunc =  np.copy(fitcomps.T)
 			np.savetxt("%s.PCA_fit.csv" % sys.argv[4],zscaler(components, w_mean=False), fmt='%10.8f', delimiter=',')
 			np.savetxt("%s.PCA_var_explained_ratio.csv" % sys.argv[4], pca.explained_variance_ratio_, fmt='%10.8f', delimiter=',')
-#			xaxis = np.arange(fitcomps.shape[0]) + 1
+#			xaxis = np.arange(fitcomps.shape[1]) + 1
 #			plt.plot(xaxis, pca.explained_variance_ratio_, 'ro-', linewidth=2)
 #			plt.title('Scree Plot')
 #			plt.xlabel('Principal Component')

@@ -129,6 +129,10 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
 	parser.add_argument("--split", 
 		help="Split the images images", 
 		action='store_true')
+	parser.add_argument("--voxelfwhm", 
+		help="Full width half maximum smoothing for voxel images. Input the desired FWHM",
+		nargs=1,
+		metavar=('FLOAT'))
 
 #thresholding
 	parser.add_argument("-t", "--threshold", 
@@ -361,6 +365,24 @@ def run(opts):
 				img_data_trunc = np.log10(img_data_trunc)
 		if subopts.abs:
 				img_data_trunc = np.abs(img_data_trunc)
+		if subopts.voxelfwhm:
+			fwhm = subopts.voxelfwhm[0]
+			# convert fwhm to sigma
+			fwhm_sigma_ratio = np.sqrt(8 * np.log(2))
+			voxelSize = np.sqrt(np.sum(img.affine[:3, :3] ** 2, axis=0))
+			# get sigmas for voxel size
+			sigma = fwhm / (fwhm_sigma_ratio * voxelSize)
+			# convert to image_space (find better tfce based solution later)
+			if imgdata.ndim == 2:
+				temp_imgspace = np.zeros((img.shape[0],img.shape[1],img.shape[2],outdata.shape[1]))
+			elif imgdata.ndim == 1:
+				temp_imgspace = np.zeros((img.shape[0],img.shape[1],img.shape[2]))
+			else:
+				print 'Error: image dimension'
+			temp_imgspace[mask_index]=img_data_trunc
+			for temp_axis, sigmas in enumerate(sigma):
+				ndimage.gaussian_filter1d(temp_imgspace, sigmas, output=temp_imgspace, axis=temp_axis)
+			img_data_trunc=temp_imgspace[mask_index]
 		if subopts.addimage:
 			if subopts.voxel:
 				_, tempimgdata = loadnifti(subopts.addimage[0])

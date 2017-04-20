@@ -22,6 +22,8 @@
 import numpy as np
 cimport numpy as np
 cimport cython
+from libc.math cimport pi,sqrt,exp
+from libcpp.vector cimport vector
 
 def cy_lin_lstsqr_mat(X, y):
    return (np.linalg.inv(X.T.dot(X)).dot(X.T)).dot(y)
@@ -70,3 +72,37 @@ def calc_beta_se(x,y,n,num_voxel):
    sigma2 = np.sum((y - np.dot(X,a))**2,axis=0) / (n - k)
    se = se_of_slope(num_voxel,invXX,sigma2,k)
    return (beta,se)
+
+cdef pdf_compute(float x, float loc, float scale):
+   cdef float norm_factor
+   cdef float exponent
+   norm_factor = sqrt(2 * pi * scale)
+   exponent = -1 * (x - loc) ** 2 / (2 * scale)
+   return  1 / norm_factor * exp(exponent)
+
+def calc_gd_fwhm(np.ndarray[int, ndim=2, mode="c"] indices,
+                  np.ndarray[float, ndim=1, mode="c"] dist,
+                  np.ndarray[float, ndim=1, mode="c"] data,
+                  sigma):
+   cdef int n_vertices = data.shape[0]
+   cdef np.ndarray sumval = np.zeros([n_vertices], dtype = np.float32)
+   cdef np.ndarray sum_weight = np.zeros([n_vertices], dtype = np.float32)
+   cdef float weight
+   cdef int i
+   cdef int j
+   cdef int x
+
+   for x in xrange(len(dist)):
+      i = indices[x,0]
+      j = indices[x,1]
+      weight = pdf_compute(dist[x], 0, sigma)
+      sumval[j] += weight * data[i]
+      sumval[i] += weight * data[j]
+      sum_weight[i] += weight
+      sum_weight[j] += weight
+   weight = pdf_compute(0, 0, sigma)
+   for i in xrange(n_vertices):
+      sumval[i] += weight * data[i]
+      sum_weight[i] += weight
+   return sumval / sum_weight
+

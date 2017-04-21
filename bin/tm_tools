@@ -54,7 +54,9 @@ class _Usage(ap._HelpAction):
 		splist.append(vertex_make_subsample)
 		splist.append(vertex_extract_mean_values)
 		splist.append(vertex_threshold_image)
-
+		splist.append(tm_merge)
+		splist.append(tm_remove_components)
+		splist.append(tm_gd_fwhm_smoothing)
 
 		helps = []
 		helps.append(parser.format_usage())
@@ -141,6 +143,10 @@ tfce_mediation.tools.tm_merge.getArgumentParser(tm_merge)
 tm_remove_components = subparsers.add_parser("remove-components", help="Remove noise components from ICA and rebuild image. Run first tm_maths --fastica ?? --timeplots ?????.")
 tm_remove_components.set_defaults(func = tfce_mediation.tools.tm_remove_components.run)
 tfce_mediation.tools.tm_remove_components.getArgumentParser(tm_remove_components)
+
+tm_gd_fwhm_smoothing = subparsers.add_parser("geodesic-fwhm", help="Geodesic FHWM smoothing using accurate distances at midthickness surface. Expect processing to take ~4 minutes.")
+tm_gd_fwhm_smoothing.set_defaults(func = tfce_mediation.tools.tm_gd_fwhm_smoothing.run)
+tfce_mediation.tools.tm_gd_fwhm_smoothing.getArgumentParser(tm_gd_fwhm_smoothing)
 
 parser.add_argument('--verbosehelp', action=_HelpAction, help='Display help for each sub-command.')  # add custom help
 parser.add_argument('--usage', action=_Usage, help='Display usage for sub-command.')  # add printout usage

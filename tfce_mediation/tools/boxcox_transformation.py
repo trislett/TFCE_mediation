@@ -43,6 +43,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		help = "[Surface] [Num_cores]", 
 		metavar = ('*.mgh', 'INT'), 
 		required = True)
+	ap.add_argument("--nosmoothing", 
+		help = "No smoother", 
+		action="store_true")
 	return ap
 
 def run(opts):
@@ -68,8 +71,11 @@ def run(opts):
 	out_bc_data=data_full
 	out_bc_data[:,0,0,:] = bc_data
 	nib.save(nib.freesurfer.mghformat.MGHImage(out_bc_data,affine_mask),"%s.boxcox.mgh" % surf_name)
-	print "Smoothing %s.boxcox.mgh" %  surf_name 
-	os.system = os.popen("$FREESURFER_HOME/bin/mri_surf2surf --hemi %s --s fsaverage --sval %s.boxcox.mgh --fwhm 3 --cortex --tval %s.03B.boxcox.mgh" % (hemi, surf_name, surf_gen))
+	if opts.nosmoothing:
+		exit()
+	else:
+		print "Smoothing %s.boxcox.mgh" %  surf_name 
+		os.system = os.popen("$FREESURFER_HOME/bin/mri_surf2surf --hemi %s --s fsaverage --sval %s.boxcox.mgh --fwhm 3 --cortex --tval %s_boxcox.03B.mgh" % (hemi, surf_name, surf_gen))
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

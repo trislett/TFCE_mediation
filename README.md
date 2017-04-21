@@ -7,6 +7,16 @@ Fast regression and mediation analysis of vertex or voxel MR data with TFCE
 
 The pre-print manuscript is available [here](tfce_mediation/doc/Lett_et_al_2017_HBM_Accepted.pdf) as well as the [supporting information](tfce_mediation/doc/Lett_et_al_2017_HBM_supporting_information.docx).
 
+### What's new / updates ###
+
+21-04-2017
+* Geodesic FWHM smoothing on the vertex images. It is performed on the midthickness surface. The runtime is approximately 4 minutes per image, but it can probably be faster. No more fudge factors!
+* FWHM smoothing on voxel images.
+* Too many additions to tm_maths than can be listed. Some examples are surface-based ICA artefact removal, curve fitting for calculation of the max TFCE null distribution of FWE correction, pca compression smoothing, many clustering algorithms, and powerful normalization tools. Check the help function.
+* Initial support for CIVET vertex-based analyses (see the issues section)
+* Version 1.1 will be pushed to pip in the near future. 
+
+
 ### Dependencies ###
 
 TFCE_mediation should work with any UNIX based system. It has been tested on Ubuntu 14.04 and 16.04, Arch Linux, and OSX   

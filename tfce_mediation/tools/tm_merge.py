@@ -32,9 +32,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 	datatype.add_argument("--vertex", 
 		help="Vertex input",
 		action="store_true")
-	ap.add_argument("-o", "--output", nargs=1, help="[4D_image]", metavar=('*.nii.gz'), required=True)
-	ap.add_argument("-i", "--input", nargs='+', help="[3Dimage] ...", metavar=('*.nii.gz'), required=True)
-	ap.add_argument("-m", "--mask", nargs=1, help="[3Dimage]", metavar=('*.nii.gz'))
+	ap.add_argument("-o", "--output", nargs=1, help="[4D_image]", metavar=('*.nii.gz or *.mgh'), required=True)
+	ap.add_argument("-i", "--input", nargs='+', help="[3Dimage] ...", metavar=('*.nii.gz or *.mgh'), required=True)
+	ap.add_argument("-m", "--mask", nargs=1, help="[3Dimage]", metavar=('*.nii.gz or *.mgh'))
 	return ap
 
 def run(opts):

@@ -16,3 +16,4 @@ from . import voxel_build_nifti4d_from_npy
 from . import voxel_make_subsample
 from . import tm_merge
 from . import tm_remove_components
+from . import tm_gd_fwhm_smoothing

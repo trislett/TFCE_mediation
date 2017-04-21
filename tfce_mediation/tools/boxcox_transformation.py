@@ -75,7 +75,7 @@ def run(opts):
 		exit()
 	else:
 		print "Smoothing %s.boxcox.mgh" %  surf_name 
-		os.system = os.popen("$FREESURFER_HOME/bin/mri_surf2surf --hemi %s --s fsaverage --sval %s.boxcox.mgh --fwhm 3 --cortex --tval %s_boxcox.03B.mgh" % (hemi, surf_name, surf_gen))
+		os.system = os.popen("$FREESURFER_HOME/bin/mri_surf2surf --hemi %s --s fsaverage --sval %s.boxcox.mgh --fwhm 3 --cortex --tval %s.boxcox.03B.mgh" % (hemi, surf_name, surf_gen))
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

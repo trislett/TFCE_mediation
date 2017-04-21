@@ -85,8 +85,8 @@ def run(opts):
 		os.chdir('../')
 		os.system("""for hemi in lh rh; do 
 			tm_tools merge-images --vertex -o ${hemi}.all.%s_boxcox.03B.mgh -i %s/smoothed*img*${hemi}*.mgh
-			done""" % (surface, tempdir)
-		os.system("rm -rf %s" % tempdir)
+			done""" % (surface, tempdir))
+#		os.system("rm -rf %s" % tempdir)
 if __name__ == "__main__":
 	parser = getArgumentParser()
 	opts = parser.parse_args()

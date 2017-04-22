@@ -77,7 +77,7 @@ def run(opts):
 		os.system("""
 		for hemi in lh rh; do
 			for i in img*${hemi}*; do 
-				echo tm_tools geodesic-fwhm -i $i -o smoothed_${i} --hemi ${hemi} -f %1.4f -d ${TM_ADDONS}/${hemi}_8.0mm_fwhm_distances.npy --correct_surface 3.0
+				echo tm_tools geodesic-fwhm -i $i -o smoothed_${i} --hemi ${hemi} -f %1.4f -d ${TM_ADDONS}/${hemi}_8.0mm_fwhm_distances.npy --correct_surface 5.0
 			done >> %s
 		done
 		cat %s | parallel -j %d;
@@ -86,7 +86,24 @@ def run(opts):
 		os.system("""for hemi in lh rh; do 
 			tm_tools merge-images --vertex -o ${hemi}.all.%s_boxcox.03B.mgh -i %s/smoothed*img*${hemi}*.mgh
 			done""" % (surface, tempdir))
-#		os.system("rm -rf %s" % tempdir)
+		os.system("rm -rf %s" % tempdir)
+	else:
+		print "Performing Geodesic smoothing with FWHM = %1.1f " % fwhm
+		os.chdir('%s/' % tempdir)
+		os.system("""
+		for hemi in lh rh; do
+			for i in ${hemi}*.mgh; do
+				echo tm_tools geodesic-fwhm -i $i -o smoothed_${i} --hemi ${hemi} -f %1.4f -d ${TM_ADDONS}/${hemi}_8.0mm_fwhm_distances.npy --correct_surface 5.0
+			done >> %s
+		done
+		cat %s | parallel -j %d;
+		""" % (fwhm,cmd_smooth,cmd_smooth,numcore) )
+		os.chdir('../')
+		os.system("""for hemi in lh rh; do
+			tm_tools merge-images --vertex -o ${hemi}.all.%s.00.mgh -i %s/${hemi}*00.mgh 
+			tm_tools merge-images --vertex -o ${hemi}.all.%s.03B.mgh -i %s/smoothed*${hemi}*00.mgh
+			done""" % (surface, tempdir))
+		os.system("rm -rf %s" % tempdir)
 if __name__ == "__main__":
 	parser = getArgumentParser()
 	opts = parser.parse_args()

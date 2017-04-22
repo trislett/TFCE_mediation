@@ -90,13 +90,13 @@ def run(opts):
 		y = data[cortex_index].flatten()
 		(mu, sigma) = norm.fit(y)
 		cthresh = multipler*sigma + mu
-		print "The upper threshold is: %f1.4" % cthresh
+		print "The upper threshold is: %1.4f" % cthresh
 		data[data>cthresh] = cthresh
 
 	smoothed = calc_gd_fwhm(indices_masked.astype(np.int32, order='c'), dist_masked.astype(np.float32, order='c'), data[:,0,0].astype(np.float32, order = "c"), sigma)
 
 	outdata = np.zeros_like(data)
-	outdata[:,0,0] = smoothed
+	outdata[cortex_index,0,0] = smoothed[cortex_index]
 	nib.save(nib.freesurfer.mghformat.MGHImage(outdata,img.affine),outname)
 
 if __name__ == "__main__":

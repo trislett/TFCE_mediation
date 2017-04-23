@@ -19,8 +19,10 @@
 import os
 import argparse
 import numpy as np
+import time
+import datetime
 
-DESCRIPTION = "Python pipe to build Freesurfer template surface using mris_preproc. $SUBJECT_DIR must be declared (e.g., export SUBJECT_DIR=/path/to/freesurfer/subjects)"
+DESCRIPTION = "Python pipe to build Freesurfer template surface using mri_surf2surf. $SUBJECT_DIR must be declared (e.g., export SUBJECT_DIR=/path/to/freesurfer/subjects)"
 
 def getArgumentParser(parser = argparse.ArgumentParser(description = DESCRIPTION)):
 	parser.add_argument("-i", "--input", 
@@ -29,63 +31,81 @@ def getArgumentParser(parser = argparse.ArgumentParser(description = DESCRIPTION
 		metavar=('*.csv', 'area or thickness'),
 		required=True)
 	parser.add_argument("-f", "--fwhm", 
-		nargs='?', 
-		help="Optional. Specify FWHM smoothing (other than 0,3,and 10). E.g., -f 2]", 
+		nargs='+', 
+		help="Optional. Specify FWHM smoothing other than 3mm. Multiple smoothing values can be specificed, E.g.,, for  FWHM = 4mm and 10mm ( -f 4 10 )",
 		metavar=('INT'))
 	parser.add_argument("-p", "--parallel", 
-		help="Optional. Use GNU parallel processing", 
-		action="store_true")
+		nargs=1,
+		type=int,
+		help="Optional (recommended). Use GNU parallel processing with entering the number of cores (e.g., -p 8)", 
+		metavar=('INT'))
 	return parser
 
 def run(opts):
-	subjects = np.genfromtxt(str(opts.input[0]), delimiter=",", dtype=None)
-	if subjects.dtype.kind in np.typecodes['AllInteger']:
-		subjects = np.array(map(str, subjects))
+	subject_list = opts.input[0]
+	subjects = np.genfromtxt(str(subject_list), delimiter=",", dtype=str)
+#	if subjects.dtype.kind in np.typecodes['AllInteger']:
+#		subjects = np.array(map(str, subjects))
 	surface = str(opts.input[1])
+	if opts.parallel:
+		numcore = opts.parallel[0]
+
+	currenttime = time.time()
+	timestamp = datetime.datetime.fromtimestamp(currenttime).strftime('%Y_%m_%d_%H%M%S')
+	tempdir = "temp_%s_%s" % (surface,timestamp)
+	cmd_reg =  "cmd_reg_%s_%s" % (surface, timestamp)
+	cmd_smooth =  "cmd_smooth_%s_%s" % (surface, timestamp)
 
 	os.system('echo "Current SUBJECTS_DIR is: " $SUBJECTS_DIR;')
-	longname='{1}{0}'.format(' --s '.join(subjects), '--s ')
-	with open("longname", "w") as text_file:
-		text_file.write("%s" % longname)
+#	longname='{1}{0}'.format(' --s '.join(subjects), '--s ')
+#	with open("longname", "w") as text_file:
+#		text_file.write("%s" % longname)
+
+	os.system("""
+		mkdir %s;
+		for hemi in lh rh; do
+			for i in $(cat %s); do
+				echo $FREESURFER_HOME/bin/mri_surf2surf --srcsubject ${i} --srchemi ${hemi} --srcsurfreg sphere.reg --trgsubject fsaverage --trghemi ${hemi} --trgsurfreg sphere.reg --tval ./%s/${hemi}.${i}.%s.00.mgh --sval ${SUBJECTS_DIR}/${i}/surf/${hemi}.%s --sfmt curv --noreshape --cortex
+			done >> %s/%s
+		done """ % (tempdir,subject_list, tempdir,surface,surface,tempdir,cmd_reg) )
 
 	if opts.parallel:
-		## create template
-		os.system(""" 
-			echo "using parallel processing"
-			for i in lh rh; do 
-				echo '$FREESURFER_HOME/bin/mris_preproc' $(cat longname) '--target fsaverage --hemi '$(echo ${i})' --meas '$(echo %s)' --out '$(echo ${i})'.all.'$(echo %s)'.00.mgh';
-			done > cmd_step1;
-			cat cmd_step1 | parallel -j 2;
-			rm cmd_step1;
-			rm longname;
-			""" % (surface,surface))
-		## apply FWHM of 3mm and 10m to template
-		os.system("""
-			for j in lh rh; do 
-					echo $FREESURFER_HOME/bin/mri_surf2surf --hemi ${j} --s fsaverage --sval ${j}.all.%s.00.mgh --fwhm 10 --cortex --tval ${j}.all.%s.10B.mgh
-					echo $FREESURFER_HOME/bin/mri_surf2surf --hemi ${j} --s fsaverage --sval ${j}.all.%s.00.mgh --fwhm 3 --cortex --tval ${j}.all.%s.03B.mgh
-			done > cmd_step2;
-			cat cmd_step2 | parallel -j 4;
-			rm cmd_step2;
-				""" % (surface,surface,surface,surface))
+		os.system("cat %s/%s | parallel -j %d" % (tempdir,cmd_reg, numcore) )
 	else:
-		os.system("""
-			eval $(echo '$FREESURFER_HOME/bin/mris_preproc' $(cat longname) '--target fsaverage --hemi lh --meas %s --out lh.all.%s.00.mgh');
-			eval $(echo '$FREESURFER_HOME/bin/mris_preproc' $(cat longname) '--target fsaverage --hemi rh --meas %s --out rh.all.%s.00.mgh');
-			rm longname;
-			""" % (surface,surface,surface,surface))
-		os.system("""
-			$FREESURFER_HOME/bin/mri_surf2surf --hemi lh --s fsaverage --sval lh.all.%s.00.mgh --fwhm 10 --cortex --tval lh.all.%s.10B.mgh
-			$FREESURFER_HOME/bin/mri_surf2surf --hemi rh --s fsaverage --sval rh.all.%s.00.mgh --fwhm 10 --cortex --tval rh.all.%s.10B.mgh
-			$FREESURFER_HOME/bin/mri_surf2surf --hemi lh --s fsaverage --sval lh.all.%s.00.mgh --fwhm 3 --cortex --tval lh.all.%s.03B.mgh
-			$FREESURFER_HOME/bin/mri_surf2surf --hemi rh --s fsaverage --sval rh.all.%s.00.mgh --fwhm 3 --cortex --tval rh.all.%s.03B.mgh
-				""" % (surface,surface,surface,surface,surface,surface,surface,surface))
+		os.system("while read -r i; do eval $i; done < %s/%s" % (tempdir,cmd_reg) )
+
+	os.chdir('%s/' % tempdir)
+	print "Performing smoothing with FWHM = 3.0mm "
+	os.system("""
+		for hemi in lh rh; do
+			for i in ${hemi}*.mgh; do
+				temp_outname=$(basename ${i} .00.mgh).03B.mgh
+				echo $FREESURFER_HOME/bin/mri_surf2surf --hemi ${hemi} --s fsaverage --sval ${i} --fwhm 3 --cortex --tval ${temp_outname}
+			done >> %s
+		done""" % (cmd_smooth) )
+
+	if opts.parallel:
+		os.system("cat %s | parallel -j %d;" % (cmd_smooth, numcore))
+	else:
+		os.system("while read -r i; do eval $i; done < %s" % (cmd_smooth) )
+	os.chdir('../')
+	print "Merging surface images"
+	os.system("""
+		for hemi in lh rh; do 
+			tm_tools merge-images --vertex -o ${hemi}.all.%s.00.mgh -i %s/*00.mgh
+			tm_tools merge-images --vertex -o ${hemi}.all.%s.03B.mgh -i %s/*03B.mgh
+		done""" % (surface, tempdir, surface, tempdir))
+
 	if opts.fwhm:
 		for i in xrange(len(opts.fwhm)):
 			os.system("""
-			$FREESURFER_HOME/bin/mri_surf2surf --hemi lh --s fsaverage --sval lh.all.%s.00.mgh --fwhm %d --cortex --tval lh.all.%s.%dB.mgh
-			$FREESURFER_HOME/bin/mri_surf2surf --hemi rh --s fsaverage --sval rh.all.%s.00.mgh --fwhm %d --cortex --tval rh.all.%s.%dB.mgh
+			$FREESURFER_HOME/bin/mri_surf2surf --hemi lh --s fsaverage --sval lh.all.%s.00.mgh --fwhm %d --cortex --tval lh.all.%s.0%dB.mgh
+			$FREESURFER_HOME/bin/mri_surf2surf --hemi rh --s fsaverage --sval rh.all.%s.00.mgh --fwhm %d --cortex --tval rh.all.%s.0%dB.mgh
 			""" % (surface,int(opts.fwhm[i]),surface,int(opts.fwhm[i]),surface,int(opts.fwhm[i]),surface,int(opts.fwhm[i])))
+
+	# Clean-up
+	os.system("rm -rf %s" % tempdir)
+
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

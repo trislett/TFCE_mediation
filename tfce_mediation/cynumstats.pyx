@@ -44,9 +44,9 @@ def cython_lstsqr(x, y):
    y_interc = y_avg - slope*x_avg
    return (y_interc,slope)
 
-def se_of_slope(num_voxel,invXX,sigma2,k):
+def se_of_slope(num_voxel,invXX,sigma2, k):
    cdef int j
-   se = np.zeros(shape=(k,num_voxel))
+   cdef np.ndarray se = np.zeros(shape=(k,num_voxel), dtype=np.float32)
    for j in xrange(num_voxel):
       se[:,j] = np.sqrt ( np.diag (sigma2[j] * invXX ) )
    return se

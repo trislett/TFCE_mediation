@@ -1,6 +1,8 @@
 # TFCE_mediation
 Fast regression and mediation analysis of vertex or voxel MR data with TFCE
 
+![Splash type schematic](tfce_mediation/doc/TFCE_mediation_graphic.png "Schematic")
+
 ### Citation ###
 
 [Lett TA, Waller L, Tost H, Veer IM, Nazeri A, Erk S, Brandl EJ, Charlet K, Beck A, Vollstädt-Klein S, Jorde A, Keifer F, Heinz A, Meyer-Lindenberg A, Chakravarty MM, Walter H. Cortical Surface-Based Threshold-Free Cluster Enhancement and Cortexwise Mediation. Hum Brain Mapp. 2017 March 20. DOI: 10.1002/hbm.23563](http://onlinelibrary.wiley.com/doi/10.1002/hbm.23563/full)

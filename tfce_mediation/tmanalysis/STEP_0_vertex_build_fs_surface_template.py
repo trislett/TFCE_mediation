@@ -92,8 +92,8 @@ def run(opts):
 	print "Merging surface images"
 	os.system("""
 		for hemi in lh rh; do 
-			tm_tools merge-images --vertex -o ${hemi}.all.%s.00.mgh -i %s/*00.mgh
-			tm_tools merge-images --vertex -o ${hemi}.all.%s.03B.mgh -i %s/*03B.mgh
+			tm_tools merge-images --vertex -o ${hemi}.all.%s.00.mgh -i %s/${hemi}*00.mgh
+			tm_tools merge-images --vertex -o ${hemi}.all.%s.03B.mgh -i %s/${hemi}*03B.mgh
 		done""" % (surface, tempdir, surface, tempdir))
 
 	if opts.fwhm:

@@ -39,6 +39,9 @@ def getArgumentParser(parser = argparse.ArgumentParser(description = DESCRIPTION
 		type=int,
 		help="Optional (recommended). Use GNU parallel processing with entering the number of cores (e.g., -p 8)", 
 		metavar=('INT'))
+	parser.add_argument("-k", "--noclean", 
+		help="Keep temporary files", 
+		action='store_true')
 	return parser
 
 def run(opts):
@@ -65,7 +68,7 @@ def run(opts):
 		mkdir %s;
 		for hemi in lh rh; do
 			for i in $(cat %s); do
-				echo $FREESURFER_HOME/bin/mri_surf2surf --srcsubject ${i} --srchemi ${hemi} --srcsurfreg sphere.reg --trgsubject fsaverage --trghemi ${hemi} --trgsurfreg sphere.reg --tval ./%s/${hemi}.${i}.%s.00.mgh --sval ${SUBJECTS_DIR}/${i}/surf/${hemi}.%s --sfmt curv --noreshape --cortex
+				echo $FREESURFER_HOME/bin/mri_surf2surf --srcsubject ${i} --srchemi ${hemi} --srcsurfreg sphere.reg --trgsubject fsaverage --trghemi ${hemi} --trgsurfreg sphere.reg --tval ./%s/${hemi}.${i}.%s.00.mgh --sval ${SUBJECTS_DIR}/${i}/surf/${hemi}.%s --jac --sfmt curv --noreshape --cortex
 			done >> %s/%s
 		done """ % (tempdir,subject_list, tempdir,surface,surface,tempdir,cmd_reg) )
 
@@ -80,7 +83,7 @@ def run(opts):
 		for hemi in lh rh; do
 			for i in ${hemi}*.mgh; do
 				temp_outname=$(basename ${i} .00.mgh).03B.mgh
-				echo $FREESURFER_HOME/bin/mri_surf2surf --hemi ${hemi} --s fsaverage --sval ${i} --fwhm 3 --cortex --tval ${temp_outname}
+				echo $FREESURFER_HOME/bin/mri_surf2surf --hemi ${hemi} --s fsaverage --sval ${i} --tval ${temp_outname} --fwhm-trg 3 --noreshape --cortex 
 			done >> %s
 		done""" % (cmd_smooth) )
 
@@ -90,11 +93,18 @@ def run(opts):
 		os.system("while read -r i; do eval $i; done < %s" % (cmd_smooth) )
 	os.chdir('../')
 	print "Merging surface images"
+	# painful solution to join strings to maintain subject order
+	lh_00 = " ".join([("%s/lh." % tempdir) + s + '*.00.mgh' for s in subjects])
+	lh_03 = " ".join([("%s/lh." % tempdir) + s + '*.03B.mgh' for s in subjects])
+	rh_00 = " ".join([("%s/rh." % tempdir) + s + '*.00.mgh' for s in subjects])
+	rh_03 = " ".join([("%s/rh." % tempdir) + s + '*.03B.mgh' for s in subjects])
+
 	os.system("""
-		for hemi in lh rh; do 
-			tm_tools merge-images --vertex -o ${hemi}.all.%s.00.mgh -i %s/${hemi}*00.mgh
-			tm_tools merge-images --vertex -o ${hemi}.all.%s.03B.mgh -i %s/${hemi}*03B.mgh
-		done""" % (surface, tempdir, surface, tempdir))
+			tm_tools merge-images --vertex -o lh.all.%s.00.mgh -i %s
+			tm_tools merge-images --vertex -o lh.all.%s.03B.mgh -i %s
+			tm_tools merge-images --vertex -o rh.all.%s.00.mgh -i %s
+			tm_tools merge-images --vertex -o rh.all.%s.03B.mgh -i %s
+		""" % (surface,lh_00,surface,lh_03,surface,rh_00,surface,rh_03))
 
 	if opts.fwhm:
 		for i in xrange(len(opts.fwhm)):
@@ -104,7 +114,10 @@ def run(opts):
 			""" % (surface,int(opts.fwhm[i]),surface,int(opts.fwhm[i]),surface,int(opts.fwhm[i]),surface,int(opts.fwhm[i])))
 
 	# Clean-up
-	os.system("rm -rf %s" % tempdir)
+	if opts.noclean:
+		exit()
+	else:
+		os.system("rm -rf %s" % tempdir)
 
 
 if __name__ == "__main__":

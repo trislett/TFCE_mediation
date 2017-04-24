@@ -51,7 +51,7 @@ def run(opts):
 		mkdir %s
 		for hemi in lh rh; do
 			for i in $(cat %s); do
-				echo mri_surf2surf --srcsubject ${i} --srchemi ${hemi} --srcsurfreg sphere.reg --trgsubject fsaverage --trghemi ${hemi} --trgsurfreg sphere.reg --tval ./%s/${hemi}.${i}.%s.00.mgh --sval ${SUBJECTS_DIR}/${i}/surf/${hemi}.%s --sfmt curv --noreshape --cortex
+				echo mri_surf2surf --srcsubject ${i} --srchemi ${hemi} --srcsurfreg sphere.reg --trgsubject fsaverage --trghemi ${hemi} --trgsurfreg sphere.reg --tval ./%s/${hemi}.${i}.%s.00.mgh --sval ${SUBJECTS_DIR}/${i}/surf/${hemi}.%s --jac --sfmt curv --noreshape --cortex
 			done >> %s/%s
 		done
 		cat %s/%s | parallel -j %d;

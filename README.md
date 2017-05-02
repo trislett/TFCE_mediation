@@ -10,7 +10,10 @@ Fast regression and mediation analysis of vertex or voxel MR data with TFCE
 The pre-print manuscript is available [here](tfce_mediation/doc/Lett_et_al_2017_HBM_Accepted.pdf) as well as the [supporting information](tfce_mediation/doc/Lett_et_al_2017_HBM_supporting_information.docx).
 
 ### What's new / updates ###
-
+02-05-2017
+* Added fwhm_compute_distances_parallel to the misc_scripts directory. It is necessary to geodesic FWHM smoothing. 
+* Full support for CIFTI-2 and GIFTI in the very near future.
+* Version 1.1 is now available on pip 
 21-04-2017
 * Geodesic FWHM smoothing on the vertex images. It is performed on the midthickness surface. The runtime is approximately 4 minutes per image, but it can probably be faster. No more fudge factors!
 * FWHM smoothing on voxel images.

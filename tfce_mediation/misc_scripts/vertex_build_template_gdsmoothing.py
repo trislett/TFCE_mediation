@@ -77,7 +77,7 @@ def run(opts):
 		os.system("""
 		for hemi in lh rh; do
 			for i in img*${hemi}*; do 
-				echo tm_tools geodesic-fwhm -i $i -o smoothed_${i} --hemi ${hemi} -f %1.4f -d ${TM_ADDONS}/${hemi}_8.0mm_fwhm_distances.npy --correct_surface 5.0
+				echo tm_tools geodesic-fwhm -i $i -o smoothed_${i} --hemi ${hemi} -f %1.4f -d ${TM_ADDONS}/${hemi}_8.0mm_fwhm_distances.npy
 			done >> %s
 		done
 		cat %s | parallel -j %d;
@@ -93,7 +93,7 @@ def run(opts):
 		os.system("""
 		for hemi in lh rh; do
 			for i in ${hemi}*.mgh; do
-				echo tm_tools geodesic-fwhm -i $i -o smoothed_${i} --hemi ${hemi} -f %1.4f -d ${TM_ADDONS}/${hemi}_8.0mm_fwhm_distances.npy --correct_surface 5.0
+				echo tm_tools geodesic-fwhm -i $i -o smoothed_${i} --hemi ${hemi} -f %1.4f -d ${TM_ADDONS}/${hemi}_8.0mm_fwhm_distances.npy
 			done >> %s
 		done
 		cat %s | parallel -j %d;

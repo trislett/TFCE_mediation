@@ -77,3 +77,30 @@ def compute(numpy.ndarray[float, ndim=2, mode="c"] v,
 	del Algorithm
 
 	return adjacency
+
+#parallizable computation of vertex distances
+def compute_distance_parallel(numpy.ndarray[float, ndim=2, mode="c"] v,
+						numpy.ndarray[int, ndim=2, mode="c"] f,
+						threshold,i):
+	cdef Mesh Mesh_
+	Mesh_.initialize_mesh_data[float, int](v.shape[0], &v[0, 0], f.shape[0], &f[0, 0])
+	cdef GeodesicAlgorithmExact *Algorithm = new GeodesicAlgorithmExact(&Mesh_)
+	cdef vector[SurfacePoint] *Source = new vector[SurfacePoint](1)
+	cdef SurfacePoint Target
+	cdef double Distance = 0
+	cdef double maxDistance = numpy.max(threshold) + 1e-10 # epsilon
+
+	geo_distance_list = []
+	Source[0][0] = SurfacePoint(&Mesh_.vertices()[i])
+	Algorithm.propagate(Source[0], maxDistance)
+
+	for j in range(i + 1, v.shape[0]):
+		Target = SurfacePoint(&Mesh_.vertices()[j])
+		Algorithm.best_source(Target, Distance)
+		if Distance < threshold:
+			geo_distance_list.append([i, j, Distance])
+	print("--> (" + str(i) + ") ")
+	del Source
+	del Algorithm
+	return geo_distance_list
+

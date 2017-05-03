@@ -17,3 +17,4 @@ from . import voxel_make_subsample
 from . import tm_merge
 from . import tm_remove_components
 from . import tm_gd_fwhm_smoothing
+from . import tm_convert_surface

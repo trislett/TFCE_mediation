@@ -10,9 +10,13 @@ Fast regression and mediation analysis of vertex or voxel MR data with TFCE
 The pre-print manuscript is available [here](tfce_mediation/doc/Lett_et_al_2017_HBM_Accepted.pdf) as well as the [supporting information](tfce_mediation/doc/Lett_et_al_2017_HBM_supporting_information.docx).
 
 ### What's new / updates ###
+03-05-2017
+
+* Added surface conversion tool (tm_tools convert-surface) for converting gifti / MNI objects / freesurfer .srf files to freesurfer .srf files for analysis with TFCE_mediation, OR waveform objects / Stl objects for importing the surface to 3D rendering software such as Blender. Among other things, this means that there is now full support for statistical analysis of neuroimages processed with CIVET.  
+
 02-05-2017
 
-* Added fwhm_compute_distances_parallel to the misc_scripts directory. It is necessary to geodesic FWHM smoothing. 
+* Added fwhm_compute_distances_parallel to the misc_scripts directory. It is necessary for geodesic FWHM smoothing. 
 * Full support for CIFTI-2 and GIFTI in the very near future.
 * Version 1.1 is now available on pip 
 

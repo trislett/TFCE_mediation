@@ -19,6 +19,7 @@ def check_outname(outname):
 		print "Output file aleady exists. Renaming output file to %s" % outname
 	return outname
 
+# not used
 def computeNormals(v, f):
 	v_ = v[f]
 	fn = np.cross(v_[:, 1] - v_[:, 0], v_[:, 2] - v_[:,0])
@@ -32,6 +33,14 @@ def computeNormals(v, f):
 	vlen = np.sqrt(np.sum(vn ** 2, axis = 1))[np.any(vn != 0, axis = 1), None]
 	vn[np.any(vn != 0, axis = 1), :] /= vlen
 	return vn
+
+def normalize_v3(arr):
+	''' Normalize a numpy array of 3 component vectors shape=(n,3) '''
+	lens = np.sqrt( arr[:,0]**2 + arr[:,1]**2 + arr[:,2]**2 )
+	arr[:,0] /= lens
+	arr[:,1] /= lens
+	arr[:,2] /= lens
+	return arr
 
 def convert_mni_object(obj_file):
 	# adapted from Jon Pipitone's script https://gist.github.com/pipitone/8687804
@@ -83,17 +92,16 @@ def save_stl(v,f, outname):
 	outname=check_outname(outname)
 	v = np.array(v, dtype=np.float32, order = "C")
 	f = np.array(f, dtype=np.int32, order = "C")
-#	vn = computeNormals(v, f)
+	tris = v[f]
+	n = np.cross( tris[::,1 ] - tris[::,0]  , tris[::,2 ] - tris[::,0] )
+	n = normalize_v3(n)
 	with open(outname, "a") as o:
 		o.write("solid surface\n")
-		for index_f in f:
-			p1 = v[index_f[0]]
-			p2 = v[index_f[1]]
-			p3 = v[index_f[2]]
-			o.write("\tfacet normal 0 0 0\n")
-			o.write("\t\tvertex %1.6e %1.6e %1.6e\n" % (p1[0],p1[1],p1[2]))
-			o.write("\t\tvertex %1.6e %1.6e %1.6e\n" % (p2[0],p2[1],p2[2]))
-			o.write("\t\tvertex %1.6e %1.6e %1.6e\n" % (p3[0],p3[1],p3[2]))
+		for i in xrange(tris.shape[0]):
+			o.write("\tfacet normal %1.6e %1.6e %1.6e\n"% (n[i,0],n[i,0],n[i,0]))
+			o.write("\t\tvertex %1.6e %1.6e %1.6e\n" % (tris[i,0,0],tris[i,0,1],tris[i,0,2]))
+			o.write("\t\tvertex %1.6e %1.6e %1.6e\n" % (tris[i,1,0],tris[i,1,1],tris[i,1,2]))
+			o.write("\t\tvertex %1.6e %1.6e %1.6e\n" % (tris[i,2,0],tris[i,2,1],tris[i,2,2]))
 			o.write("\tendloop\n")
 		o.write("endfacet")
 		o.close()

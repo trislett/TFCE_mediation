@@ -123,9 +123,9 @@ def run(opts):
 	if opts.inputfreesurfer:
 		v,f = convert_fs(str(opts.inputfreesurfer[0]))
 	if opts.inputgifti:
-		v,f = convert_gifti(str(opts.inputfreesurfer[0]))
+		v,f = convert_gifti(str(opts.inputgifti[0]))
 	if opts.inputmniobj:
-		v,f = convert_mni_object(str(opts.inputfreesurfer[0]))
+		v,f = convert_mni_object(str(opts.inputmniobj[0]))
 	#output
 	if opts.outputfreesurfer:
 		save_fs(v,f, opts.outputfreesurfer[0])

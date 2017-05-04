@@ -15,7 +15,7 @@ def check_outname(outname):
 		if not outpath:
 			outname = ("new_%s" % outname)
 		else:
-			outname = ("%s/new_%s" % (outdir,outname))
+			outname = ("%s/new_%s" % (outpath,outname))
 		print "Output file aleady exists. Renaming output file to %s" % outname
 	return outname
 
@@ -81,6 +81,8 @@ def convert_gifti(gifti_surface):
 
 def save_waveform(v,f, outname):
 	outname=check_outname(outname)
+	if not outname.endswith('obj'):
+		outname += '.obj'
 	with open(outname, "a") as o:
 		for i in xrange(len(v)):
 			o.write("v %1.6f %1.6f %1.6f\n" % (v[i,0],v[i,1], v[i,2]) )
@@ -90,6 +92,8 @@ def save_waveform(v,f, outname):
 
 def save_stl(v,f, outname):
 	outname=check_outname(outname)
+	if not outname.endswith('stl'):
+		outname += '.stl'
 	v = np.array(v, dtype=np.float32, order = "C")
 	f = np.array(f, dtype=np.int32, order = "C")
 	tris = v[f]
@@ -108,7 +112,57 @@ def save_stl(v,f, outname):
 
 def save_fs(v,f, outname):
 	outname=check_outname(outname)
+	if not outname.endswith('srf'):
+		outname += '.srf'
 	nib.freesurfer.io.write_geometry(outname, v, f)
+
+def convert2yellowred(threshold,img_data, baseColour=[227,218,201]):
+	color_list = np.array(range(256))
+	color_array = np.zeros((img_data.shape[0],3))
+	dif = threshold[1] - threshold[0]
+	color_cutoffs = (color_list)*(dif/256)+threshold[0]
+	colored_img_data = np.zeros_like(img_data)
+	cV=0
+	for k in img_data:
+		colored_img_data[cV] = np.searchsorted(color_cutoffs, k, side="left")
+		cV+=1
+	color_array[:,0]=255
+	color_array[:,1]=np.copy(colored_img_data)
+	color_array[img_data<threshold[0]] = baseColour
+	return color_array
+
+def save_ply(v,f, outname, color_array=np.array([]) ):
+	outname=check_outname(outname)
+	if not outname.endswith('ply'):
+		outname += '.ply'
+	with open(outname, "a") as o:
+		o.write("ply\n")
+		o.write("format ascii 1.0\n")
+		o.write("comment made with TFCE_mediation\n")
+		o.write("element vertex %d\n" % len(v))
+		if color_array.size == 0: #there's probably a better way to do this
+			o.write("property float x\n")
+			o.write("property float y\n")
+			o.write("property float z\n")
+		else:
+			o.write("property float x\n")
+			o.write("property float y\n")
+			o.write("property float z\n")
+			o.write("property uchar red\n")
+			o.write("property uchar green\n")
+			o.write("property uchar blue\n")
+		o.write("element face %d\n" % len(f))
+		o.write("property list uchar int vertex_index\n")
+		o.write("end_header\n")
+		if color_array.size == 0:
+			for i in xrange(len(v)):
+				o.write("%1.6f %1.6f %1.6f\n" % (v[i,0],v[i,1], v[i,2]) )
+		else: 
+			for i in xrange(len(v)):
+				o.write("%1.6f %1.6f %1.6f %d %d %d\n" % (v[i,0],v[i,1], v[i,2], color_array[i,0],color_array[i,1], color_array[i,2]) )
+		for j in xrange(len(f)):
+			o.write("3 %d %d %d\n" % (f[j,0],f[j,1], f[j,2]) )
+		o.close()
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatter_class=ap.RawTextHelpFormatter)):
 	#input type
@@ -135,9 +189,17 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		nargs=1, 
 		metavar=('*'))
 	ogroup.add_argument("-o_stl", "--outputstl",
-		help="Output file name for STereoLithography object file for visualization with blender (or any other 3D viewer).", 
+		help="Output file name for STereoLithography (STL) object file for visualization with blender (or any other 3D viewer).", 
 		nargs=1, 
 		metavar=('*'))
+	ogroup.add_argument("-o_pyl", "--outputpyl",
+		help="Output file name for Polygon File Format (PYL) object file for visualization with blender (or any other 3D viewer).", 
+		nargs=1, 
+		metavar=('*'))
+	ap.add_argument("-p", "--paintsurface",
+		help="Projects surface file onto a ply mesh for visualization of resutls using a 3D viewer. Must be used with -o_ply option. Input the surface file (*.mgh), the sigificance threshold (low and high). It currently supports red-yellow colour scheme.", 
+		nargs=3, 
+		metavar=('*.mgh','float','float'))
 	return ap
 
 def run(opts):
@@ -155,6 +217,18 @@ def run(opts):
 		save_waveform(v,f, opts.outputwaveform[0])
 	if opts.outputstl:
 		save_stl(v,f, opts.outputstl[0])
+	if opts.outputpyl:
+		if opts.paintsurface:
+			img = nib.load(opts.paintsurface[0])
+			img_data = img.get_data()
+			if img_data.ndim > 3:
+				print "Error: input file can only contain one subject"
+				exit()
+			img_data = img_data[:,0,0]
+			ry_color_array = convert2yellowred(np.array(( float(opts.paintsurface[1]),float(opts.paintsurface[2]) )), img_data)
+			save_ply(v,f, opts.outputpyl[0], ry_color_array)
+		else:
+			save_stl(v,f, opts.outputstl[0])
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

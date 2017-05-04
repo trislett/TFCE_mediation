@@ -9,6 +9,16 @@ DESCRIPTION = """
 Conversion of surfaces (freesurfer, gifti *.gii, mni *.obj) to freesurfer surface (as well as waveform obj or Stl triangular mesh) for analysis with TFCE_mediation.
 """
 
+def check_outname(outname):
+	if os.path.exists(outname):
+		outpath,outname = os.path.split(outname)
+		if not outpath:
+			outname = ("new_%s" % outname)
+		else:
+			outname = ("%s/new_%s" % (outdir,outname))
+		print "Output file aleady exists. Renaming output file to %s" % outname
+	return outname
+
 def computeNormals(v, f):
 	v_ = v[f]
 	fn = np.cross(v_[:, 1] - v_[:, 0], v_[:, 2] - v_[:,0])
@@ -61,13 +71,16 @@ def convert_gifti(gifti_surface):
 	return v, f
 
 def save_waveform(v,f, outname):
-	np.savetxt("temp_vertices.csv", v, delimiter=",", fmt='%1.5f')
-	np.savetxt("temp_faces.csv", f+1, delimiter=",", fmt='%d')
-	os.system("""awk -F ',' '{print "v", $1, $2, $3}' temp_vertices.csv >> %s""" % outname)
-	os.system("""awk -F ',' '{print "f", $1, $2, $3}' temp_faces.csv >> %s""" % outname)
-	os.system("rm temp_vertices.csv temp_faces.csv")
+	outname=check_outname(outname)
+	with open(outname, "a") as o:
+		for i in xrange(len(v)):
+			o.write("v %1.6f %1.6f %1.6f\n" % (v[i,0],v[i,1], v[i,2]) )
+		for j in xrange(len(f)):
+			o.write("f %d %d %d\n" % (f[j,0],f[j,1], f[j,2]) )
+		o.close()
 
 def save_stl(v,f, outname):
+	outname=check_outname(outname)
 	v = np.array(v, dtype=np.float32, order = "C")
 	f = np.array(f, dtype=np.int32, order = "C")
 #	vn = computeNormals(v, f)
@@ -86,6 +99,7 @@ def save_stl(v,f, outname):
 		o.close()
 
 def save_fs(v,f, outname):
+	outname=check_outname(outname)
 	nib.freesurfer.io.write_geometry(outname, v, f)
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatter_class=ap.RawTextHelpFormatter)):

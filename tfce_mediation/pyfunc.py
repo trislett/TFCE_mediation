@@ -23,7 +23,7 @@ import math
 from sys import exit
 from scipy.stats import linregress
 
-from .cynumstats import calc_beta_se
+from tfce_mediation.cynumstats import calc_beta_se
 
 # Creation of adjacencty sets for TFCE connectivity
 def create_adjac_vertex(vertices,faces): # basic version
@@ -91,9 +91,9 @@ def write_voxelStat_img(statname, voxelStat, out_path, data_index, affine, TFCEf
 
 #writing max TFCE values from permutations
 
-def write_perm_maxTFCE_vertex(statname, vertStat, num_vertex, bin_mask_lh, bin_mask_rh, all_vertex,calcTFCE_lh,calcTFCE_rh):
-	vertStat_out_lh=np.zeros(all_vertex).astype(np.float32, order = "C")
-	vertStat_out_rh=np.zeros(all_vertex).astype(np.float32, order = "C")
+def write_perm_maxTFCE_vertex(statname, vertStat, num_vertex, bin_mask_lh, bin_mask_rh, calcTFCE_lh,calcTFCE_rh):
+	vertStat_out_lh=np.zeros(bin_mask_lh.shape[0]).astype(np.float32, order = "C")
+	vertStat_out_rh=np.zeros(bin_mask_rh.shape[0]).astype(np.float32, order = "C")
 	vertStat_TFCE_lh = np.zeros_like(vertStat_out_lh).astype(np.float32, order = "C")
 	vertStat_TFCE_rh = np.zeros_like(vertStat_out_rh).astype(np.float32, order = "C")
 	vertStat_out_lh[bin_mask_lh] = vertStat[:num_vertex]

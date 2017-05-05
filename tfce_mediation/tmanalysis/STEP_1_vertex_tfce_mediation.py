@@ -208,8 +208,8 @@ def run(opts):
 		os.mkdir("output_med_%s" % surface)
 	os.chdir("output_med_%s" % surface)
 
-	write_vertStat_img('SobelZ_%s' % (medtype),SobelZ[:num_vertex_lh],outdata_mask_lh, affine_mask_lh, surface, 'lh', bin_mask_lh, calcTFCE_lh, all_vertex)
-	write_vertStat_img('SobelZ_%s' % (medtype),SobelZ[num_vertex_lh:],outdata_mask_rh, affine_mask_rh, surface, 'rh', bin_mask_rh, calcTFCE_rh, all_vertex)
+	write_vertStat_img('SobelZ_%s' % (medtype),SobelZ[:num_vertex_lh],outdata_mask_lh, affine_mask_lh, surface, 'lh', bin_mask_lh, calcTFCE_lh, bin_mask_lh.shape[0])
+	write_vertStat_img('SobelZ_%s' % (medtype),SobelZ[num_vertex_lh:],outdata_mask_rh, affine_mask_rh, surface, 'rh', bin_mask_rh, calcTFCE_rh, bin_mask_rh.shape[0])
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

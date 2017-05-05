@@ -86,7 +86,7 @@ def run(opts):
 			pathA_nx = pred_x[indices_perm]
 			pathB_nx = depend_y[indices_perm]
 			SobelZ = calc_sobelz(medtype, pathA_nx, pathB_nx, y, n, num_vertex)
-		write_perm_maxTFCE_vertex("Zstat_%s" % medtype, SobelZ, num_vertex_lh, bin_mask_lh, bin_mask_rh, all_vertex, calcTFCE_lh, calcTFCE_rh)
+		write_perm_maxTFCE_vertex("Zstat_%s" % medtype, SobelZ, num_vertex_lh, bin_mask_lh, bin_mask_rh, calcTFCE_lh, calcTFCE_rh)
 	print("Finished. Randomization took %.1f seconds" % (time() - start_time))
 
 if __name__ == "__main__":

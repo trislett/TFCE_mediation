@@ -92,13 +92,13 @@ def run(opts):
 		if opts.specifyvars:
 			for j in xrange(stop-start):
 				tnum=j+1
-				write_perm_maxTFCE_vertex('tstat_con%d' % tnum, tvals[tnum], num_vertex_lh, bin_mask_lh, bin_mask_rh, all_vertex, calcTFCE_lh, calcTFCE_rh)
-				write_perm_maxTFCE_vertex('tstat_con%d' % tnum, (tvals[tnum] * -1), num_vertex_lh, bin_mask_lh, bin_mask_rh, all_vertex, calcTFCE_lh, calcTFCE_rh)
+				write_perm_maxTFCE_vertex('tstat_con%d' % tnum, tvals[tnum], num_vertex_lh, bin_mask_lh, bin_mask_rh, calcTFCE_lh, calcTFCE_rh)
+				write_perm_maxTFCE_vertex('tstat_con%d' % tnum, (tvals[tnum] * -1), num_vertex_lh, bin_mask_lh, bin_mask_rh, calcTFCE_lh, calcTFCE_rh)
 		else:
 			for j in xrange(k-1):
 				tnum=j+1
-				write_perm_maxTFCE_vertex('tstat_con%d' % tnum, tvals[tnum], num_vertex_lh, bin_mask_lh, bin_mask_rh, all_vertex, calcTFCE_lh, calcTFCE_rh)
-				write_perm_maxTFCE_vertex('tstat_con%d' % tnum, (tvals[tnum] * -1), num_vertex_lh, bin_mask_lh, bin_mask_rh, all_vertex, calcTFCE_lh, calcTFCE_rh)
+				write_perm_maxTFCE_vertex('tstat_con%d' % tnum, tvals[tnum], num_vertex_lh, bin_mask_lh, bin_mask_rh, calcTFCE_lh, calcTFCE_rh)
+				write_perm_maxTFCE_vertex('tstat_con%d' % tnum, (tvals[tnum] * -1), num_vertex_lh, bin_mask_lh, bin_mask_rh, calcTFCE_lh, calcTFCE_rh)
 	print("Finished. Randomization took %.1f seconds" % (time() - start_time))
 
 if __name__ == "__main__":

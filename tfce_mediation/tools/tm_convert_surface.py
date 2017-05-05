@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
+from __future__ import division
 import os
 import numpy as np
 import nibabel as nib
 import argparse as ap
 
 DESCRIPTION = """
-Conversion of surfaces (freesurfer, gifti *.gii, mni *.obj) to freesurfer surface (as well as waveform obj or Stl triangular mesh) for analysis with TFCE_mediation.
+Conversion of surfaces (freesurfer, gifti *.gii, mni *.obj) to freesurfer surface (as well as waveform obj or Stl triangular mesh) for analysis with TFCE_mediation. *mgh files can also be imported and converted to stanford pyl files.
 """
 
 def check_outname(outname):
@@ -17,6 +18,9 @@ def check_outname(outname):
 		else:
 			outname = ("%s/new_%s" % (outpath,outname))
 		print "Output file aleady exists. Renaming output file to %s" % outname
+		if os.path.exists(outname):
+			print "%s also exists. Overwriting the file." % outname
+			 os.remove(outname)
 	return outname
 
 # not used
@@ -116,11 +120,9 @@ def save_fs(v,f, outname):
 		outname += '.srf'
 	nib.freesurfer.io.write_geometry(outname, v, f)
 
-def convert2yellowred(threshold,img_data, baseColour=[227,218,201]):
-	color_list = np.array(range(256))
+def convert_redtoyellow(threshold,img_data, baseColour=[227,218,201]):
 	color_array = np.zeros((img_data.shape[0],3))
-	dif = threshold[1] - threshold[0]
-	color_cutoffs = (color_list)*(dif/256)+threshold[0]
+	color_cutoffs = np.linspace(threshold[0],threshold[1],256)
 	colored_img_data = np.zeros_like(img_data)
 	cV=0
 	for k in img_data:
@@ -129,6 +131,21 @@ def convert2yellowred(threshold,img_data, baseColour=[227,218,201]):
 	color_array[:,0]=255
 	color_array[:,1]=np.copy(colored_img_data)
 	color_array[img_data<threshold[0]] = baseColour
+	color_array[img_data>threshold[1]] = [255,255,0]
+	return color_array
+
+def convert_bluetolightblue(threshold,img_data, baseColour=[227,218,201]):
+	color_array = np.zeros((img_data.shape[0],3))
+	color_cutoffs = np.linspace(threshold[0],threshold[1],256)
+	colored_img_data = np.zeros_like(img_data)
+	cV=0
+	for k in img_data:
+		colored_img_data[cV] = np.searchsorted(color_cutoffs, k, side="left")
+		cV+=1
+	color_array[:,1]=np.copy(colored_img_data)
+	color_array[:,2]=255
+	color_array[img_data<threshold[0]] = baseColour
+	color_array[img_data>threshold[1]] = [0,255,255]
 	return color_array
 
 def save_ply(v,f, outname, color_array=np.array([]) ):
@@ -197,9 +214,13 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		nargs=1, 
 		metavar=('*'))
 	ap.add_argument("-p", "--paintsurface",
-		help="Projects surface file onto a ply mesh for visualization of resutls using a 3D viewer. Must be used with -o_ply option. Input the surface file (*.mgh), the sigificance threshold (low and high). It currently supports red-yellow colour scheme.", 
-		nargs=3, 
-		metavar=('*.mgh','float','float'))
+		help="Projects surface file onto a ply mesh for visualization of resutls using a 3D viewer. Must be used with -o_ply option. Input the surface file (*.mgh), the sigificance threshold (low and high), and red-yellow (r_y) or blue-lightblue (b-lb) colour schemes. Note, thresholds must be postive.", 
+		nargs=4, 
+		metavar=('*.mgh','float','float', 'r_y or b_lb'))
+	ap.add_argument("-s", "--paintsecondsurface",
+		help="Projects a second surface file onto a ply mesh for visualization of resutls using a 3D viewer. Must be used with -o_ply and -p options. Input the surface file (*.mgh), the sigificance threshold (low and high), and red-yellow (r_y) or blue-lightblue (b_lb) colour schemes. Note, thresholds must be postive.", 
+		nargs=4, 
+		metavar=('*.mgh','float','float', 'r_y or b_lb'))
 	return ap
 
 def run(opts):
@@ -225,10 +246,33 @@ def run(opts):
 				print "Error: input file can only contain one subject"
 				exit()
 			img_data = img_data[:,0,0]
-			ry_color_array = convert2yellowred(np.array(( float(opts.paintsurface[1]),float(opts.paintsurface[2]) )), img_data)
-			save_ply(v,f, opts.outputpyl[0], ry_color_array)
+			if (str(opts.paintsurface[3]) == 'r_y') or (str(opts.paintsurface[3]) == 'red-yellow'):
+				out_color_array = convert_redtoyellow(np.array(( float(opts.paintsurface[1]),float(opts.paintsurface[2]) )), img_data)
+			elif (str(opts.paintsurface[3]) == 'b_lb') or (str(opts.paintsurface[3]) == 'blue-lightblue'):
+				out_color_array = convert_bluetolightblue(np.array(( float(opts.paintsurface[1]),float(opts.paintsurface[2]) )), img_data)
+			else:
+				print "Colour scheme %s does not exist" % str(opts.paintsecondsurface[3])
+				exit()
+			if opts.paintsecondsurface:
+				img = nib.load(opts.paintsecondsurface[0])
+				img_data = img.get_data()
+				if img_data.ndim > 3:
+					print "Error: input file can only contain one subject"
+					exit()
+				img_data = img_data[:,0,0]
+				index = img_data > float(opts.paintsecondsurface[1])
+				if (str(opts.paintsecondsurface[3]) == 'r_y') or (str(opts.paintsecondsurface[3]) == 'red-yellow'):
+					out_color_array2 = convert_redtoyellow(np.array(( float(opts.paintsecondsurface[1]),float(opts.paintsecondsurface[2]) )), img_data)
+				elif (str(opts.paintsecondsurface[3]) == 'b_lb') or (str(opts.paintsecondsurface[3]) == 'blue-lightblue'):
+					out_color_array2 = convert_bluetolightblue(np.array(( float(opts.paintsecondsurface[1]),float(opts.paintsecondsurface[2]) )), img_data)
+				else:
+					print "Error: colour scheme %s does not exist" % str(opts.paintsecondsurface[3])
+					exit()
+			out_color_array[index,:] = out_color_array2[index,:]
+			save_ply(v,f, opts.outputpyl[0], out_color_array)
 		else:
-			save_stl(v,f, opts.outputstl[0])
+			save_stl(v,f, opts.outputpyl[0])
+
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

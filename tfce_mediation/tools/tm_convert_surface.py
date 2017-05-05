@@ -20,7 +20,7 @@ def check_outname(outname):
 		print "Output file aleady exists. Renaming output file to %s" % outname
 		if os.path.exists(outname):
 			print "%s also exists. Overwriting the file." % outname
-			 os.remove(outname)
+			os.remove(outname)
 	return outname
 
 # not used
@@ -84,9 +84,9 @@ def convert_gifti(gifti_surface):
 	return v, f
 
 def save_waveform(v,f, outname):
-	outname=check_outname(outname)
 	if not outname.endswith('obj'):
 		outname += '.obj'
+	outname=check_outname(outname)
 	with open(outname, "a") as o:
 		for i in xrange(len(v)):
 			o.write("v %1.6f %1.6f %1.6f\n" % (v[i,0],v[i,1], v[i,2]) )
@@ -95,9 +95,9 @@ def save_waveform(v,f, outname):
 		o.close()
 
 def save_stl(v,f, outname):
-	outname=check_outname(outname)
 	if not outname.endswith('stl'):
 		outname += '.stl'
+	outname=check_outname(outname)
 	v = np.array(v, dtype=np.float32, order = "C")
 	f = np.array(f, dtype=np.int32, order = "C")
 	tris = v[f]
@@ -106,12 +106,14 @@ def save_stl(v,f, outname):
 	with open(outname, "a") as o:
 		o.write("solid surface\n")
 		for i in xrange(tris.shape[0]):
-			o.write("\tfacet normal %1.6e %1.6e %1.6e\n"% (n[i,0],n[i,0],n[i,0]))
-			o.write("\t\tvertex %1.6e %1.6e %1.6e\n" % (tris[i,0,0],tris[i,0,1],tris[i,0,2]))
-			o.write("\t\tvertex %1.6e %1.6e %1.6e\n" % (tris[i,1,0],tris[i,1,1],tris[i,1,2]))
-			o.write("\t\tvertex %1.6e %1.6e %1.6e\n" % (tris[i,2,0],tris[i,2,1],tris[i,2,2]))
-			o.write("\tendloop\n")
-		o.write("endfacet")
+			o.write("facet normal %1.6f %1.6f %1.6f\n"% (n[i,0],n[i,0],n[i,0]))
+			o.write("outer loop\n")
+			o.write("vertex %1.6f %1.6f %1.6f\n" % (tris[i,0,0],tris[i,0,1],tris[i,0,2]))
+			o.write("vertex %1.6f %1.6f %1.6f\n" % (tris[i,1,0],tris[i,1,1],tris[i,1,2]))
+			o.write("vertex %1.6f %1.6f %1.6f\n" % (tris[i,2,0],tris[i,2,1],tris[i,2,2]))
+			o.write("endloop\n")
+			o.write("endfacet\n")
+		o.write("endfacet\n")
 		o.close()
 
 def save_fs(v,f, outname):

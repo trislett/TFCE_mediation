@@ -10,9 +10,13 @@ Fast regression and mediation analysis of vertex or voxel MR data with TFCE
 The pre-print manuscript is available [here](tfce_mediation/doc/Lett_et_al_2017_HBM_Accepted.pdf) as well as the [supporting information](tfce_mediation/doc/Lett_et_al_2017_HBM_supporting_information.docx).
 
 ### What's new / updates ###
+05-05-2017
+
+* convert-surface now supports exporting the [Polygon File Format (PYL)](https://en.wikipedia.org/wiki/PLY_(file_format)). Statistic files (*.mgh) can now be painted on the vertices with specifying a threshold range (e.g 0.95 1 for pFWE corrected images) with an either red-yellow or blue-lightblue color scheme (all [matplotlib color schemes](https://matplotlib.org/examples/color/colormaps_reference.html) will be added soon). So now you can 3D print your surface based results or yourself extracted surface data from your T1-weighted image!
+
 03-05-2017
 
-* Added surface conversion tool (tm_tools convert-surface) for converting gifti / MNI objects / freesurfer .srf files to freesurfer .srf files for analysis with TFCE_mediation or waveform objects / Stl objects for importing the surface to 3D rendering software such as Blender or Meshlab. Among other things, this means that there is now full support for statistical analysis of neuroimages processed with CIVET.  
+* Added surface conversion tool (tm_tools convert-surface) for converting gifti / MNI objects / freesurfer .srf files to freesurfer .srf files for analysis with TFCE_mediation or waveform objects / Stl objects for importing the surface to 3D rendering software such as Blender or Meshlab. Among other things, this means that there is now full support for statistical analysis of neuroimages processed with CIVET. Here is an example of the midthickness surface [LH](), (RH)[].
 
 02-05-2017
 

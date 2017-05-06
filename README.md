@@ -179,8 +179,8 @@ Output:
 ```
 cd output
 for i in lh rh; do 
-	tfce_mediation vertex-calculate-fwep -i tstat_area_${i}_con1_TFCE.mgh perm_Tstat_area/perm_tstat_con1_TFCE_maxVertex.csv
-	tfce_mediation vertex-calculate-fwep -i negtstat_area_${i}_con1_TFCE.mgh perm_Tstat_area/perm_tstat_con1_TFCE_maxVertex.csv
+	tfce_mediation vertex-calculate-fwep -i tstat_con1_area_${i}_TFCE.mgh perm_Tstat_area/perm_tstat_con1_TFCE_maxVertex.csv
+	tfce_mediation vertex-calculate-fwep -i negtstat_con1_area_${i}_TFCE.mgh perm_Tstat_area/perm_tstat_con1_TFCE_maxVertex.csv
 done
 ```
 Explanation:

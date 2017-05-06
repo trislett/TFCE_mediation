@@ -12,7 +12,7 @@ The pre-print manuscript is available [here](tfce_mediation/doc/Lett_et_al_2017_
 ### What's new / updates ###
 05-05-2017
 
-* convert-surface now supports exporting the [Polygon File Format (PYL)](https://en.wikipedia.org/wiki/PLY_(file_format)). Statistic files (*.mgh) can now be painted on the vertices with specifying a threshold range (e.g 0.95 1 for pFWE corrected images) with an either red-yellow or blue-lightblue color scheme (all [matplotlib color schemes](https://matplotlib.org/examples/color/colormaps_reference.html) will be added soon). So now you can 3D print your surface based results!
+* convert-surface now supports exporting the [Polygon File Format (PLY)](https://en.wikipedia.org/wiki/PLY_(file_format)). Statistic files (*.mgh) can now be painted on the vertices with specifying a threshold range (e.g 0.95 1 for pFWE corrected images) with an either red-yellow or blue-lightblue color scheme (all [matplotlib color schemes](https://matplotlib.org/examples/color/colormaps_reference.html) will be added soon). So now you can 3D print your surface based results!
 * wiki is slowly becoming alive
 
 03-05-2017

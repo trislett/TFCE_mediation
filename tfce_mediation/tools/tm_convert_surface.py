@@ -5,6 +5,7 @@ import os
 import numpy as np
 import nibabel as nib
 import argparse as ap
+import matplotlib.pyplot as plt
 
 DESCRIPTION = """
 Conversion of surfaces (freesurfer, gifti *.gii, mni *.obj) to freesurfer surface (as well as waveform obj or Stl triangular mesh) for analysis with TFCE_mediation. *mgh files can also be imported and converted to stanford pyl files.
@@ -150,6 +151,20 @@ def convert_bluetolightblue(threshold,img_data, baseColour=[227,218,201]):
 	color_array[img_data>threshold[1]] = [0,255,255]
 	return color_array
 
+def convert_mpl_colormaps(threshold,img_data, cmapName, baseColour=[227,218,201]):
+	cmapFunc = plt.get_cmap(str(cmapName))
+	color_array = np.zeros((img_data.shape[0],3))
+	color_cutoffs = np.linspace(threshold[0],threshold[1],256)
+	cV=0
+	for k in img_data:
+		temp_ = np.array(cmapFunc(np.searchsorted(color_cutoffs, k, side="left")))*255
+		color_array[cV,:] = ((np.around(temp_[0]), np.around(temp_[1]), np.around(temp_[2])))
+		cV+=1
+	color_array[img_data<threshold[0]] = baseColour
+	temp_ = np.array(cmapFunc(np.searchsorted(color_cutoffs, 1, side="left")))*255
+	color_array[img_data>threshold[1]] = ((np.around(temp_[0]), np.around(temp_[1]), np.around(temp_[2]))) 
+	return color_array
+
 def save_ply(v,f, outname, color_array=np.array([]) ):
 	outname=check_outname(outname)
 	if not outname.endswith('ply'):
@@ -211,18 +226,18 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		help="Output file name for STereoLithography (STL) object file for visualization with blender (or any other 3D viewer).", 
 		nargs=1, 
 		metavar=('*'))
-	ogroup.add_argument("-o_pyl", "--outputpyl",
+	ogroup.add_argument("-o_ply", "--outputply",
 		help="Output file name for Polygon File Format (PYL) object file for visualization with blender (or any other 3D viewer).", 
 		nargs=1, 
 		metavar=('*'))
 	ap.add_argument("-p", "--paintsurface",
-		help="Projects surface file onto a ply mesh for visualization of resutls using a 3D viewer. Must be used with -o_ply option. Input the surface file (*.mgh), the sigificance threshold (low and high), and red-yellow (r_y) or blue-lightblue (b-lb) colour schemes. Note, thresholds must be postive.", 
+		help="Projects surface file onto a ply mesh for visualization of resutls using a 3D viewer. Must be used with -o_ply option. Input the surface file (*.mgh), the sigificance threshold (low and high), and either: red-yellow (r_y), blue-lightblue (b_lb) or any matplotlib colorschemes (https://matplotlib.org/examples/color/colormaps_reference.html). Note, thresholds must be postive. e.g., -p image.mgh 0.95 1 r_y", 
 		nargs=4, 
-		metavar=('*.mgh','float','float', 'r_y or b_lb'))
+		metavar=('*.mgh','float','float', 'colormap'))
 	ap.add_argument("-s", "--paintsecondsurface",
-		help="Projects a second surface file onto a ply mesh for visualization of resutls using a 3D viewer. Must be used with -o_ply and -p options. Input the surface file (*.mgh), the sigificance threshold (low and high), and red-yellow (r_y) or blue-lightblue (b_lb) colour schemes. Note, thresholds must be postive.", 
+		help="Projects a second surface file onto a ply mesh for visualization of resutls using a 3D viewer. Must be used with -o_ply and -p options. Input the surface file (*.mgh), the sigificance threshold (low and high), and either: red-yellow (r_y), blue-lightblue (b_lb) or any matplotlib colorschemes (https://matplotlib.org/examples/color/colormaps_reference.html). Note, thresholds must be postive. e.g., -s negimage.mgh 0.95 1 b_lb", 
 		nargs=4, 
-		metavar=('*.mgh','float','float', 'r_y or b_lb'))
+		metavar=('*.mgh','float','float', 'colormap'))
 	return ap
 
 def run(opts):
@@ -240,7 +255,9 @@ def run(opts):
 		save_waveform(v,f, opts.outputwaveform[0])
 	if opts.outputstl:
 		save_stl(v,f, opts.outputstl[0])
-	if opts.outputpyl:
+	if opts.outputply:
+		# get the matplotlib colormaps
+		colormaps = np.array(plt.colormaps(),dtype=np.str)
 		if opts.paintsurface:
 			img = nib.load(opts.paintsurface[0])
 			img_data = img.get_data()
@@ -252,6 +269,8 @@ def run(opts):
 				out_color_array = convert_redtoyellow(np.array(( float(opts.paintsurface[1]),float(opts.paintsurface[2]) )), img_data)
 			elif (str(opts.paintsurface[3]) == 'b_lb') or (str(opts.paintsurface[3]) == 'blue-lightblue'):
 				out_color_array = convert_bluetolightblue(np.array(( float(opts.paintsurface[1]),float(opts.paintsurface[2]) )), img_data)
+			elif np.any(colormaps == str(opts.paintsurface[3])):
+				out_color_array = convert_mpl_colormaps(np.array(( float(opts.paintsurface[1]),float(opts.paintsurface[2]) )), img_data, str(opts.paintsurface[3]))
 			else:
 				print "Colour scheme %s does not exist" % str(opts.paintsecondsurface[3])
 				exit()
@@ -267,13 +286,15 @@ def run(opts):
 					out_color_array2 = convert_redtoyellow(np.array(( float(opts.paintsecondsurface[1]),float(opts.paintsecondsurface[2]) )), img_data)
 				elif (str(opts.paintsecondsurface[3]) == 'b_lb') or (str(opts.paintsecondsurface[3]) == 'blue-lightblue'):
 					out_color_array2 = convert_bluetolightblue(np.array(( float(opts.paintsecondsurface[1]),float(opts.paintsecondsurface[2]) )), img_data)
+				elif np.any(colormaps == str(opts.paintsecondsurface[3])):
+					out_color_array = convert_mpl_colormaps(np.array(( float(opts.paintsecondsurface[1]),float(opts.paintsecondsurface[2]) )), img_data, str(opts.paintsecondsurface[3]))
 				else:
 					print "Error: colour scheme %s does not exist" % str(opts.paintsecondsurface[3])
 					exit()
 				out_color_array[index,:] = out_color_array2[index,:]
-			save_ply(v,f, opts.outputpyl[0], out_color_array)
+			save_ply(v,f, opts.outputply[0], out_color_array)
 		else:
-			save_stl(v,f, opts.outputpyl[0])
+			save_stl(v,f, opts.outputply[0])
 
 
 if __name__ == "__main__":

@@ -270,7 +270,7 @@ def run(opts):
 				else:
 					print "Error: colour scheme %s does not exist" % str(opts.paintsecondsurface[3])
 					exit()
-			out_color_array[index,:] = out_color_array2[index,:]
+				out_color_array[index,:] = out_color_array2[index,:]
 			save_ply(v,f, opts.outputpyl[0], out_color_array)
 		else:
 			save_stl(v,f, opts.outputpyl[0])

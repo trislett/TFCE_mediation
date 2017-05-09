@@ -6,11 +6,13 @@ import numpy as np
 import nibabel as nib
 import argparse as ap
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 
 DESCRIPTION = """
-Conversion of surfaces (freesurfer, gifti *.gii, mni *.obj) to freesurfer surface (as well as waveform obj or Stl triangular mesh) for analysis with TFCE_mediation. *mgh files can also be imported and converted to stanford pyl files.
+Conversion of surfaces (freesurfer, gifti *.gii, mni *.obj, ply *.ply) to freesurfer surface or other objects (Waveform *obj, STereoLithography *stl, Polygon File Format *ply) for analysis with TFCE_mediation. *mgh files can also be imported and converted to PLY files.
 """
 
+# tools
 def check_outname(outname):
 	if os.path.exists(outname):
 		outpath,outname = os.path.split(outname)
@@ -23,6 +25,12 @@ def check_outname(outname):
 			print "%s also exists. Overwriting the file." % outname
 			os.remove(outname)
 	return outname
+
+def file_len(fname):
+	with open(fname) as f:
+		for i, l in enumerate(f):
+			pass
+	return i + 1
 
 # not used
 def computeNormals(v, f):
@@ -47,6 +55,7 @@ def normalize_v3(arr):
 	arr[:,2] /= lens
 	return arr
 
+# input functions
 def convert_mni_object(obj_file):
 	# adapted from Jon Pipitone's script https://gist.github.com/pipitone/8687804
 	obj = open(obj_file)
@@ -84,6 +93,38 @@ def convert_gifti(gifti_surface):
 	v, f = img.darrays[0].data, img.darrays[1].data
 	return v, f
 
+def convert_ply(name_ply):
+	obj = open(name_ply)
+	count=0
+	firstword=''
+	while firstword != 'end_header':
+		reader = obj.readline().strip().split()
+		firstword=reader[0]
+		if reader[0] == 'element':
+			if reader[1] == 'vertex':
+				num_v = np.array(reader[2]).astype(np.int)
+			if reader[1] == 'face':
+				num_f = np.array(reader[2]).astype(np.int)
+		count+=1
+		if count > 50: 
+			print "Error: malformed header"
+			exit()
+	v = np.zeros((num_v,3))
+	f = np.zeros((num_f,3))
+	for i in xrange(num_v):
+		reader = obj.readline().strip().split()
+		v[i,0] = np.array(reader[0]).astype(np.float)
+		v[i,1] = np.array(reader[1]).astype(np.float)
+		v[i,2] = np.array(reader[2]).astype(np.float)
+	for i in xrange(num_f):
+		reader = obj.readline().strip().split()
+		f[i,0] = np.array(reader[1]).astype(np.int)
+		f[i,1] = np.array(reader[2]).astype(np.int)
+		f[i,2] = np.array(reader[3]).astype(np.int)
+	return(v.astype(np.float),f.astype(np.int))
+
+#output functions
+
 def save_waveform(v,f, outname):
 	if not outname.endswith('obj'):
 		outname += '.obj'
@@ -118,57 +159,15 @@ def save_stl(v,f, outname):
 		o.close()
 
 def save_fs(v,f, outname):
-	outname=check_outname(outname)
 	if not outname.endswith('srf'):
 		outname += '.srf'
+	outname=check_outname(outname)
 	nib.freesurfer.io.write_geometry(outname, v, f)
 
-def convert_redtoyellow(threshold,img_data, baseColour=[227,218,201]):
-	color_array = np.zeros((img_data.shape[0],3))
-	color_cutoffs = np.linspace(threshold[0],threshold[1],256)
-	colored_img_data = np.zeros_like(img_data)
-	cV=0
-	for k in img_data:
-		colored_img_data[cV] = np.searchsorted(color_cutoffs, k, side="left")
-		cV+=1
-	color_array[:,0]=255
-	color_array[:,1]=np.copy(colored_img_data)
-	color_array[img_data<threshold[0]] = baseColour
-	color_array[img_data>threshold[1]] = [255,255,0]
-	return color_array
-
-def convert_bluetolightblue(threshold,img_data, baseColour=[227,218,201]):
-	color_array = np.zeros((img_data.shape[0],3))
-	color_cutoffs = np.linspace(threshold[0],threshold[1],256)
-	colored_img_data = np.zeros_like(img_data)
-	cV=0
-	for k in img_data:
-		colored_img_data[cV] = np.searchsorted(color_cutoffs, k, side="left")
-		cV+=1
-	color_array[:,1]=np.copy(colored_img_data)
-	color_array[:,2]=255
-	color_array[img_data<threshold[0]] = baseColour
-	color_array[img_data>threshold[1]] = [0,255,255]
-	return color_array
-
-def convert_mpl_colormaps(threshold,img_data, cmapName, baseColour=[227,218,201]):
-	cmapFunc = plt.get_cmap(str(cmapName))
-	color_array = np.zeros((img_data.shape[0],3))
-	color_cutoffs = np.linspace(threshold[0],threshold[1],256)
-	cV=0
-	for k in img_data:
-		temp_ = np.array(cmapFunc(np.searchsorted(color_cutoffs, k, side="left")))*255
-		color_array[cV,:] = ((np.around(temp_[0]), np.around(temp_[1]), np.around(temp_[2])))
-		cV+=1
-	color_array[img_data<threshold[0]] = baseColour
-	temp_ = np.array(cmapFunc(np.searchsorted(color_cutoffs, 1, side="left")))*255
-	color_array[img_data>threshold[1]] = ((np.around(temp_[0]), np.around(temp_[1]), np.around(temp_[2]))) 
-	return color_array
-
-def save_ply(v,f, outname, color_array=np.array([]) ):
-	outname=check_outname(outname)
+def save_ply(v,f, outname, color_array=np.array([])):
 	if not outname.endswith('ply'):
 		outname += '.ply'
+	outname=check_outname(outname)
 	with open(outname, "a") as o:
 		o.write("ply\n")
 		o.write("format ascii 1.0\n")
@@ -198,6 +197,76 @@ def save_ply(v,f, outname, color_array=np.array([]) ):
 			o.write("3 %d %d %d\n" % (f[j,0],f[j,1], f[j,2]) )
 		o.close()
 
+#vertex paint functions
+def convert_redtoyellow(threshold,img_data, baseColour=[227,218,201]):
+	color_array = np.zeros((img_data.shape[0],3))
+	color_cutoffs = np.linspace(threshold[0],threshold[1],256)
+	colored_img_data = np.zeros_like(img_data)
+	cV=0
+	for k in img_data:
+		colored_img_data[cV] = np.searchsorted(color_cutoffs, k, side="left")
+		cV+=1
+	color_array[:,0]=255
+	color_array[:,1]=np.copy(colored_img_data)
+	color_array[img_data<threshold[0]] = baseColour
+	color_array[img_data>threshold[1]] = [255,255,0]
+
+	cmap_name = 'red_yellow'
+	cmap_array = np.array(( (np.ones(256)*255), np.linspace(0,255,256), np.zeros(256))).T
+	rl_cmap = colors.ListedColormap(cmap_array/255)
+	write_colorbar(threshold, rl_cmap, cmap_name, 'png')
+
+	return color_array
+
+def convert_bluetolightblue(threshold, img_data, baseColour=[227,218,201]):
+	color_array = np.zeros((img_data.shape[0],3))
+	color_cutoffs = np.linspace(threshold[0],threshold[1],256)
+	colored_img_data = np.zeros_like(img_data)
+	cV=0
+	for k in img_data:
+		colored_img_data[cV] = np.searchsorted(color_cutoffs, k, side="left")
+		cV+=1
+	color_array[:,1]=np.copy(colored_img_data)
+	color_array[:,2]=255
+	color_array[img_data<threshold[0]] = baseColour
+	color_array[img_data>threshold[1]] = [0,255,255]
+
+	cmap_name = 'blue_lightblue'
+	cmap_array = np.array(( np.zeros(256), np.linspace(0,255,256), (np.ones(256)*255))).T
+	blb_cmap = colors.ListedColormap(color_array/255)
+	write_colorbar(threshold, blb_cmap, cmap_name, 'png')
+
+	return color_array
+
+def convert_mpl_colormaps(threshold,img_data, cmapName, baseColour=[227,218,201]):
+	cmapFunc = plt.get_cmap(str(cmapName))
+	color_array = np.zeros((img_data.shape[0],3))
+	color_cutoffs = np.linspace(threshold[0],threshold[1],256)
+	cV=0
+	for k in img_data:
+		temp_ = np.array(cmapFunc(np.searchsorted(color_cutoffs, k, side="left")))*255
+		color_array[cV,:] = ((np.around(temp_[0]), np.around(temp_[1]), np.around(temp_[2])))
+		cV+=1
+	color_array[img_data<threshold[0]] = baseColour
+	temp_ = np.array(cmapFunc(np.searchsorted(color_cutoffs, color_cutoffs[255], side="left")))*255 # safer
+	color_array[img_data>=threshold[1]] = ((int(temp_[0]), int(temp_[1]), int(temp_[2]))) 
+
+	write_colorbar(threshold, cmapFunc, cmapName, 'png')
+
+	return color_array
+
+def write_colorbar(threshold, input_cmap, name_cmap, outtype = 'png'):
+	a = np.array([[threshold[0],threshold[1]]])
+	plt.figure()
+	img = plt.imshow(a, cmap=input_cmap)
+	plt.gca().set_visible(False)
+	cax = plt.axes([0.1, 0.1, 0.03, 0.8])
+	plt.colorbar(orientation="vertical", cax=cax)
+	plt.savefig("%s_colorbar.%s" % (name_cmap, outtype),bbox_inches='tight')
+	plt.clf()
+
+#arguments parser
+
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatter_class=ap.RawTextHelpFormatter)):
 	#input type
 	igroup = ap.add_mutually_exclusive_group(required=True)
@@ -213,6 +282,10 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		help="Input a MNI object file (e.g., --i_mni l_hemi.obj)", 
 		nargs=1, 
 		metavar=('*.obj'))
+	igroup.add_argument("-i_ply", "--inputply",
+		help="Input a MNI object file (e.g., --i_ply l_hemi.ply). Note, vertex colors will be stripped.", 
+		nargs=1, 
+		metavar=('*.ply'))
 	ogroup = ap.add_mutually_exclusive_group(required=True)
 	ogroup.add_argument("-o_fs", "--outputfreesurfer",
 		help="Output file name for freesurfer surface (e.g., -o_fs lh.32k.midthickness)", 
@@ -248,6 +321,8 @@ def run(opts):
 		v,f = convert_gifti(str(opts.inputgifti[0]))
 	if opts.inputmniobj:
 		v,f = convert_mni_object(str(opts.inputmniobj[0]))
+	if opts.inputply:
+		v,f = convert_ply(str(opts.inputply[0]))
 	#output
 	if opts.outputfreesurfer:
 		save_fs(v,f, opts.outputfreesurfer[0])
@@ -272,7 +347,7 @@ def run(opts):
 			elif np.any(colormaps == str(opts.paintsurface[3])):
 				out_color_array = convert_mpl_colormaps(np.array(( float(opts.paintsurface[1]),float(opts.paintsurface[2]) )), img_data, str(opts.paintsurface[3]))
 			else:
-				print "Colour scheme %s does not exist" % str(opts.paintsecondsurface[3])
+				print "Colour scheme %s does not exist" % str(opts.paintsurface[3])
 				exit()
 			if opts.paintsecondsurface:
 				img = nib.load(opts.paintsecondsurface[0])
@@ -294,8 +369,7 @@ def run(opts):
 				out_color_array[index,:] = out_color_array2[index,:]
 			save_ply(v,f, opts.outputply[0], out_color_array)
 		else:
-			save_stl(v,f, opts.outputply[0])
-
+			save_ply(v,f, opts.outputply[0])
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

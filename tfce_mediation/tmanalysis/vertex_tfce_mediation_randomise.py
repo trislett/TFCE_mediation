@@ -64,6 +64,8 @@ def run(opts):
 	adjac_rh = np.load("python_temp_med_%s/adjac_rh.npy" % (surface))
 	all_vertex = np.load("python_temp_med_%s/all_vertex.npy" % (surface))
 	optstfce = np.load('python_temp_med_%s/optstfce.npy' % (surface))
+	vdensity_lh = np.load('python_temp_%s/vdensity_lh.npy'% (surface))
+	vdensity_rh = np.load('python_temp_%s/vdensity_rh.npy'% (surface))
 
 	#load TFCE fucntion
 	calcTFCE_lh = CreateAdjSet(float(optstfce[0]), float(optstfce[1]), adjac_lh) # H=2, E=1
@@ -86,7 +88,7 @@ def run(opts):
 			pathA_nx = pred_x[indices_perm]
 			pathB_nx = depend_y[indices_perm]
 			SobelZ = calc_sobelz(medtype, pathA_nx, pathB_nx, y, n, num_vertex)
-		write_perm_maxTFCE_vertex("Zstat_%s" % medtype, SobelZ, num_vertex_lh, bin_mask_lh, bin_mask_rh, calcTFCE_lh, calcTFCE_rh)
+		write_perm_maxTFCE_vertex("Zstat_%s" % medtype, SobelZ, num_vertex_lh, bin_mask_lh, bin_mask_rh, calcTFCE_lh, calcTFCE_rh, vdensity_lh, vdensity_rh)
 	print("Finished. Randomization took %.1f seconds" % (time() - start_time))
 
 if __name__ == "__main__":

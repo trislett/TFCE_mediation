@@ -73,12 +73,20 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		metavar=('*.npy', '*.npy'))
 	adjac.add_argument("-t", "--triangularmesh", 
 		help="Create adjacency based on triangular mesh without specifying distance.",
-		action="store_true")
+		action='store_true')
+	ap.add_argument("--inputsurfs", 
+		help="Load surfaces for triangular mesh tfce. --triangularmesh option must be used.",
+		nargs=2,
+		metavar=('lh.*.srf', 'rh.*.srf'))
 	ap.add_argument("--tfce", 
 		help="TFCE settings. H (i.e., height raised to power H), E (i.e., extent raised to power E). Default: %(default)s). H=2, E=2/3 is the point at which the cummulative density function is approximately Gaussian distributed.", 
 		nargs=2, 
 		default=[2,0.67], 
 		metavar=('H', 'E'))
+	ap.add_argument("--tfcedensitycorrection", 
+		help="Experimental. Correct for number of vertices within the geodesic distance.", 
+		action="store_true")
+
 	return ap
 
 def run(opts):
@@ -146,9 +154,13 @@ def run(opts):
 	#TFCE
 	if opts.triangularmesh:
 		print "Creating adjacency set"
-		# 3 Neighbour vertex connectity
-		v_lh, faces_lh = nib.freesurfer.read_geometry("%s/fsaverage/surf/lh.sphere" % os.environ["SUBJECTS_DIR"])
-		v_rh, faces_rh = nib.freesurfer.read_geometry("%s/fsaverage/surf/rh.sphere" % os.environ["SUBJECTS_DIR"])
+		if opts.inputsurfs:
+			# 3 Neighbour vertex connectity
+			v_lh, faces_lh = nib.freesurfer.read_geometry(opts.inputsurfs[0])
+			v_rh, faces_rh = nib.freesurfer.read_geometry(opts.inputsurfs[1])
+		else:
+			v_lh, faces_lh = nib.freesurfer.read_geometry("%s/fsaverage/surf/lh.sphere" % os.environ["SUBJECTS_DIR"])
+			v_rh, faces_rh = nib.freesurfer.read_geometry("%s/fsaverage/surf/rh.sphere" % os.environ["SUBJECTS_DIR"])
 		adjac_lh = create_adjac_vertex(v_lh,faces_lh)
 		adjac_rh = create_adjac_vertex(v_rh,faces_rh)
 	elif opts.adjfiles:
@@ -163,6 +175,20 @@ def run(opts):
 		adjac_rh = np.load("%s/adjacency_sets/rh_adjacency_dist_%s.0_mm.npy" % (scriptwd,str(opts.dist[0])))
 	else:
 		print "Error"
+	if opts.tfcedensitycorrection:
+		# experimental correction for vertex density
+		vdensity_lh = np.zeros((adjac_lh.shape[0]))
+		vdensity_rh = np.zeros((adjac_rh.shape[0]))
+		for i in xrange(adjac_lh.shape[0]):
+			vdensity_lh[i] = len(adjac_lh[i])
+		for j in xrange(adjac_rh.shape[0]): 
+			vdensity_rh[j] = len(adjac_rh[j])
+		vdensity_lh = np.array(1 - (vdensity_lh/vdensity_lh.max()), dtype=np.float32)
+		vdensity_rh = np.array(1 - (vdensity_rh/vdensity_rh.max()), dtype=np.float32)
+		print "Experimental: correcting for vertex density per geodesic distance"
+	else:
+		vdensity_lh = 1
+		vdensity_rh = 1
 	calcTFCE_lh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_lh) # H=2, E=1
 	calcTFCE_rh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_rh) # H=2, E=1
 
@@ -182,6 +208,8 @@ def run(opts):
 	np.save("python_temp_med_%s/adjac_lh" % (surface),adjac_lh)
 	np.save("python_temp_med_%s/adjac_rh" % (surface),adjac_rh)
 	np.save("python_temp_med_%s/optstfce" % (surface), opts.tfce)
+	np.save('python_temp_%s/vdensity_lh'% (surface), vdensity_lh)
+	np.save('python_temp_%s/vdensity_rh'% (surface), vdensity_rh)
 
 	#step1
 	if opts.covariates:
@@ -208,8 +236,8 @@ def run(opts):
 		os.mkdir("output_med_%s" % surface)
 	os.chdir("output_med_%s" % surface)
 
-	write_vertStat_img('SobelZ_%s' % (medtype),SobelZ[:num_vertex_lh],outdata_mask_lh, affine_mask_lh, surface, 'lh', bin_mask_lh, calcTFCE_lh, bin_mask_lh.shape[0])
-	write_vertStat_img('SobelZ_%s' % (medtype),SobelZ[num_vertex_lh:],outdata_mask_rh, affine_mask_rh, surface, 'rh', bin_mask_rh, calcTFCE_rh, bin_mask_rh.shape[0])
+	write_vertStat_img('SobelZ_%s' % (medtype),SobelZ[:num_vertex_lh],outdata_mask_lh, affine_mask_lh, surface, 'lh', bin_mask_lh, calcTFCE_lh, bin_mask_lh.shape[0], vdensity_lh)
+	write_vertStat_img('SobelZ_%s' % (medtype),SobelZ[num_vertex_lh:],outdata_mask_rh, affine_mask_rh, surface, 'rh', bin_mask_rh, calcTFCE_rh, bin_mask_rh.shape[0], vdensity_rh)
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

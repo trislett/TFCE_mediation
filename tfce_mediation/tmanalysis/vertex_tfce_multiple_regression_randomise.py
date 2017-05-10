@@ -65,6 +65,8 @@ def run(opts):
 	adjac_lh = np.load("python_temp_%s/adjac_lh.npy" % (surface))
 	adjac_rh = np.load("python_temp_%s/adjac_rh.npy" % (surface))
 	optstfce = np.load('python_temp_%s/optstfce.npy' % (surface))
+	vdensity_lh = np.load('python_temp_%s/vdensity_lh.npy'% (surface))
+	vdensity_rh = np.load('python_temp_%s/vdensity_rh.npy'% (surface))
 
 	#load TFCE fucntion
 	calcTFCE_lh = CreateAdjSet(float(optstfce[0]), float(optstfce[1]), adjac_lh) # H=2, E=1
@@ -92,13 +94,13 @@ def run(opts):
 		if opts.specifyvars:
 			for j in xrange(stop-start):
 				tnum=j+1
-				write_perm_maxTFCE_vertex('tstat_con%d' % tnum, tvals[tnum], num_vertex_lh, bin_mask_lh, bin_mask_rh, calcTFCE_lh, calcTFCE_rh)
-				write_perm_maxTFCE_vertex('tstat_con%d' % tnum, (tvals[tnum] * -1), num_vertex_lh, bin_mask_lh, bin_mask_rh, calcTFCE_lh, calcTFCE_rh)
+				write_perm_maxTFCE_vertex('tstat_con%d' % tnum, tvals[tnum], num_vertex_lh, bin_mask_lh, bin_mask_rh, calcTFCE_lh, calcTFCE_rh, vdensity_lh, vdensity_rh)
+				write_perm_maxTFCE_vertex('tstat_con%d' % tnum, (tvals[tnum] * -1), num_vertex_lh, bin_mask_lh, bin_mask_rh, calcTFCE_lh, calcTFCE_rh, vdensity_lh, vdensity_rh)
 		else:
 			for j in xrange(k-1):
 				tnum=j+1
-				write_perm_maxTFCE_vertex('tstat_con%d' % tnum, tvals[tnum], num_vertex_lh, bin_mask_lh, bin_mask_rh, calcTFCE_lh, calcTFCE_rh)
-				write_perm_maxTFCE_vertex('tstat_con%d' % tnum, (tvals[tnum] * -1), num_vertex_lh, bin_mask_lh, bin_mask_rh, calcTFCE_lh, calcTFCE_rh)
+				write_perm_maxTFCE_vertex('tstat_con%d' % tnum, tvals[tnum], num_vertex_lh, bin_mask_lh, bin_mask_rh, calcTFCE_lh, calcTFCE_rh, vdensity_lh, vdensity_rh)
+				write_perm_maxTFCE_vertex('tstat_con%d' % tnum, (tvals[tnum] * -1), num_vertex_lh, bin_mask_lh, bin_mask_rh, calcTFCE_lh, calcTFCE_rh, vdensity_lh, vdensity_rh)
 	print("Finished. Randomization took %.1f seconds" % (time() - start_time))
 
 if __name__ == "__main__":

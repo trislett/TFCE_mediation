@@ -53,7 +53,7 @@ if os.path.exists('MANIFEST'):
 if parse_setuppy_commands():
   from numpy.distutils.core import setup
 
-setup(name = PACKAGE_NAME, version = "1.1.4",
+setup(name = PACKAGE_NAME, version = "1.1.5",
   maintainer = "Tristram Lett",
   maintainer_email = "tristram.lett@charite.de",
   description = "TFCE_mediation",

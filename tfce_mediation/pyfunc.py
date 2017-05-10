@@ -66,12 +66,12 @@ def create_adjac_voxel (data_index,data_mask,num_voxel, dirtype=26): # default i
 
 #writing statistics images
 
-def write_vertStat_img(statname, vertStat, outdata_mask, affine_mask, surf, hemi, bin_mask, TFCEfunc, all_vertex):
+def write_vertStat_img(statname, vertStat, outdata_mask, affine_mask, surf, hemi, bin_mask, TFCEfunc, all_vertex, density_corr = 1):
 	vertStat_out=np.zeros(all_vertex).astype(np.float32, order = "C")
 	vertStat_out[bin_mask] = vertStat
 	vertStat_TFCE = np.zeros_like(vertStat_out).astype(np.float32, order = "C")
 	TFCEfunc.run(vertStat_out, vertStat_TFCE)
-	outdata_mask[:,0,0] = vertStat_TFCE * (vertStat[np.isfinite(vertStat)].max()/100)
+	outdata_mask[:,0,0] = vertStat_TFCE * (vertStat[np.isfinite(vertStat)].max()/100) * density_corr
 	fsurfname = "%s_%s_%s_TFCE.mgh" % (statname,surf,hemi)
 	os.system("echo %s_%s_%s,%f >> max_TFCE_contrast_values.csv" % (statname,surf,hemi, outdata_mask[np.isfinite(outdata_mask[:,0,0])].max()))
 	nib.save(nib.freesurfer.mghformat.MGHImage(outdata_mask,affine_mask),fsurfname)
@@ -91,7 +91,7 @@ def write_voxelStat_img(statname, voxelStat, out_path, data_index, affine, TFCEf
 
 #writing max TFCE values from permutations
 
-def write_perm_maxTFCE_vertex(statname, vertStat, num_vertex, bin_mask_lh, bin_mask_rh, calcTFCE_lh,calcTFCE_rh):
+def write_perm_maxTFCE_vertex(statname, vertStat, num_vertex, bin_mask_lh, bin_mask_rh, calcTFCE_lh,calcTFCE_rh, density_corr_lh = 1, density_corr_rh = 1):
 	vertStat_out_lh=np.zeros(bin_mask_lh.shape[0]).astype(np.float32, order = "C")
 	vertStat_out_rh=np.zeros(bin_mask_rh.shape[0]).astype(np.float32, order = "C")
 	vertStat_TFCE_lh = np.zeros_like(vertStat_out_lh).astype(np.float32, order = "C")
@@ -100,8 +100,8 @@ def write_perm_maxTFCE_vertex(statname, vertStat, num_vertex, bin_mask_lh, bin_m
 	vertStat_out_rh[bin_mask_rh] = vertStat[num_vertex:]
 	calcTFCE_lh.run(vertStat_out_lh, vertStat_TFCE_lh)
 	calcTFCE_rh.run(vertStat_out_rh, vertStat_TFCE_rh)
-	max_lh = vertStat_TFCE_lh[np.isfinite(vertStat_TFCE_lh)].max() * (vertStat_out_lh[np.isfinite(vertStat_out_lh)].max()/100)
-	max_rh = vertStat_TFCE_rh[np.isfinite(vertStat_TFCE_rh)].max() * (vertStat_out_rh[np.isfinite(vertStat_out_rh)].max()/100)
+	max_lh = vertStat_TFCE_lh[np.isfinite(vertStat_TFCE_lh)].max() * (vertStat_out_lh[np.isfinite(vertStat_out_lh)].max()/100) * density_corr_lh
+	max_rh = vertStat_TFCE_rh[np.isfinite(vertStat_TFCE_rh)].max() * (vertStat_out_rh[np.isfinite(vertStat_out_rh)].max()/100) * density_corr_rh
 	maxTFCE = np.array([max_lh,max_rh]).max()
 	os.system("echo %.4f >> perm_%s_TFCE_maxVertex.csv" % (maxTFCE,statname))
 

@@ -22,6 +22,8 @@ import nibabel as nib
 import math
 from sys import exit
 from scipy.stats import linregress
+import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 
 from tfce_mediation.cynumstats import calc_beta_se
 
@@ -261,5 +263,277 @@ def minmaxscaler(X, axis=0):
 	X = (X - X.min(axis)) / (X.max(axis) - X.min(axis))
 	return X
 
+
+### surface conversion tools ###
+
+def check_outname(outname):
+	if os.path.exists(outname):
+		outpath,outname = os.path.split(outname)
+		if not outpath:
+			outname = ("new_%s" % outname)
+		else:
+			outname = ("%s/new_%s" % (outpath,outname))
+		print "Output file aleady exists. Renaming output file to %s" % outname
+		if os.path.exists(outname):
+			print "%s also exists. Overwriting the file." % outname
+			os.remove(outname)
+	return outname
+
+def file_len(fname):
+	with open(fname) as f:
+		for i, l in enumerate(f):
+			pass
+	return i + 1
+
+# not used
+def computeNormals(v, f):
+	v_ = v[f]
+	fn = np.cross(v_[:, 1] - v_[:, 0], v_[:, 2] - v_[:,0])
+	fs = np.sqrt(np.sum((v_[:, [1, 2, 0], :] - v_) ** 2, axis = 2))
+	fs_ = np.sum(fs, axis = 1) / 2 # heron's formula
+	fa = np.sqrt(fs_ * (fs_ - fs[:, 0]) * (fs_ - fs[:, 1]) * (fs_ - fs[:, 2]))[:, None]
+	vn = np.zeros_like(v, dtype = np.float32)
+	vn[f[:, 0]] += fn * fa # weight by area
+	vn[f[:, 1]] += fn * fa
+	vn[f[:, 2]] += fn * fa
+	vlen = np.sqrt(np.sum(vn ** 2, axis = 1))[np.any(vn != 0, axis = 1), None]
+	vn[np.any(vn != 0, axis = 1), :] /= vlen
+	return vn
+
+def normalize_v3(arr):
+	''' Normalize a numpy array of 3 component vectors shape=(n,3) '''
+	lens = np.sqrt( arr[:,0]**2 + arr[:,1]**2 + arr[:,2]**2 )
+	arr[:,0] /= lens
+	arr[:,1] /= lens
+	arr[:,2] /= lens
+	return arr
+
+# input functions
+def convert_mni_object(obj_file):
+	# adapted from Jon Pipitone's script https://gist.github.com/pipitone/8687804
+	obj = open(obj_file)
+	_, _, _, _, _, _, numpoints = obj.readline().strip().split()
+	numpoints = int(numpoints)
+	vertices=[]
+	normals=[]
+	triangles=[]
+
+	for i in range(numpoints):
+		x, y, z = map(float,obj.readline().strip().split()) 
+		vertices.append((x, y, z))
+	assert obj.readline().strip() == ""
+	# numpoints normals as (x,y,z)
+	for i in range(numpoints):
+		normals.append(tuple(map(float,obj.readline().strip().split())))
+
+	assert obj.readline().strip() == ""
+	nt=int(obj.readline().strip().split()[0]) # number of triangles
+	_, _, _, _, _ = obj.readline().strip().split()
+	assert obj.readline().strip() == ""
+	# rest of the file is a list of numbers
+	points = map(int, "".join(obj.readlines()).strip().split())
+	points = points[nt:]	# ignore these.. (whatever they are)
+	for i in range(nt): 
+		triangles.append((points.pop(0), points.pop(0), points.pop(0)))
+	return np.array(vertices), np.array(triangles)
+
+def convert_fs(fs_surface):
+	v, f = nib.freesurfer.read_geometry(fs_surface)
+	return v, f
+
+def convert_gifti(gifti_surface):
+	img = nib.load(gifti_surface)
+	v, f = img.darrays[0].data, img.darrays[1].data
+	return v, f
+
+def convert_ply(name_ply):
+	obj = open(name_ply)
+	count=0
+	firstword=''
+	while firstword != 'end_header':
+		reader = obj.readline().strip().split()
+		firstword=reader[0]
+		if reader[0] == 'element':
+			if reader[1] == 'vertex':
+				num_v = np.array(reader[2]).astype(np.int)
+			if reader[1] == 'face':
+				num_f = np.array(reader[2]).astype(np.int)
+		count+=1
+		if count > 50: 
+			print "Error: malformed header"
+			exit()
+	v = np.zeros((num_v,3))
+	f = np.zeros((num_f,3))
+	for i in xrange(num_v):
+		reader = obj.readline().strip().split()
+		v[i,0] = np.array(reader[0]).astype(np.float)
+		v[i,1] = np.array(reader[1]).astype(np.float)
+		v[i,2] = np.array(reader[2]).astype(np.float)
+	for i in xrange(num_f):
+		reader = obj.readline().strip().split()
+		f[i,0] = np.array(reader[1]).astype(np.int)
+		f[i,1] = np.array(reader[2]).astype(np.int)
+		f[i,2] = np.array(reader[3]).astype(np.int)
+	return(v.astype(np.float),f.astype(np.int))
+
+def convert_fslabel(name_fslabel):
+	obj = open(name_fslabel)
+	reader = obj.readline().strip().split()
+	reader = np.array(obj.readline().strip().split())
+	if reader.ndim == 1:
+		num_vertex = reader[0].astype(np.int)
+	else:
+		print 'Error reading header'
+	v_id = np.zeros((num_vertex)).astype(np.int)
+	v_ras = np.zeros((num_vertex,3)).astype(np.float)
+	v_value = np.zeros((num_vertex)).astype(np.float)
+	for i in xrange(num_vertex):
+		reader = obj.readline().strip().split()
+		v_id[i] = np.array(reader[0]).astype(np.int)
+		v_ras[i] = np.array(reader[1:4]).astype(np.float)
+		v_value[i] = np.array(reader[4]).astype(np.float)
+	return (v_id, v_ras, v_value)
+
+#output functions
+
+def save_waveform(v,f, outname):
+	if not outname.endswith('obj'):
+		outname += '.obj'
+	outname=check_outname(outname)
+	with open(outname, "a") as o:
+		for i in xrange(len(v)):
+			o.write("v %1.6f %1.6f %1.6f\n" % (v[i,0],v[i,1], v[i,2]) )
+		for j in xrange(len(f)):
+			o.write("f %d %d %d\n" % (f[j,0],f[j,1], f[j,2]) )
+		o.close()
+
+def save_stl(v,f, outname):
+	if not outname.endswith('stl'):
+		outname += '.stl'
+	outname=check_outname(outname)
+	v = np.array(v, dtype=np.float32, order = "C")
+	f = np.array(f, dtype=np.int32, order = "C")
+	tris = v[f]
+	n = np.cross( tris[::,1 ] - tris[::,0]  , tris[::,2 ] - tris[::,0] )
+	n = normalize_v3(n)
+	with open(outname, "a") as o:
+		o.write("solid surface\n")
+		for i in xrange(tris.shape[0]):
+			o.write("facet normal %1.6f %1.6f %1.6f\n"% (n[i,0],n[i,0],n[i,0]))
+			o.write("outer loop\n")
+			o.write("vertex %1.6f %1.6f %1.6f\n" % (tris[i,0,0],tris[i,0,1],tris[i,0,2]))
+			o.write("vertex %1.6f %1.6f %1.6f\n" % (tris[i,1,0],tris[i,1,1],tris[i,1,2]))
+			o.write("vertex %1.6f %1.6f %1.6f\n" % (tris[i,2,0],tris[i,2,1],tris[i,2,2]))
+			o.write("endloop\n")
+			o.write("endfacet\n")
+		o.write("endfacet\n")
+		o.close()
+
+def save_fs(v,f, outname):
+	if not outname.endswith('srf'):
+		outname += '.srf'
+	outname=check_outname(outname)
+	nib.freesurfer.io.write_geometry(outname, v, f)
+
+def save_ply(v,f, outname, color_array=np.array([])):
+	if not outname.endswith('ply'):
+		outname += '.ply'
+	outname=check_outname(outname)
+	with open(outname, "a") as o:
+		o.write("ply\n")
+		o.write("format ascii 1.0\n")
+		o.write("comment made with TFCE_mediation\n")
+		o.write("element vertex %d\n" % len(v))
+		if color_array.size == 0: #there's probably a better way to do this
+			o.write("property float x\n")
+			o.write("property float y\n")
+			o.write("property float z\n")
+		else:
+			o.write("property float x\n")
+			o.write("property float y\n")
+			o.write("property float z\n")
+			o.write("property uchar red\n")
+			o.write("property uchar green\n")
+			o.write("property uchar blue\n")
+		o.write("element face %d\n" % len(f))
+		o.write("property list uchar int vertex_index\n")
+		o.write("end_header\n")
+		if color_array.size == 0:
+			for i in xrange(len(v)):
+				o.write("%1.6f %1.6f %1.6f\n" % (v[i,0],v[i,1], v[i,2]) )
+		else: 
+			for i in xrange(len(v)):
+				o.write("%1.6f %1.6f %1.6f %d %d %d\n" % (v[i,0],v[i,1], v[i,2], color_array[i,0],color_array[i,1], color_array[i,2]) )
+		for j in xrange(len(f)):
+			o.write("3 %d %d %d\n" % (f[j,0],f[j,1], f[j,2]) )
+		o.close()
+
+#vertex paint functions
+def convert_redtoyellow(threshold,img_data, baseColour=[227,218,201]):
+	color_array = np.zeros((img_data.shape[0],3))
+	color_cutoffs = np.linspace(threshold[0],threshold[1],256)
+	colored_img_data = np.zeros_like(img_data)
+	cV=0
+	for k in img_data:
+		colored_img_data[cV] = np.searchsorted(color_cutoffs, k, side="left")
+		cV+=1
+	color_array[:,0]=255
+	color_array[:,1]=np.copy(colored_img_data)
+	color_array[img_data<threshold[0]] = baseColour
+	color_array[img_data>threshold[1]] = [255,255,0]
+
+	cmap_name = 'red_yellow'
+	cmap_array = np.array(( (np.ones(256)*255), np.linspace(0,255,256), np.zeros(256))).T
+	rl_cmap = colors.ListedColormap(cmap_array/255)
+	write_colorbar(threshold, rl_cmap, cmap_name, 'png')
+
+	return color_array
+
+def convert_bluetolightblue(threshold, img_data, baseColour=[227,218,201]):
+	color_array = np.zeros((img_data.shape[0],3))
+	color_cutoffs = np.linspace(threshold[0],threshold[1],256)
+	colored_img_data = np.zeros_like(img_data)
+	cV=0
+	for k in img_data:
+		colored_img_data[cV] = np.searchsorted(color_cutoffs, k, side="left")
+		cV+=1
+	color_array[:,1]=np.copy(colored_img_data)
+	color_array[:,2]=255
+	color_array[img_data<threshold[0]] = baseColour
+	color_array[img_data>threshold[1]] = [0,255,255]
+
+	cmap_name = 'blue_lightblue'
+	cmap_array = np.array(( np.zeros(256), np.linspace(0,255,256), (np.ones(256)*255))).T
+	blb_cmap = colors.ListedColormap(cmap_array/255)
+	write_colorbar(threshold, blb_cmap, cmap_name, 'png')
+
+	return color_array
+
+def convert_mpl_colormaps(threshold,img_data, cmapName, baseColour=[227,218,201]):
+	cmapFunc = plt.get_cmap(str(cmapName))
+	color_array = np.zeros((img_data.shape[0],3))
+	color_cutoffs = np.linspace(threshold[0],threshold[1],256)
+	cV=0
+	for k in img_data:
+		temp_ = np.array(cmapFunc(np.searchsorted(color_cutoffs, k, side="left")))*255
+		color_array[cV,:] = ((np.around(temp_[0]), np.around(temp_[1]), np.around(temp_[2])))
+		cV+=1
+	color_array[img_data<threshold[0]] = baseColour
+	temp_ = np.array(cmapFunc(np.searchsorted(color_cutoffs, color_cutoffs[255], side="left")))*255 # safer
+	color_array[img_data>=threshold[1]] = ((int(temp_[0]), int(temp_[1]), int(temp_[2]))) 
+
+	write_colorbar(threshold, cmapFunc, cmapName, 'png')
+
+	return color_array
+
+def write_colorbar(threshold, input_cmap, name_cmap, outtype = 'png'):
+	a = np.array([[threshold[0],threshold[1]]])
+	plt.figure()
+	img = plt.imshow(a, cmap=input_cmap)
+	plt.gca().set_visible(False)
+	cax = plt.axes([0.1, 0.1, 0.03, 0.8])
+	plt.colorbar(orientation="vertical", cax=cax)
+	plt.savefig("%s_colorbar.%s" % (name_cmap, outtype),bbox_inches='tight')
+	plt.clf()
 
 

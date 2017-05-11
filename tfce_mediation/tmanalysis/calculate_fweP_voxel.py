@@ -14,6 +14,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		metavar=('*.nii.gz', '*.csv'),
 		help="[tfce_image] [perm_tfce_max]",
 		required=True)
+	ap.add_argument("-l", "--outputneglog10", 
+		help='Outputs the -log10(FWEp) image',
+		action='store_true')
 	return ap
 
 #find nearest permuted TFCE max value that corresponse to family-wise error rate 
@@ -55,6 +58,10 @@ def run(opts):
 	tfce_fweP_name = "%s_FWEcorrP.nii.gz" % (temp_outname)
 	print "The accuracy is p = 0.05 +/- %.4f" % (2*(np.sqrt(0.05*0.95/num_perm)))
 	nib.save(nib.Nifti1Image(corrp_img,affine_tfce_img),tfce_fweP_name)
+
+	if opts.outputneglog10:
+		tfce_fweP_name = "%s_FWEneglog10p.nii.gz" % (temp_outname)
+		nib.save(nib.Nifti1Image((-np.log10(1-corrp_img)),affine_mask),"%s_FWEneglog10p.mgh" % (arg_tfce_image_noext))
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

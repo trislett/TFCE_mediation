@@ -16,6 +16,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
 import os
 import numpy as np
 import nibabel as nib
@@ -24,6 +25,7 @@ from sys import exit
 from scipy.stats import linregress
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+import matplotlib.patches as mpatches
 
 from tfce_mediation.cynumstats import calc_beta_se
 
@@ -521,10 +523,26 @@ def convert_mpl_colormaps(threshold,img_data, cmapName, baseColour=[227,218,201]
 	color_array[img_data<threshold[0]] = baseColour
 	temp_ = np.array(cmapFunc(np.searchsorted(color_cutoffs, color_cutoffs[255], side="left")))*255 # safer
 	color_array[img_data>=threshold[1]] = ((int(temp_[0]), int(temp_[1]), int(temp_[2]))) 
-
 	write_colorbar(threshold, cmapFunc, cmapName, 'png')
-
 	return color_array
+
+def convert_fsannot(annot_name):
+	labels, ctab, names  = nib.freesurfer.read_annot(annot_name)
+	labels[labels==-1] = 0 # why is this necessary?????
+	color_array = ctab[labels]
+	color_array = color_array[:,:3]
+	write_annot_legend(ctab, names, annot_name)
+	return color_array
+
+#write legends
+def write_annot_legend(ctab, names, annot_name, outtype = 'png'):
+	all_patches = []
+	for i in range(len(names)):
+		all_patches.append(mpatches.Patch(color=(ctab[i][:3]/256), label=names[i]))
+	plt.figure()
+	plt.legend(handles=[all_patches[l] for l in range(len(names))], loc=2)
+	plt.axis('off')
+	plt.savefig("%s_legend.%s" % (os.path.basename(annot_name), outtype),bbox_inches='tight')
 
 def write_colorbar(threshold, input_cmap, name_cmap, outtype = 'png'):
 	a = np.array([[threshold[0],threshold[1]]])
@@ -533,7 +551,7 @@ def write_colorbar(threshold, input_cmap, name_cmap, outtype = 'png'):
 	plt.gca().set_visible(False)
 	cax = plt.axes([0.1, 0.1, 0.03, 0.8])
 	plt.colorbar(orientation="vertical", cax=cax)
-	plt.savefig("%s_colorbar.%s" % (name_cmap, outtype),bbox_inches='tight')
+	plt.savefig("%s_colorbar.%s" % (os.path.basename(name_cmap), outtype),bbox_inches='tight')
 	plt.clf()
 
 

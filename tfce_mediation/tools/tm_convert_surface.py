@@ -21,7 +21,7 @@ import numpy as np
 import nibabel as nib
 import argparse as ap
 import matplotlib.pyplot as plt
-from tfce_mediation.pyfunc import convert_mni_object, convert_fs, convert_gifti, convert_ply, convert_fslabel, save_waveform, save_stl, save_fs, save_ply, convert_redtoyellow, convert_bluetolightblue, convert_mpl_colormaps
+from tfce_mediation.pyfunc import convert_mni_object, convert_fs, convert_gifti, convert_ply, convert_fslabel, save_waveform, save_stl, save_fs, save_ply, convert_redtoyellow, convert_bluetolightblue, convert_mpl_colormaps, convert_fsannot
 
 DESCRIPTION = """
 Conversion of surfaces (freesurfer, gifti *.gii, mni *.obj, ply *.ply) to freesurfer surface or other objects (Waveform *obj, STereoLithography *stl, Polygon File Format *ply) for analysis with TFCE_mediation. *mgh files can also be imported and converted to PLY files.
@@ -64,22 +64,26 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		help="Output file name for Polygon File Format (PYL) object file for visualization with blender (or any other 3D viewer).", 
 		nargs=1, 
 		metavar=('*'))
+
 	ap.add_argument("-p", "--paintsurface",
 		help="Projects surface file onto a ply mesh for visualization of resutls using a 3D viewer. Must be used with -o_ply option. Input the surface file (*.mgh), the sigificance threshold (low and high), and either: red-yellow (r_y), blue-lightblue (b_lb) or any matplotlib colorschemes (https://matplotlib.org/examples/color/colormaps_reference.html). Note, thresholds must be postive. e.g., -p image.mgh 0.95 1 r_y", 
 		nargs=4, 
 		metavar=('*.mgh','float','float', 'colormap'))
-
+	ap.add_argument("-s", "--paintsecondsurface",
+		help="Projects a second surface file onto a ply mesh for visualization of resutls using a 3D viewer. Must be used with -o_ply and -p options. Input the surface file (*.mgh), the sigificance threshold (low and high), and either: red-yellow (r_y), blue-lightblue (b_lb) or any matplotlib colorschemes (https://matplotlib.org/examples/color/colormaps_reference.html). Note, thresholds must be postive. e.g., -s negimage.mgh 0.95 1 b_lb", 
+		nargs=4, 
+		metavar=('*.mgh','float','float', 'colormap'))
 
 	ap.add_argument("-l", "--paintfslabel",
 		help="Projects freesurface label file onto a ply mesh for visualization of resutls using a 3D viewer. Must be used with -o_ply option. Input the label (*.label or *.label-????) and either: red-yellow (r_y), blue-lightblue (b_lb) or any matplotlib colorschemes (https://matplotlib.org/examples/color/colormaps_reference.html). More than one label can be included. e.g. -l label1.label rainbow label2.label Reds", 
 		nargs='+', 
 		metavar=('*.label colormap'))
+	ap.add_argument("-a", "--paintfsannot",
+		help="Projects freesurface annotation file onto a ply mesh for visualization of resutls using a 3D viewer. Must be used with -o_ply option. The legend is outputed", 
+		nargs=1, 
+		metavar=('*.annot'))
 
 
-	ap.add_argument("-s", "--paintsecondsurface",
-		help="Projects a second surface file onto a ply mesh for visualization of resutls using a 3D viewer. Must be used with -o_ply and -p options. Input the surface file (*.mgh), the sigificance threshold (low and high), and either: red-yellow (r_y), blue-lightblue (b_lb) or any matplotlib colorschemes (https://matplotlib.org/examples/color/colormaps_reference.html). Note, thresholds must be postive. e.g., -s negimage.mgh 0.95 1 b_lb", 
-		nargs=4, 
-		metavar=('*.mgh','float','float', 'colormap'))
 	return ap
 
 def run(opts):
@@ -161,6 +165,9 @@ def run(opts):
 					out_color_array = np.zeros((v.shape[0],3))
 					out_color_array[:,:]=baseColour
 				out_color_array[v_id]=out_color_label
+			save_ply(v,f, opts.outputply[0], out_color_array)
+		elif opts.paintfsannot:
+			out_color_array = convert_fsannot(opts.paintfsannot[0])
 			save_ply(v,f, opts.outputply[0], out_color_array)
 		else:
 			save_ply(v,f, opts.outputply[0])

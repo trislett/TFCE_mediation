@@ -21,13 +21,13 @@ import numpy as np
 import nibabel as nib
 import argparse 
 
-DESCRIPTION = "Initial step to load in a 4D voxel-based NifTi image, and its corresponding mask (binary image)."
+DESCRIPTION = "Initial step to load in a 4D NifTi or MINC volumetric image, and its corresponding mask (binary image)."
 
 def getArgumentParser(parser = argparse.ArgumentParser(description = DESCRIPTION)):
 	parser.add_argument("-i", "--input", 
 		nargs=2, 
 		help="[4D_image] [Mask] (default: %(default)s)", 
-		metavar=('*.nii.gz', '*.nii.gz'), 
+		metavar=('*.nii.gz or *.mnc', '*.nii.gz or *.mnc'), 
 		default=['all_FA_skeletonised.nii.gz','mean_FA_skeleton_mask.nii.gz'])
 	return parser
 
@@ -37,13 +37,17 @@ def run(opts):
 	affine_mask = img_mask.get_affine()
 	header_mask = img_mask.get_header()
 
-	os.system("zcat %s > temp_4d.nii" % opts.input[0])
-	img_all_fa = nib.load('temp_4d.nii')
-	data_all_fa = img_all_fa.get_data()
-	affine_all_fa = img_all_fa.get_affine()
-	header_all_fa = img_all_fa.get_header()
+	#check if minc file
+	img_all_name = opts.input[0]
+	_, file_ext = os.path.splitext(img_all_name)
+	if file_ext == '.mnc':
+		img_all = nib.load(img_all_name)
+	else:
+		os.system("zcat %s > temp_4d.nii" % img_all_name)
+		img_all = nib.load('temp_4d.nii')
+	data_all = img_all.get_data()
 
-	nonzero_data = data_all_fa[data_mask>0.99]
+	nonzero_data = data_all[data_mask>0.99]
 
 	if not os.path.exists('python_temp'):
 		os.mkdir('python_temp')

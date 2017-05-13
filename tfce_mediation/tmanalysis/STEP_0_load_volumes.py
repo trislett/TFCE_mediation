@@ -32,7 +32,11 @@ def getArgumentParser(parser = argparse.ArgumentParser(description = DESCRIPTION
 	return parser
 
 def run(opts):
-	img_mask = nib.load(opts.input[1])
+	mask_name = opts.input[1]
+	if not os.path.isfile(mask_name):
+		print 'Error %s not found. Please use -i option.' % mask_name
+		quit()
+	img_mask = nib.load(mask_name)
 	data_mask = img_mask.get_data()
 	affine_mask = img_mask.get_affine()
 	header_mask = img_mask.get_header()
@@ -41,8 +45,10 @@ def run(opts):
 	img_all_name = opts.input[0]
 	_, file_ext = os.path.splitext(img_all_name)
 	if file_ext == '.mnc':
+		imgext = '.mnc'
 		img_all = nib.load(img_all_name)
 	else:
+		imgext = '.nii.gz'
 		os.system("zcat %s > temp_4d.nii" % img_all_name)
 		img_all = nib.load('temp_4d.nii')
 	data_all = img_all.get_data()
@@ -56,6 +62,7 @@ def run(opts):
 	np.save('python_temp/header_mask',header_mask)
 	np.save('python_temp/affine_mask',affine_mask)
 	np.save('python_temp/data_mask',data_mask)
+	np.save('python_temp/imgext',imgext)
 	num_voxel = nonzero_data.shape[0]
 	num_subjects = nonzero_data.shape[1]
 	np.save('python_temp/num_voxel',num_voxel)

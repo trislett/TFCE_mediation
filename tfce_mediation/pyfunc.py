@@ -83,15 +83,15 @@ def write_vertStat_img(statname, vertStat, outdata_mask, affine_mask, surf, hemi
 	fsurfname = "%s_%s_%s.mgh" % (statname,surf,hemi)
 	nib.save(nib.freesurfer.mghformat.MGHImage(outdata_mask,affine_mask),fsurfname)
 
-def write_voxelStat_img(statname, voxelStat, out_path, data_index, affine, TFCEfunc):
+def write_voxelStat_img(statname, voxelStat, out_path, data_index, affine, TFCEfunc, imgext = '.nii.gz'):
 	voxelStat_out = voxelStat.astype(np.float32, order = "C")
 	voxelStat_TFCE = np.zeros_like(voxelStat_out).astype(np.float32, order = "C")
 	TFCEfunc.run(voxelStat_out, voxelStat_TFCE)
 	out_path[data_index] = voxelStat_TFCE * (voxelStat_out.max()/100)
-	nib.save(nib.Nifti1Image(out_path,affine),"%s_TFCE.nii.gz" % (statname))
+	nib.save(nib.Nifti1Image(out_path,affine),"%s_TFCE%s" % (statname, imgext))
 	os.system("echo %s,%f >> max_TFCE_contrast_values.csv" % (statname,out_path.max()))
 	out_path[data_index] = voxelStat
-	nib.save(nib.Nifti1Image(out_path,affine),"%s.nii.gz" % (statname))
+	nib.save(nib.Nifti1Image(out_path,affine),"%s%s" % (statname, imgext))
 
 #writing max TFCE values from permutations
 

@@ -67,6 +67,12 @@ def run(opts):
 	pred_x = np.genfromtxt(arg_predictor, delimiter=",")
 	depend_y = np.genfromtxt(arg_depend, delimiter=",")
 
+	imgext = '.nii.gz' #default save type is nii.gz
+#	if not os.path.isfile('python_temp/imgext.npy'): # to maintain compability
+#		imgext = '.nii.gz'
+#	else:
+#		imgext = np.load('python_temp/imgext.npy')
+
 	#TFCE
 	adjac = create_adjac_voxel(data_index,data_mask,num_voxel,dirtype=opts.tfce[2])
 	calcTFCE = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac) # i.e. default: H=2, E=2, 26 neighbour connectivity
@@ -95,7 +101,7 @@ def run(opts):
 	if not os.path.exists("output_med_%s" % medtype):
 		os.mkdir("output_med_%s" % medtype)
 	os.chdir("output_med_%s" % medtype)
-	write_voxelStat_img('SobelZ_%s' % medtype, SobelZ, data_mask, data_index, affine_mask, calcTFCE)
+	write_voxelStat_img('SobelZ_%s' % medtype, SobelZ, data_mask, data_index, affine_mask, calcTFCE, imgext)
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

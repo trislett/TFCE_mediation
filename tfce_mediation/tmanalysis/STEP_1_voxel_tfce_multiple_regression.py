@@ -68,6 +68,12 @@ def run(opts):
 	num_voxel = np.load('python_temp/num_voxel.npy')
 	n = raw_nonzero.shape[1]
 
+	imgext = '.nii.gz' #default save type is nii.gz 
+#	if not os.path.isfile('python_temp/imgext.npy'): # to maintain compability
+#		imgext = '.nii.gz'
+#	else:
+#		imgext = np.load('python_temp/imgext.npy')
+
 	#step1
 	if opts.input:
 		pred_x = np.genfromtxt(opts.input[0], delimiter=',')
@@ -113,13 +119,13 @@ def run(opts):
 	if opts.onesample:
 		if opts.onesample[0] == 'none':
 			tvalues, _ = stats.ttest_1samp(raw_nonzero,0,axis=1)
-			write_voxelStat_img('tstat_intercept', tvalues, data_mask, data_index, affine_mask, calcTFCE)
-			write_voxelStat_img('negtstat_intercept', (tvalues*-1), data_mask, data_index, affine_mask, calcTFCE)
+			write_voxelStat_img('tstat_intercept', tvalues, data_mask, data_index, affine_mask, calcTFCE, imgext)
+			write_voxelStat_img('negtstat_intercept', (tvalues*-1), data_mask, data_index, affine_mask, calcTFCE, imgext)
 		else:
 			tvalues=tval_int(x_covars, np.linalg.inv(np.dot(x_covars.T, x_covars)),raw_nonzero.T,n,len(x_covars.T),num_voxel)
 			tvalues = tvalues[0]
-			write_voxelStat_img('tstat_intercept', tvalues, data_mask, data_index, affine_mask, calcTFCE)
-			write_voxelStat_img('negtstat_intercept', (tvalues*-1), data_mask, data_index, affine_mask, calcTFCE)
+			write_voxelStat_img('tstat_intercept', tvalues, data_mask, data_index, affine_mask, calcTFCE, imgext)
+			write_voxelStat_img('negtstat_intercept', (tvalues*-1), data_mask, data_index, affine_mask, calcTFCE, imgext)
 		exit()
 
 	if ancova==0:
@@ -130,13 +136,13 @@ def run(opts):
 		#write TFCE images
 		for j in xrange(k-1):
 			tnum=j+1
-			write_voxelStat_img('tstat_con%d' % tnum, tvalues[tnum], data_mask, data_index, affine_mask, calcTFCE)
-			write_voxelStat_img('negtstat_con%d' % tnum, (tvalues[tnum]*-1), data_mask, data_index, affine_mask, calcTFCE)
+			write_voxelStat_img('tstat_con%d' % tnum, tvalues[tnum], data_mask, data_index, affine_mask, calcTFCE, imgext)
+			write_voxelStat_img('negtstat_con%d' % tnum, (tvalues[tnum]*-1), data_mask, data_index, affine_mask, calcTFCE, imgext)
 	elif ancova==1:
 		#anova
 		fvals = calcF(X, y, n, k) # sqrt to approximate the t-distribution
 		fvals[fvals < 0] = 0
-		write_voxelStat_img('fstat', np.sqrt(fvals), data_mask, data_index, affine_mask, calcTFCE)
+		write_voxelStat_img('fstat', np.sqrt(fvals), data_mask, data_index, affine_mask, calcTFCE, imgext)
 	else:
 		print "Error"
 		exit()

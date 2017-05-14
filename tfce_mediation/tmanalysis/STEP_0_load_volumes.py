@@ -44,13 +44,22 @@ def run(opts):
 	#check if minc file
 	img_all_name = opts.input[0]
 	_, file_ext = os.path.splitext(img_all_name)
-	if file_ext == '.mnc':
-		imgext = '.mnc'
+	if file_ext == '.gz':
+		_, file_ext = os.path.splitext(img_all_name)
+		if file_ext == '.mnc':
+			imgext = '.mnc'
+			img_all = nib.load(img_all_name)
+		else:
+			imgext = '.nii.gz'
+			os.system("zcat %s > temp_4d.nii" % img_all_name)
+			img_all = nib.load('temp_4d.nii')
+	elif file_ext == '.nii':
+		imgext = '.nii.gz' # default to zipped images
 		img_all = nib.load(img_all_name)
 	else:
-		imgext = '.nii.gz'
-		os.system("zcat %s > temp_4d.nii" % img_all_name)
-		img_all = nib.load('temp_4d.nii')
+		print 'Error filetype for %s is not supported' % img_all_name
+		quit()
+
 	data_all = img_all.get_data()
 
 	nonzero_data = data_all[data_mask>0.99]

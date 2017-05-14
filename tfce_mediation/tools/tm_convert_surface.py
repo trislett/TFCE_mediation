@@ -111,7 +111,7 @@ def run(opts):
 			img_data = img.get_data()
 			if img_data.ndim > 3:
 				print "Error: input file can only contain one subject"
-				exit()
+				quit()
 			img_data = img_data[:,0,0]
 			if (str(opts.paintsurface[3]) == 'r_y') or (str(opts.paintsurface[3]) == 'red-yellow'):
 				out_color_array = convert_redtoyellow(np.array(( float(opts.paintsurface[1]),float(opts.paintsurface[2]) )), img_data)
@@ -121,13 +121,13 @@ def run(opts):
 				out_color_array = convert_mpl_colormaps(np.array(( float(opts.paintsurface[1]),float(opts.paintsurface[2]) )), img_data, str(opts.paintsurface[3]))
 			else:
 				print "Colour scheme %s does not exist" % str(opts.paintsurface[3])
-				exit()
+				quit()
 			if opts.paintsecondsurface:
 				img = nib.load(opts.paintsecondsurface[0])
 				img_data = img.get_data()
 				if img_data.ndim > 3:
 					print "Error: input file can only contain one subject"
-					exit()
+					quit()
 				img_data = img_data[:,0,0]
 				index = img_data > float(opts.paintsecondsurface[1])
 				if (str(opts.paintsecondsurface[3]) == 'r_y') or (str(opts.paintsecondsurface[3]) == 'red-yellow'):
@@ -138,7 +138,7 @@ def run(opts):
 					out_color_array = convert_mpl_colormaps(np.array(( float(opts.paintsecondsurface[1]),float(opts.paintsecondsurface[2]) )), img_data, str(opts.paintsecondsurface[3]))
 				else:
 					print "Error: colour scheme %s does not exist" % str(opts.paintsecondsurface[3])
-					exit()
+					quit()
 				out_color_array[index,:] = out_color_array2[index,:]
 			save_ply(v,f, opts.outputply[0], out_color_array)
 		elif opts.paintfslabel:
@@ -158,8 +158,8 @@ def run(opts):
 				elif np.any(colormaps == str(icolormap)):
 					out_color_label = convert_mpl_colormaps(np.array(( float(0),float(max_value) )), v_value, str(icolormap))
 				else:
-					print "Colour scheme %s does not exist" % str(icolormap)
-					exit()
+					print "Error: colour scheme %s does not exist" % str(icolormap)
+					quit()
 				if counter == 2: # dirty method
 					baseColour=[227,218,201] # bone
 					out_color_array = np.zeros((v.shape[0],3))

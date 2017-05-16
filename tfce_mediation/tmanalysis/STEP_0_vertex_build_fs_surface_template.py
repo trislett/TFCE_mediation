@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-#    Load mean_FA_skeleton_mask and all_FA_skeletonised into tfce_mediation
+#    Wrapper for building surface templates for tfce_mediation
 #    Copyright (C) 2016  Tristram Lett
 
 #    This program is free software: you can redistribute it and/or modify
@@ -24,6 +24,10 @@ import datetime
 
 DESCRIPTION = "Python pipe to build Freesurfer template surface using mri_surf2surf. $SUBJECT_DIR must be declared (e.g., export SUBJECT_DIR=/path/to/freesurfer/subjects)"
 
+def merge_surfaces(tempdir,hemi,smoothname,subjects,surface):
+	subject_list = " ".join([("%s/%s." % (tempdir,hemi)) + s + ("*.%s.mgh" % smoothname) for s in subjects])
+	os.system("tm_tools merge-images --vertex -o %s.all.%s.%s.mgh -i %s" % (hemi,surface,smoothname,subject_list))
+
 def getArgumentParser(parser = argparse.ArgumentParser(description = DESCRIPTION)):
 	parser.add_argument("-i", "--input", 
 		nargs=2, 
@@ -33,12 +37,19 @@ def getArgumentParser(parser = argparse.ArgumentParser(description = DESCRIPTION
 	parser.add_argument("-f", "--fwhm", 
 		nargs='+', 
 		help="Optional. Specify FWHM smoothing other than 3mm. Multiple smoothing values can be specificed, E.g.,, for  FWHM = 4mm and 10mm ( -f 4 10 )",
-		metavar=('INT'))
+		metavar=('FWHM'))
 	parser.add_argument("-p", "--parallel", 
 		nargs=1,
 		type=int,
 		help="Optional (recommended). Use GNU parallel processing with entering the number of cores (e.g., -p 8)", 
 		metavar=('INT'))
+	parser.add_argument("-g", "--usegeodesicfwhm", 
+		nargs=2,
+		type=str,
+		help="""
+		Optional. Use geodesic FHWM smoothing at midthickness surface (no fudge factor). The distances lists must be specifity for the left and right hemispheres, respectively. The default FWHM is 3mm, but other distances can be specified using -f option. Important, this requires creation of distance lists for earh hemisphere using /tfce_mediation/misc_scripts/fwhm_compute_distances_parallel.py or downloading them from the midthickness surface from tm_addons (github.com/trislett/tm_addons). Please note that smoothing for each surface image with geodesicFWHM takes around 5 minutes per subject and uses around 2GB of RAM for the 9mm distance lists. e.g., -g $TM_ADDONS/geodesicFWHM/lh_9.0mm_fwhm_distances.npy $TM_ADDONS/geodesicFWHM/rh_9.0mm_fwhm_distances.npy.
+		""", 
+		metavar=('STRING'))
 	parser.add_argument("-k", "--noclean", 
 		help="Keep temporary files", 
 		action='store_true')
@@ -60,9 +71,6 @@ def run(opts):
 	cmd_smooth =  "cmd_smooth_%s_%s" % (surface, timestamp)
 
 	os.system('echo "Current SUBJECTS_DIR is: " $SUBJECTS_DIR;')
-#	longname='{1}{0}'.format(' --s '.join(subjects), '--s ')
-#	with open("longname", "w") as text_file:
-#		text_file.write("%s" % longname)
 
 	os.system("""
 		mkdir %s;
@@ -78,33 +86,50 @@ def run(opts):
 		os.system("while read -r i; do eval $i; done < %s/%s" % (tempdir,cmd_reg) )
 
 	os.chdir('%s/' % tempdir)
-	print "Performing smoothing with FWHM = 3.0mm "
-	os.system("""
-		for hemi in lh rh; do
-			for i in ${hemi}*.mgh; do
-				temp_outname=$(basename ${i} .00.mgh).03B.mgh
-				echo $FREESURFER_HOME/bin/mri_surf2surf --hemi ${hemi} --s fsaverage --sval ${i} --tval ${temp_outname} --fwhm-trg 3 --noreshape --cortex 
-			done >> %s
-		done""" % (cmd_smooth) )
 
+
+	if opts.usegeodesicfwhm:
+		fwhm = [3.0]
+		if opts.fwhm:
+			fwhm = opts.fwhm
+		for j in fwhm:
+			print "Performing geodesic smoothing with FWHM = %smm." % j
+			os.system("""
+					for i in lh*.mgh; do
+						temp_outname=$(basename ${i} .00.mgh).0%dB.mgh
+						echo tm_tools geodesic-fwhm --hemi lh -i ${i} -o ${temp_outname} -d %s -f %s
+					done >> %s""" % (int(float(j)), opts.usegeodesicfwhm[0],j,cmd_smooth) )
+			os.system("""
+					for i in rh*.mgh; do
+						temp_outname=$(basename ${i} .00.mgh).0%dB.mgh
+						echo tm_tools geodesic-fwhm --hemi rh -i ${i} -o ${temp_outname} -d %s -f %s
+					done >> %s""" % (int(float(j)),opts.usegeodesicfwhm[1],j,cmd_smooth) )
+	else:
+		print "Performing smoothing with FWHM = 3.0mm "
+		os.system("""
+			for hemi in lh rh; do
+				for i in ${hemi}*.mgh; do
+					temp_outname=$(basename ${i} .00.mgh).03B.mgh
+					echo $FREESURFER_HOME/bin/mri_surf2surf --hemi ${hemi} --s fsaverage --sval ${i} --tval ${temp_outname} --fwhm-trg 3 --noreshape --cortex 
+				done >> %s
+			done""" % (cmd_smooth) )
 	if opts.parallel:
 		os.system("cat %s | parallel -j %d;" % (cmd_smooth, numcore))
 	else:
 		os.system("while read -r i; do eval $i; done < %s" % (cmd_smooth) )
 	os.chdir('../')
 	print "Merging surface images"
-	# painful solution to join strings to maintain subject order
-	lh_00 = " ".join([("%s/lh." % tempdir) + s + '*.00.mgh' for s in subjects])
-	lh_03 = " ".join([("%s/lh." % tempdir) + s + '*.03B.mgh' for s in subjects])
-	rh_00 = " ".join([("%s/rh." % tempdir) + s + '*.00.mgh' for s in subjects])
-	rh_03 = " ".join([("%s/rh." % tempdir) + s + '*.03B.mgh' for s in subjects])
+	merge_surfaces(tempdir,'lh','00',subjects,surface)
+	merge_surfaces(tempdir,'rh','00',subjects,surface)
 
-	os.system("""
-			tm_tools merge-images --vertex -o lh.all.%s.00.mgh -i %s
-			tm_tools merge-images --vertex -o lh.all.%s.03B.mgh -i %s
-			tm_tools merge-images --vertex -o rh.all.%s.00.mgh -i %s
-			tm_tools merge-images --vertex -o rh.all.%s.03B.mgh -i %s
-		""" % (surface,lh_00,surface,lh_03,surface,rh_00,surface,rh_03))
+	if opts.usegeodesicfwhm and opts.fwhm:
+		for j in fwhm:
+			fwhm_name = '0%dB' % int(j)
+			merge_surfaces(tempdir,'lh',fwhm_name,subjects,surface)
+			merge_surfaces(tempdir,'rh',fwhm_name,subjects,surface)
+	else:
+		merge_surfaces(tempdir,'lh','03B',subjects,surface)
+		merge_surfaces(tempdir,'rh','03B',subjects,surface)
 
 	if opts.fwhm:
 		for i in xrange(len(opts.fwhm)):

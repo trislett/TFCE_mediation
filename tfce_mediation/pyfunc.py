@@ -260,6 +260,15 @@ def zscaler(X, axis=0, w_mean=True, w_std=True):
 		data /= np.std(data, axis)
 	return data
 
+# orthonormalizaiton with QR factorization
+def gram_schmidt_orthonorm(X, columns=True):
+	if columns:
+		Q, _ = np.linalg.qr(X)
+	else:
+		Q, _ = np.linalg.qr(X.T)
+		Q = Q.T
+	return Q
+
 #max-min standardization
 def minmaxscaler(X, axis=0):
 	X = (X - X.min(axis)) / (X.max(axis) - X.min(axis))

@@ -53,11 +53,12 @@ if os.path.exists('MANIFEST'):
 if parse_setuppy_commands():
   from numpy.distutils.core import setup
 
-setup(name = PACKAGE_NAME, version = "1.1.6",
+exec(open('tfce_mediation/version.py').read())
+setup(name = PACKAGE_NAME, version = __version__,
   maintainer = "Tristram Lett",
   maintainer_email = "tristram.lett@charite.de",
   description = "TFCE_mediation",
-  long_description = "Fast regression and mediation analysis of vertex or voxel MR data with TFCE",
+  long_description = "Fast regression and mediation analysis of vertex or voxel MRI data with TFCE",
   url = "https://github.com/trislett/TFCE_mediation",
   download_url = "",
   platforms=["Linux", "Solaris", "Mac OS-X", "Unix"],

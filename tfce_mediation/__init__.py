@@ -6,3 +6,4 @@ from . import adjacency
 from . import tmanalysis
 from . import tools
 
+from .version import __version__

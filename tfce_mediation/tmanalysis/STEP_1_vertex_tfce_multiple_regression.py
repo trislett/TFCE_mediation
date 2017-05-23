@@ -23,7 +23,7 @@ import argparse as ap
 
 from tfce_mediation.cynumstats import resid_covars, tval_int
 from tfce_mediation.tfce import CreateAdjSet
-from tfce_mediation.pyfunc import write_vertStat_img, create_adjac_vertex
+from tfce_mediation.pyfunc import write_vertStat_img, create_adjac_vertex, convert_fslabel
 
 DESCRIPTION = "Vertex-wise multiple regression with TFCE."
 
@@ -54,8 +54,8 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		const=0.1, 
 		type=float, 
 		nargs='?')
-	mask.add_argument("-m","--mask", 
-		help="Masking array based on fsaverage label. Default is cortex", 
+	mask.add_argument("-m","--fsmask", 
+		help="Create masking array based on fsaverage label. Default is cortex", 
 		const='cortex', 
 		nargs='?')
 	mask.add_argument("-l","--label", 
@@ -89,8 +89,8 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=2, 
 		default=[2,0.67], 
 		metavar=('H', 'E'))
-	ap.add_argument("--tfcedensitycorrection", 
-		help="Experimental. Correct for number of vertices within the geodesic distance.", 
+	ap.add_argument("--novertexdensityweight", 
+		help="Do not use the default TFCE calculation weights each vertex by the density of vertices within the specified geodesic distance.", 
 		action="store_true")
 
 	return ap
@@ -154,8 +154,11 @@ def run(opts):
 		adjac_rh = np.load("%s/adjacency_sets/rh_adjacency_dist_%s.0_mm.npy" % (scriptwd,str(opts.dist[0])))
 	else:
 		print "Error"
-	if opts.tfcedensitycorrection:
-		# experimental correction for vertex density
+	if opts.novertexdensityweight:
+		vdensity_lh = 1
+		vdensity_rh = 1
+	else:
+		# correction for vertex density
 		vdensity_lh = np.zeros((adjac_lh.shape[0]))
 		vdensity_rh = np.zeros((adjac_rh.shape[0]))
 		for i in xrange(adjac_lh.shape[0]):
@@ -164,12 +167,8 @@ def run(opts):
 			vdensity_rh[j] = len(adjac_rh[j])
 		vdensity_lh = np.array(1 - (vdensity_lh/vdensity_lh.max()), dtype=np.float32)
 		vdensity_rh = np.array(1 - (vdensity_rh/vdensity_rh.max()), dtype=np.float32)
-		print "Experimental: correcting for vertex density per geodesic distance"
-	else:
-		vdensity_lh = 1
-		vdensity_rh = 1
-	calcTFCE_lh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_lh) # H=2, E=1
-	calcTFCE_rh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_rh) # H=2, E=1
+	calcTFCE_lh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_lh)
+	calcTFCE_rh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_rh)
 	
 	#create masks
 	if opts.fmri:
@@ -177,33 +176,35 @@ def run(opts):
 		print("fMRI threshold mask = %2.2f" % maskthresh)
 		bin_mask_lh = np.logical_or(mean_lh > maskthresh, mean_lh < (-1*maskthresh))
 		bin_mask_rh = np.logical_or(mean_rh > maskthresh, mean_rh < (-1*maskthresh))
-	elif opts.mask:
-		label = opts.mask
+
+	elif opts.fsmask:
+		label = opts.fsmask
 		print("Loading fsaverage ?l.%s.label" % label)
-		os.system("cat $SUBJECTS_DIR/fsaverage/label/lh.%s.label | tail -n +3 | awk '{ print $1}' > temp.lh.verticeslist; cat $SUBJECTS_DIR/fsaverage/label/rh.%s.label | tail -n +3 | awk '{ print $1}' > temp.rh.verticeslist" % (label,label))
-		index_lh = np.array(np.genfromtxt("temp.lh.verticeslist", delimiter=',').astype(np.int))
-		index_rh = np.array(np.genfromtxt("temp.rh.verticeslist", delimiter=',').astype(np.int))
+
+		index_lh, _, _ = convert_fslabel("$SUBJECTS_DIR/fsaverage/label/lh.%s.label" % label)
+		index_rh, _, _ = convert_fslabel("$SUBJECTS_DIR/fsaverage/label/rh.%s.label" % label)
+
 		bin_mask_lh = np.zeros_like(mean_lh)
-		bin_mask_lh[index_rh]=1
-		bin_mask_lh[mean_lh==0]=0
+		bin_mask_lh[index_lh]=1
 		bin_mask_lh = bin_mask_lh.astype(bool)
+
 		bin_mask_rh = np.zeros_like(mean_rh)
 		bin_mask_rh[index_rh]=1
-		bin_mask_lh[mean_lh==0]=0
 		bin_mask_rh = bin_mask_rh.astype(bool)
+
 	elif opts.label:
 		label_lh = opts.label[0]
 		label_rh = opts.label[1]
-		os.system("cat %s | tail -n +3 | awk '{ print $1}' > temp.lh.verticeslist; cat %s | tail -n +3 | awk '{ print $1}' > temp.rh.verticeslist" % (label_lh,label_rh))
-		index_lh = np.array(np.genfromtxt("temp.lh.verticeslist", delimiter=',').astype(np.int))
-		index_rh = np.array(np.genfromtxt("temp.rh.verticeslist", delimiter=',').astype(np.int))
+
+		index_lh, _, _ = convert_fslabel(label_lh)
+		index_rh, _, _ = convert_fslabel(label_rh)
+
 		bin_mask_lh = np.zeros_like(mean_lh)
 		bin_mask_lh[index_lh]=1
-		bin_mask_lh[mean_lh==0]=0
 		bin_mask_lh = bin_mask_lh.astype(bool)
+
 		bin_mask_rh = np.zeros_like(mean_rh)
 		bin_mask_rh[index_rh]=1
-		bin_mask_lh[mean_lh==0]=0
 		bin_mask_rh = bin_mask_rh.astype(bool)
 	elif opts.binmask:
 		print("Loading masks")

@@ -24,7 +24,7 @@ import argparse as ap
 
 from tfce_mediation.cynumstats import resid_covars
 from tfce_mediation.tfce import CreateAdjSet
-from tfce_mediation.pyfunc import write_vertStat_img, create_adjac_vertex, calc_sobelz
+from tfce_mediation.pyfunc import write_vertStat_img, create_adjac_vertex, calc_sobelz, convert_fslabel
 
 DESCRIPTION = "Vertex-wise mediation with TFCE."
 
@@ -54,11 +54,25 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=1,
 		default=['03B'],
 		metavar=('??B'))
-	ap.add_argument("--fmri", 
+
+	mask = ap.add_mutually_exclusive_group(required=False)
+	mask.add_argument("--fmri", 
 		help="Masking threshold for fMRI surfaces. Default is 0.1 (i.e., mask regions with values less than -0.1 and greater than 0.1)",
-		const=0.1,
-		type=float,
+		const=0.1, 
+		type=float, 
 		nargs='?')
+	mask.add_argument("--fsmask", 
+		help="Create masking array based on fsaverage label. Default is cortex", 
+		const='cortex', 
+		nargs='?')
+	mask.add_argument("-l","--label", 
+		help="Load label as masking array for lh and rh, respectively.", 
+		nargs=2, 
+		metavar=('lh.*.label','rh.*.label'))
+	mask.add_argument("-b","--binmask", 
+		help="Load binary mask surface for lh and rh, respectively.", 
+		nargs=2, 
+		metavar=('lh.*.mgh','rh.*.mgh'))
 
 	adjac = ap.add_mutually_exclusive_group(required=False)
 	adjac.add_argument("-d", "--dist", 
@@ -133,23 +147,58 @@ def run(opts):
 	#create masks
 	if opts.fmri:
 		maskthresh = opts.fmri
+		print("fMRI threshold mask = %2.2f" % maskthresh)
 		bin_mask_lh = np.logical_or(mean_lh > maskthresh, mean_lh < (-1*maskthresh))
-		data_lh = data_lh[bin_mask_lh]
-		num_vertex_lh = data_lh.shape[0]
 		bin_mask_rh = np.logical_or(mean_rh > maskthresh, mean_rh < (-1*maskthresh))
-		data_rh = data_rh[bin_mask_rh]
-		num_vertex_rh = data_rh.shape[0]
-		num_vertex = num_vertex_lh + num_vertex_rh
-		all_vertex = data_full_lh.shape[0]
+
+	elif opts.fsmask:
+		label = opts.fsmask
+		print("Loading fsaverage ?l.%s.label" % label)
+
+		index_lh, _, _ = convert_fslabel("$SUBJECTS_DIR/fsaverage/label/lh.%s.label" % label)
+		index_rh, _, _ = convert_fslabel("$SUBJECTS_DIR/fsaverage/label/rh.%s.label" % label)
+
+		bin_mask_lh = np.zeros_like(mean_lh)
+		bin_mask_lh[index_lh]=1
+		bin_mask_lh = bin_mask_lh.astype(bool)
+
+		bin_mask_rh = np.zeros_like(mean_rh)
+		bin_mask_rh[index_rh]=1
+		bin_mask_rh = bin_mask_rh.astype(bool)
+
+	elif opts.label:
+		label_lh = opts.label[0]
+		label_rh = opts.label[1]
+
+		index_lh, _, _ = convert_fslabel(label_lh)
+		index_rh, _, _ = convert_fslabel(label_rh)
+
+		bin_mask_lh = np.zeros_like(mean_lh)
+		bin_mask_lh[index_lh]=1
+		bin_mask_lh = bin_mask_lh.astype(bool)
+
+		bin_mask_rh = np.zeros_like(mean_rh)
+		bin_mask_rh[index_rh]=1
+		bin_mask_rh = bin_mask_rh.astype(bool)
+	elif opts.binmask:
+		print("Loading masks")
+		img_binmgh_lh = nib.freesurfer.mghformat.load(opts.binmask[0])
+		binmgh_lh = img_binmgh_lh.get_data()
+		binmgh_lh = np.squeeze(binmgh_lh)
+		img_binmgh_rh = nib.freesurfer.mghformat.load(opts.binmask[1])
+		binmgh_rh = img_binmgh_rh.get_data()
+		binmgh_rh = np.squeeze(binmgh_rh)
+		bin_mask_lh = binmgh_lh>.99
+		bin_mask_rh = binmgh_rh>.99
 	else:
 		bin_mask_lh = mean_lh>0
-		data_lh = data_lh[bin_mask_lh]
-		num_vertex_lh = data_lh.shape[0]
 		bin_mask_rh = mean_rh>0
-		data_rh = data_rh[bin_mask_rh]
-		num_vertex_rh = data_rh.shape[0]
-		num_vertex = num_vertex_lh + num_vertex_rh
-		all_vertex = data_full_lh.shape[0]
+	data_lh = data_lh[bin_mask_lh]
+	num_vertex_lh = data_lh.shape[0]
+	data_rh = data_rh[bin_mask_rh]
+	num_vertex_rh = data_rh.shape[0]
+	num_vertex = num_vertex_lh + num_vertex_rh
+	all_vertex = data_full_lh.shape[0]
 
 	#TFCE
 	if opts.triangularmesh:
@@ -175,8 +224,11 @@ def run(opts):
 		adjac_rh = np.load("%s/adjacency_sets/rh_adjacency_dist_%s.0_mm.npy" % (scriptwd,str(opts.dist[0])))
 	else:
 		print "Error"
-	if opts.tfcedensitycorrection:
-		# experimental correction for vertex density
+	if opts.novertexdensityweight:
+		vdensity_lh = 1
+		vdensity_rh = 1
+	else:
+		# correction for vertex density
 		vdensity_lh = np.zeros((adjac_lh.shape[0]))
 		vdensity_rh = np.zeros((adjac_rh.shape[0]))
 		for i in xrange(adjac_lh.shape[0]):
@@ -185,12 +237,8 @@ def run(opts):
 			vdensity_rh[j] = len(adjac_rh[j])
 		vdensity_lh = np.array(1 - (vdensity_lh/vdensity_lh.max()), dtype=np.float32)
 		vdensity_rh = np.array(1 - (vdensity_rh/vdensity_rh.max()), dtype=np.float32)
-		print "Experimental: correcting for vertex density per geodesic distance"
-	else:
-		vdensity_lh = 1
-		vdensity_rh = 1
-	calcTFCE_lh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_lh) # H=2, E=1
-	calcTFCE_rh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_rh) # H=2, E=1
+	calcTFCE_lh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_lh)
+	calcTFCE_rh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_rh)
 
 	#save variables
 	if not os.path.exists("python_temp_med_%s" % surface):

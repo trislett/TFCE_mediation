@@ -22,7 +22,7 @@
 import numpy as np
 cimport numpy as np
 cimport cython
-from libc.math cimport pi,sqrt,exp
+from libc.math cimport M_PI,sqrt,exp
 from libcpp.vector cimport vector
 
 def cy_lin_lstsqr_mat(X, y):
@@ -76,7 +76,7 @@ def calc_beta_se(x,y,n,num_voxel):
 cdef pdf_compute(float x, float loc, float scale):
    cdef float norm_factor
    cdef float exponent
-   norm_factor = sqrt(2 * pi * scale)
+   norm_factor = sqrt(2 * M_PI * scale)
    exponent = -1 * (x - loc) ** 2 / (2 * scale)
    return  1 / norm_factor * exp(exponent)
 

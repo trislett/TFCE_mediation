@@ -97,8 +97,8 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=2, 
 		default=[2,0.67], 
 		metavar=('H', 'E'))
-	ap.add_argument("--tfcedensitycorrection", 
-		help="Experimental. Correct for number of vertices within the geodesic distance.", 
+	ap.add_argument("--noweight", 
+		help="Do not weight each vertex for density of vertices within the specified geodesic distance.", 
 		action="store_true")
 
 	return ap
@@ -224,7 +224,7 @@ def run(opts):
 		adjac_rh = np.load("%s/adjacency_sets/rh_adjacency_dist_%s.0_mm.npy" % (scriptwd,str(opts.dist[0])))
 	else:
 		print "Error"
-	if opts.novertexdensityweight:
+	if opts.noweight:
 		vdensity_lh = 1
 		vdensity_rh = 1
 	else:

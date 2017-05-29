@@ -241,20 +241,6 @@ def savemgh(imgdata, img, index, imagename):
 	imgout[index]=outdata
 	nib.save(nib.freesurfer.mghformat.MGHImage(imgout.astype(np.float32, order = "C"),img.affine),imagename)
 
-def savemgh_v2(imgdata, index, imagename, img=None):
-	outdata = imgdata.astype(np.float32, order = "C")
-	if imgdata.ndim == 2:
-		imgout = np.zeros((index.shape[0],index.shape[1],index.shape[2],imgdata.shape[1]))
-	elif imgdata.ndim == 1:
-		imgout = np.zeros((index.shape[0],index.shape[1],index.shape[2]))
-	else:
-		print 'error'
-	imgout[index]=outdata
-	if img==None:
-		nib.save(nib.freesurfer.mghformat.MGHImage(imgout.astype(np.float32, order = "C"),affine=None),imagename)
-	else:
-		nib.save(nib.freesurfer.mghformat.MGHImage(imgout.astype(np.float32, order = "C"),img.affine),imagename)
-
 #find nearest permuted TFCE max value that corresponse to family-wise error rate 
 def find_nearest(array,value,p_array):
 	idx = np.searchsorted(array, value, side="left")

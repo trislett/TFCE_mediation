@@ -282,12 +282,12 @@ def run(opts):
 	if opts.outmask:
 		outmask = np.ones((img_data_trunc.shape[0]))
 		if opts.voxel:
-			savenifti(outmask, img, mask_index, 'mask.%s' % outname)
+			savenifti(outmask, mask_index, 'mask.%s' % outname, img)
 		if opts.vertex:
-			savemgh(outmask, img, mask_index, 'mask.%s' % outname)
+			savemgh(outmask, mask_index, 'mask.%s' % outname, img)
 		if opts.bothhemi:
-			savemgh(outmask[:midpoint], lh_img, lh_mask_index, 'mask.lh.%s' % outname)
-			savemgh(outmask[midpoint:], rh_img, rh_mask_index, 'mask.rh.%s' % outname)
+			savemgh(outmask[:midpoint],  lh_mask_index, 'mask.lh.%s' % outname, lh_img)
+			savemgh(outmask[midpoint:],  rh_mask_index, 'mask.rh.%s' % outname, rh_img)
 
 
 # Initiating convoluted solution to doing multiple math functions in python

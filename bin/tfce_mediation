@@ -126,7 +126,7 @@ tfce_mediation.tmanalysis.vertex_tfce_mediation_randomise.getArgumentParser(vert
 
 parser.add_argument('--verbosehelp', action=_HelpAction, help='Display help for each sub-command.')  # add custom help
 parser.add_argument('--usage', action=_Usage, help='Display usage for sub-command.')  # add printout usage
-
+parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
 
 args = parser.parse_args()
 args.func(args)

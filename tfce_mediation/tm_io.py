@@ -24,6 +24,10 @@ import nibabel as nib
 import numpy as np
 from tfce_mediation.pyfunc import check_outname
 
+def tm_filetype_version:
+	version = '0.1'
+	return version
+
 def savemgh_v2(imgdata, index, imagename, affine=None):
 	outdata = imgdata.astype(np.float32, order = "C")
 	if imgdata.ndim == 2:
@@ -47,7 +51,7 @@ def savenifti_v2(imgdata, index, imagename, affine=None):
 	imgout[index]=outdata
 	nib.save(nib.Nifti1Image(imgout.astype(np.float32, order = "C"),affine=affine),imagename)
 
-def write_tm_filetype(imgdata, outname, surface_object = 'unknown', subjectid = 'unknown', hemisphere = 'unknown', imgtype = 'unknown', output_binary = True, mask_index=[], affine=[], vertices=[], faces=[]):
+def write_tm_filetype(imgdata=[], outname, surface_object = 'unknown', subjectid = 'unknown', hemisphere = 'unknown', imgtype = 'unknown', output_binary = True, mask_index=[], affine=[], vertices=[], faces=[]):
 	num_mask = 0
 	num_object = 0
 	num_affine = 0
@@ -83,21 +87,23 @@ def write_tm_filetype(imgdata, outname, surface_object = 'unknown', subjectid = 
 		nsub=imgdata.shape[1]
 	if not outname.endswith('ascii'):
 		if output_binary:
-			outname += '.raw'
+			outname += '.tmi'
 		else:
-			outname += '.ascii'
+			outname += '.ascii.tmi'
 	outname=check_outname(outname)
 	with open(outname, "wb") as o:
+		o.write("tmi\n")
 		if output_binary:
-			o.write("format binary_%s_endian\n" % sys.byteorder)
+			o.write("format binary_%s_endian %s\n" % ( sys.byteorder, tm_filetype_version() ) )
 		else:
-			o.write("format ascii\n")
+			o.write("format ascii %s\n" % tm_filetype_version() )
 		o.write("comment made with TFCE_mediation\n")
-		o.write("element data_array\n")
-		o.write("dtype float32\n")
-		o.write("nbytes %d\n" % imgdata.nbytes)
-		o.write("numV %d\n" % nvert)
-		o.write("numS %d\n" % nsub)
+		if not imgdata==[]:
+			o.write("element data_array\n")
+			o.write("dtype float32\n")
+			o.write("nbytes %d\n" % imgdata.nbytes)
+			o.write("numV %d\n" % nvert)
+			o.write("numS %d\n" % nsub)
 		if num_mask==1:
 			o.write("element masking_array\n")
 			o.write("dtype uint8\n")
@@ -251,8 +257,13 @@ def read_tm_filetype(tm_file):
 	vertexcounter=0
 	facecounter=0
 	affinecounter=0
+	if firstword != 'tmi':
+		print "Error: not a TFCE_mediation image."
+		quit()
+
+	reader = obj.readline().strip().split()
 	if firstword != 'format':
-		print "Error reading file format"
+		print "Error: unknown reading file format"
 		quit()
 	else:
 		tm_filetype = reader[1]

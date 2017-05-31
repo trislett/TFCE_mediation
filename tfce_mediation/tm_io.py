@@ -22,13 +22,16 @@ import os
 import sys
 import nibabel as nib
 import numpy as np
+import pickle
 from tfce_mediation.pyfunc import check_outname
 
-def tm_filetype_version:
+def tm_filetype_version():
 	version = '0.1'
 	return version
 
 def savemgh_v2(imgdata, index, imagename, affine=None):
+	if not imagename.endswith('mgh'):
+		imagename += '.mgh'
 	outdata = imgdata.astype(np.float32, order = "C")
 	if imgdata.ndim == 2:
 		imgout = np.zeros((index.shape[0],index.shape[1],index.shape[2],imgdata.shape[1]))
@@ -41,6 +44,8 @@ def savemgh_v2(imgdata, index, imagename, affine=None):
 
 
 def savenifti_v2(imgdata, index, imagename, affine=None):
+	if not ((imagename.endswith('nii')) or  (imagename.endswith('nii.gz'))):
+		imagename += '.nii.gz'
 	outdata = imgdata.astype(np.float32, order = "C")
 	if imgdata.ndim == 2:
 		imgout = np.zeros((index.shape[0],index.shape[1],index.shape[2],imgdata.shape[1]))
@@ -51,10 +56,11 @@ def savenifti_v2(imgdata, index, imagename, affine=None):
 	imgout[index]=outdata
 	nib.save(nib.Nifti1Image(imgout.astype(np.float32, order = "C"),affine=affine),imagename)
 
-def write_tm_filetype(imgdata=[], outname, surface_object = 'unknown', subjectid = 'unknown', hemisphere = 'unknown', imgtype = 'unknown', output_binary = True, mask_index=[], affine=[], vertices=[], faces=[]):
+def write_tm_filetype(outname, surface_object = 'unknown', subjectid = 'unknown', hemisphere = 'unknown', imgtype = 'unknown', output_binary = True, imgdata=[], mask_index=[], affine=[], vertices=[], faces=[], adjacency=[]):
 	num_mask = 0
 	num_object = 0
 	num_affine = 0
+	num_adjacency = 0
 	if not mask_index==[]:
 		if mask_index.ndim==3:
 			num_mask=1
@@ -77,14 +83,22 @@ def write_tm_filetype(imgdata=[], outname, surface_object = 'unknown', subjectid
 			num_affine=int(vertices.shape[0])
 		else:
 			print "Error affine dimension are not understood."
+	if not adjacency==[]:
+		if adjacency.ndim==1:
+			num_adjacency=1
+		elif adjacency.ndim==2:
+			num_adjacency=int(adjacency.shape[0])
+		else:
+			print "Error shape of adjacency objects are not understood."
 
 	# write array shape
-	if imgdata.ndim == 1:
-		nvert=len(imgdata)
-		nsub=1
-	else:
-		nvert=imgdata.shape[0]
-		nsub=imgdata.shape[1]
+	if not imgdata==[]:
+		if imgdata.ndim == 1:
+			nvert=len(imgdata)
+			nsub=1
+		else:
+			nvert=imgdata.shape[0]
+			nsub=imgdata.shape[1]
 	if not outname.endswith('ascii'):
 		if output_binary:
 			outname += '.tmi'
@@ -102,8 +116,7 @@ def write_tm_filetype(imgdata=[], outname, surface_object = 'unknown', subjectid
 			o.write("element data_array\n")
 			o.write("dtype float32\n")
 			o.write("nbytes %d\n" % imgdata.nbytes)
-			o.write("numV %d\n" % nvert)
-			o.write("numS %d\n" % nsub)
+			o.write("datashape %d %d\n" % (nvert,nsub))
 		if num_mask==1:
 			o.write("element masking_array\n")
 			o.write("dtype uint8\n")
@@ -129,7 +142,7 @@ def write_tm_filetype(imgdata=[], outname, surface_object = 'unknown', subjectid
 			o.write("nbytes %d\n" % affine.nbytes)
 			o.write("affineshape %d %d\n" % (affine.shape[0], affine.shape[1]) )
 		if num_affine>1:
-			for i in range(num_object):
+			for i in range(num_affine):
 				affine[i] = affine[i].astype('float32') # make sure it is a float32
 				o.write("element vertex\n")
 				o.write("dtype int32\n")
@@ -163,6 +176,19 @@ def write_tm_filetype(imgdata=[], outname, surface_object = 'unknown', subjectid
 				o.write("dtype uint32\n")
 				o.write("nbytes %d\n" % faces[i].nbytes)
 				o.write("faceshape %d %d\n" % (faces[i].shape[0], faces[i].shape[1]))
+
+		if num_adjacency==1:
+			o.write("element adjacency_object\n")
+			o.write("dtype python_object\n")
+			o.write("nbytes %d\n" % len(pickle.dumps(adjacency, -1)) )
+			o.write("adjlength %d\n" % len(adjacency) )
+		if num_adjacency>1:
+			for i in range(num_adjacency):
+				o.write("element adjacency_object\n")
+				o.write("dtype python_object\n")
+				o.write("nbytes %d\n" % len(pickle.dumps(adjacency[i], -1)) )
+				o.write("adjlength %d\n" % len(adjacency[i]) )
+
 		o.write("end_header\n")
 
 		if output_binary:
@@ -195,6 +221,11 @@ def write_tm_filetype(imgdata=[], outname, surface_object = 'unknown', subjectid
 					outv.tofile(o)
 					outf = np.array(faces[j].T, dtype='uint32')
 					outf.tofile(o)
+			if num_adjacency==1: # inefficient
+				pickle.dump(adjacency,o, protocol=pickle.HIGHEST_PROTOCOL)
+			if num_adjacency>1:
+				for j in range(num_adjacency):
+					pickle.dump(adjacency[j],o, protocol=pickle.HIGHEST_PROTOCOL)
 		else:
 			np.savetxt(o,imgdata.astype(np.float32))
 			if num_mask==1:
@@ -233,40 +264,48 @@ def write_tm_filetype(imgdata=[], outname, surface_object = 'unknown', subjectid
 def read_tm_filetype(tm_file):
 	#getfilesize
 	filesize = os.stat(tm_file).st_size
-	#read first line
-	obj = open(tm_file)
-	reader = obj.readline().strip().split()
-	firstword=reader[0]
 	#declare variables
 	element = []
 	element_dtype = []
 	element_nbyte = []
 	element_nmasked = []
 	masking_array = []
+	datashape = []
 	maskshape = []
 	vertexshape = []
 	faceshape = []
 	affineshape = []
+	adjlength = []
 	array_read = []
+	object_read = []
 	o_imgarray = []
 	o_masking_array = []
 	o_vertex = []
 	o_face = []
 	o_affine = []
+	o_adjacency = []
 	maskcounter=0
 	vertexcounter=0
 	facecounter=0
 	affinecounter=0
+	adjacencycounter=0
+
+	#read first line
+	obj = open(tm_file)
+	reader = obj.readline().strip().split()
+	firstword=reader[0]
 	if firstword != 'tmi':
 		print "Error: not a TFCE_mediation image."
-		quit()
-
+		exit()
 	reader = obj.readline().strip().split()
+	firstword=reader[0]
 	if firstword != 'format':
 		print "Error: unknown reading file format"
-		quit()
+		exit()
 	else:
 		tm_filetype = reader[1]
+
+
 	while firstword != 'end_header':
 		reader = obj.readline().strip().split()
 		firstword=reader[0]
@@ -276,10 +315,8 @@ def read_tm_filetype(tm_file):
 			element_dtype.append((reader[1]))
 		if firstword=='nbytes':
 			element_nbyte.append((reader[1]))
-		if firstword=='numV':
-			numV = int(reader[1])
-		if firstword=='numS':
-			numS = int(reader[1])
+		if firstword=='datashape':
+			datashape.append(np.array((reader[1], reader[2])).astype(np.int))
 		if firstword=='nmasked':
 			element_nmasked.append(( int(reader[1]) ))
 		if firstword=='maskshape':
@@ -290,6 +327,8 @@ def read_tm_filetype(tm_file):
 			vertexshape.append(np.array((reader[1], reader[2])).astype(np.int))
 		if firstword=='faceshape':
 			faceshape.append(np.array((reader[1], reader[2])).astype(np.int))
+		if firstword=='adjlength':
+			adjlength.append(np.array(reader[1]).astype(np.int))
 		if firstword=='surface_obj':
 			surface_obj = str(reader[1])
 		if firstword=='subject_id':
@@ -309,11 +348,14 @@ def read_tm_filetype(tm_file):
 			print "reading %s" % str(element[e])
 			obj.seek(position)
 			print position
-			array_read.append((np.fromfile(obj, dtype=element_dtype[e])))
+			if not str(element[e]) == 'adjacency_object':
+				array_read.append((np.fromfile(obj, dtype=element_dtype[e])))
+			else:
+				object_read.append((pickle.load(obj)))
 			position += int(element_nbyte[e])
 			#reshape arrays
 			if str(element[e]) == 'data_array':
-				o_imgarray.append(np.array(array_read[e][:numV*numS]).reshape(numS,numV).T)
+				o_imgarray.append(np.array(array_read[e][:datashape[0][0]*datashape[0][1]]).reshape(datashape[0][1],datashape[0][0]).T)
 			if str(element[e]) == 'masking_array':
 				masktemp = np.array(array_read[e][:(maskshape[maskcounter][2]*maskshape[maskcounter][1]*maskshape[maskcounter][0])]).reshape(maskshape[maskcounter][2],maskshape[maskcounter][1],maskshape[maskcounter][0]).T
 				o_masking_array.append((np.array(masktemp, dtype=bool) ))
@@ -327,12 +369,15 @@ def read_tm_filetype(tm_file):
 			if str(element[e]) == 'face':
 				o_face.append(np.array(array_read[e][:faceshape[facecounter][1]*faceshape[facecounter][0]]).reshape(faceshape[facecounter][1],faceshape[facecounter][0]).T)
 				facecounter+=1
+			if str(element[e]) == 'adjacency_object':
+				o_adjacency.append(np.array(object_read[adjacencycounter][:,adjlength[adjacencycounter]]))
+				adjacencycounter+=1
 
 	elif tm_filetype == 'ascii':
 		for e in range(len(element)):
 			if str(element[e]) == 'data_array':
-				img_data = np.zeros((numV, numS))
-				for i in range(int(numV)):
+				img_data = np.zeros((datashape[0][0], datashape[0][1]))
+				for i in range(int(datashape[0][0])):
 					img_data[i] = np.array(obj.readline().strip().split(), dtype = 'float32')
 				o_imgarray.append(( np.array(img_data, dtype = 'float32') ))
 			if str(element[e]) == 'masking_array':
@@ -364,4 +409,63 @@ def read_tm_filetype(tm_file):
 				facecounter+=1
 	else:
 		print "Error unknown filetype: %s" % tm_filetype
-	return(o_imgarray,numV,numS,surface_obj,subjectid,hemisphere,imgtype, o_masking_array, o_affine, o_vertex, o_face)
+	return(element, subjectid, hemisphere, imgtype, surface_obj, o_imgarray, o_masking_array, o_affine, o_vertex, o_face, o_adjacency)
+
+def convert_tmi(element, output_name, output_type='freesurfer', image_array=None, masking_array=None, affine_array=None, vertex_array=None, face_array=None):
+	num_masks=0
+	num_affine=0
+	num_surf=0
+	for e in range(len(element)):
+		if str(element[e]) == 'data_array':
+			if image_array is not None:
+				img_data = image_array[0]
+				if masking_array is not None:
+					num_masks = len(masking_array)
+				if affine_array is not None:
+					num_affine = len(affine_array)
+		if str(element[e]) == 'vertex':
+			if vertex_array is not None:
+				if not len(vertex_array)==len(face_array):
+					print "number of vertex and face elements must match"
+					exit()
+				num_surf = len(vertex_array)
+	if output_type=='freesurfer':
+		if num_affine==0:
+			affine=None
+		if image_array is not None:
+			if num_masks==1:
+				savemgh_v2(image_array[0],masking_array[0], output_name, affine)
+			elif len(masking_array)==2:
+				if affine is not None:
+					affine  = affine_array[0]
+				savemgh_v2(image_array[0][:len(masking_array[0][masking_array[0]==True])],masking_array[0], 'lh.%s' % output_name, affine)
+				if affine is not None:
+					affine  = affine_array[1]
+				savemgh_v2(image_array[0][len(masking_array[0][masking_array[0]==True]):],masking_array[1], 'rh.%s' % output_name, affine)
+			elif len(masking_array)>2:
+				location=0
+				for i in range(len(masking_array)):
+					if affine is not None:
+						affine  = affine_array[i]
+					masklength=len(masking_array[0][masking_array[i]==True])
+					savemgh_v2(image_array[0][location:(location+masklength)],masking_array[i], '%d.%s' % (i,output_name), affine)
+					location+=masklength
+		if num_surf==1:
+			save_fs(vertex_array[0], face_array[0], output_name)
+		elif num_surf==2:
+			save_fs(vertex_array[0], face_array[0], 'lh.%s' % output_name)
+			save_fs(vertex_array[1], face_array[1], 'rh.%s' % output_name)
+		elif num_surf>2:
+			for i in range(num_surf):
+				save_fs(vertex_array[i], face_array[i], '%d.%s' % (i,output_name) )
+	elif output_type=='nifti':
+		if num_affine==0:
+			affine=None
+		else:
+			affine=affine_array[0]
+		if image_array is not None:
+			savenifti_v2(image_array[0], masking_array[0], output_name, affine)
+			savenifti_v2(np.ones( len(masking_array[0][masking_array[0]==True]) ), masking_array[0], 'mask.%s' % output_name, affine)
+	else:
+		print "Error. %s output type is not recognised" % output_type
+

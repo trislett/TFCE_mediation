@@ -370,7 +370,7 @@ def read_tm_filetype(tm_file):
 				o_face.append(np.array(array_read[e][:faceshape[facecounter][1]*faceshape[facecounter][0]]).reshape(faceshape[facecounter][1],faceshape[facecounter][0]).T)
 				facecounter+=1
 			if str(element[e]) == 'adjacency_object':
-				o_adjacency.append(np.array(object_read[adjacencycounter][:,adjlength[adjacencycounter]]))
+				o_adjacency.append(np.array(object_read[adjacencycounter][:adjlength[adjacencycounter]]))
 				adjacencycounter+=1
 
 	elif tm_filetype == 'ascii':

@@ -22,7 +22,10 @@ import os
 import sys
 import nibabel as nib
 import numpy as np
-import pickle
+try:
+	import cPickle as pickle
+except:
+	import pickle
 from tfce_mediation.pyfunc import check_outname
 
 def tm_filetype_version():
@@ -64,30 +67,29 @@ def write_tm_filetype(outname, surface_object = 'unknown', subjectid = 'unknown'
 	if not mask_index==[]:
 		if mask_index.ndim==3:
 			num_mask=1
-		elif mask_index.ndim==4:
+		elif (mask_index.dtype.kind == 'O') or (mask_index.ndim==4):
 			num_mask=int(mask_index.shape[0])
-			hemisphere = 'both'
 		else:
 			print "Error mask dimension are not understood"
 	if not vertices==[]:
 		if vertices.ndim==2:
 			num_object=1
-		elif vertices.ndim==3:
+		elif (vertices.dtype.kind == 'O') or (vertices.ndim==3):
 			num_object=int(vertices.shape[0])
 		else:
 			print "Error surface object dimension are not understood."
 	if not affine==[]:
 		if affine.ndim==2:
 			num_affine=1
-		elif affine.ndim==3:
+		elif (affine.dtype.kind == 'O') or (affine.ndim==3):
 			num_affine=int(vertices.shape[0])
 		else:
 			print "Error affine dimension are not understood."
 	if not adjacency==[]:
-		if adjacency.ndim==1:
-			num_adjacency=1
-		elif adjacency.ndim==2:
+		if (adjacency.dtype.kind == 'O') or (adjacency.ndim==2):
 			num_adjacency=int(adjacency.shape[0])
+		elif adjacency.ndim==1:
+			num_adjacency=1
 		else:
 			print "Error shape of adjacency objects are not understood."
 
@@ -351,7 +353,7 @@ def read_tm_filetype(tm_file):
 			if not str(element[e]) == 'adjacency_object':
 				array_read.append((np.fromfile(obj, dtype=element_dtype[e])))
 			else:
-				object_read.append((pickle.load(obj)))
+				object_read.append(pickle.load(obj))
 			position += int(element_nbyte[e])
 			#reshape arrays
 			if str(element[e]) == 'data_array':
@@ -447,7 +449,7 @@ def convert_tmi(element, output_name, output_type='freesurfer', image_array=None
 				for i in range(len(masking_array)):
 					if affine is not None:
 						affine  = affine_array[i]
-					masklength=len(masking_array[0][masking_array[i]==True])
+					masklength=len(masking_array[i][masking_array[i]==True])
 					savemgh_v2(image_array[0][location:(location+masklength)],masking_array[i], '%d.%s' % (i,output_name), affine)
 					location+=masklength
 		if num_surf==1:

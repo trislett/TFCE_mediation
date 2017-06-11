@@ -134,6 +134,7 @@ def run(opts):
 	vertex_array=[]
 	face_array=[]
 	adjacency_array=[]
+	tmi_histroy=[]
 
 	if opts.outputname:
 		outname = opts.outputname[0]
@@ -145,7 +146,7 @@ def run(opts):
 				outname += '.ascii.tmi'
 	if opts.append:
 		outname = opts.append[0]
-		_, _, _, _, _, image_array, masking_array, maskname, affine_array, vertex_array, face_array, adjacency_array = read_tm_filetype(outname)
+		_, _, _, _, _, image_array, masking_array, maskname, affine_array, vertex_array, face_array, adjacency_array, tmi_histroy = read_tm_filetype(outname)
 
 	if opts.inputimages:
 		for i in range(len(opts.inputimages)):
@@ -274,7 +275,7 @@ def run(opts):
 			exit()
 
 	# Write tmi file
-	write_tm_filetype(outname, output_binary = opts.outputtype=='binary', image_array=np.vstack(image_array), masking_array=masking_array, maskname=maskname,  affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, adjacency_array=adjacency_array, checkname=False)
+	write_tm_filetype(outname, output_binary = opts.outputtype=='binary', image_array=np.vstack(image_array), masking_array=masking_array, maskname=maskname,  affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, adjacency_array=adjacency_array, checkname=False, tmi_histroy=tmi_histroy)
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

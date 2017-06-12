@@ -24,7 +24,7 @@ import nibabel as nib
 import argparse as ap
 
 
-from tfce_mediation.pyfunc import convert_mni_object, convert_fs, convert_gifti, convert_ply, convert_fslabel
+from tfce_mediation.pyfunc import convert_mni_object, convert_fs, convert_gifti, convert_ply
 from tfce_mediation.tm_io import write_tm_filetype, read_tm_filetype
 
 def maskdata(data):
@@ -75,6 +75,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		help="Input a set of neuroimages that are then concatenated. The images should be in the same space. Only one set of concatenated can be added at a time. To add multiple modalities (or surfaces) used the rerun %(prog)s --append (the number of subjects has to be the same). (e.g. -c_i FAtoStd/Subject*_FAtoStd.nii.gz",
 		nargs='+', 
 		metavar=('MGH or NIFTI or MNC'))
+	ap.add_argument("--concatenatename",
+		help="Specify a 4D image name for concatenated images. Must be used with -c_i.",
+		nargs=1)
 
 	ap.add_argument("-i_text", "--inputtext",
 		help="Input neuroimage(s) in *nii, *mgh or *mnc. Note, this should be used for group data (i.e., 4D images).",
@@ -111,7 +114,6 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		help="Input a MNI object file (e.g., --i_ply l_hemi.ply). Note, vertex colors will be stripped.", 
 		nargs='+', 
 		metavar=('*.ply'))
-
 	ap.add_argument("-i_adj", "--inputadjacencyobject",
 		help="Input adjacency objects for each surface. There should be same number of input images as masks.",
 		nargs='+', 
@@ -133,8 +135,9 @@ def run(opts):
 	maskname = []
 	vertex_array=[]
 	face_array=[]
+	surfname = []
 	adjacency_array=[]
-	tmi_histroy=[]
+	tmi_history=[]
 
 	if opts.outputname:
 		outname = opts.outputname[0]
@@ -146,7 +149,7 @@ def run(opts):
 				outname += '.ascii.tmi'
 	if opts.append:
 		outname = opts.append[0]
-		_, _, _, _, _, image_array, masking_array, maskname, affine_array, vertex_array, face_array, adjacency_array, tmi_histroy = read_tm_filetype(outname)
+		_, image_array, masking_array, maskname, affine_array, vertex_array, face_array, surfname, adjacency_array, tmi_history = read_tm_filetype(outname)
 
 	if opts.inputimages:
 		for i in range(len(opts.inputimages)):
@@ -173,7 +176,7 @@ def run(opts):
 			masking_array.append(np.array(mask_data))
 			image_array.append(np.array(img_data))
 			affine_array.append(img.affine)
-			maskname.append(np.array(opts.inputimages[i]))
+			maskname.append(np.array(os.path.basename(opts.inputimages[i])))
 			if file_ext == '.gz':
 				os.system("rm %s" % basename)
 
@@ -182,20 +185,19 @@ def run(opts):
 		firstimg_data = firstimg.get_data()
 		numMerge=len(opts.concatenateimages)
 
-		if opts.concatenateimages:
-			if not len(opts.concatenateimages)==1:
+		if opts.inputmasks:
+			if not len(opts.inputmasks)==1:
 				print "Only one mask can be added using concatenate. See help (hint: rerun using append option for multiple modalities/surfaces)"
 				exit()
-			if opts.concatenateimages:
-				mask = nib.load(opts.concatenateimages[0])
-				mask_data = mask.get_data()
-				if not np.array_equal(firstimg_data.shape[:3], mask_data.shape[:3]):
-					print "Error mask data dimension do not fit image dimension"
-					exit()
-				mask_data = mask_data==1
-			else:
-				print "Creating mask from first image."
-				img_data, mask_data = maskdata(firstimg_data)
+			mask = nib.load(opts.inputmasks[0])
+			mask_data = mask.get_data()
+			if not np.array_equal(firstimg_data.shape[:3], mask_data.shape[:3]):
+				print "Error mask data dimension do not fit image dimension"
+				exit()
+			mask_data = mask_data==1
+		else:
+			print "Creating mask from first image."
+			img_data, mask_data = maskdata(firstimg_data)
 
 		for i in xrange(numMerge):
 			print "merging image %s" % opts.concatenateimages[i]
@@ -206,6 +208,8 @@ def run(opts):
 		masking_array.append(np.array(mask_data))
 		image_array.append(np.array(img_data))
 		affine_array.append(img.affine)
+		if opts.concatenatename:
+			maskname.append(np.array(os.path.basename(opts.concatenatename[0])))
 
 	if opts.inputtext:
 		for i in range(len(opts.inputtext)):
@@ -247,26 +251,25 @@ def run(opts):
 			v,f = convert_fs(str(opts.inputfreesurfer[i]))
 			vertex_array.append(v)
 			face_array.append(f)
+			surfname.append(np.array(os.path.basename(opts.inputfreesurfer[i])))
 	if opts.inputgifti:
 		for i in range(len(opts.inputgifti)):
 			v,f = convert_gifti(str(opts.inputgifti[i]))
 			vertex_array.append(v)
 			face_array.append(f)
+			surfname.append(np.array(os.path.basename(opts.inputgifti[i])))
 	if opts.inputmniobj:
 		for i in range(len(opts.inputmniobj)):
 			v,f = convert_mni_object(str(opts.inputmniobj[i]))
 			vertex_array.append(v)
 			face_array.append(f)
+			surfname.append(np.array(os.path.basename(opts.inputmniobj[i])))
 	if opts.inputply:
 		for i in range(len(opts.inputply)):
 			v,f = convert_ply(str(opts.inputply[i]))
 			vertex_array.append(v)
 			face_array.append(f)
-	if opts.inputply:
-		for i in range(len(opts.inputply)):
-			v,f = convert_ply(str(opts.inputply[i]))
-			vertex_array.append(v)
-			face_array.append(f)
+			surfname.append(np.array(os.path.basename(opts.inputply[i])))
 	if opts.inputadjacencyobject:
 		for i in range(len(opts.inputadjacencyobject)):
 			adjacency_array.append(np.load(str(opts.inputadjacencyobject[i])))
@@ -275,7 +278,10 @@ def run(opts):
 			exit()
 
 	# Write tmi file
-	write_tm_filetype(outname, output_binary = opts.outputtype=='binary', image_array=np.vstack(image_array), masking_array=masking_array, maskname=maskname,  affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, adjacency_array=adjacency_array, checkname=False, tmi_histroy=tmi_histroy)
+	if not image_array==[]:
+		write_tm_filetype(outname, output_binary = opts.outputtype=='binary', image_array=np.vstack(image_array), masking_array=masking_array, maskname=maskname,  affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, adjacency_array=adjacency_array, checkname=False, tmi_history=tmi_history)
+	else:
+		write_tm_filetype(outname, output_binary = opts.outputtype=='binary', masking_array=masking_array, maskname=maskname,  affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, adjacency_array=adjacency_array, checkname=False, tmi_history=tmi_history)
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

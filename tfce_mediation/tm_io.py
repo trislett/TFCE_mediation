@@ -20,20 +20,21 @@ from __future__ import division
 
 import os
 import sys
-import nibabel as nib
-import numpy as np
 try:
 	import cPickle as pickle
 except:
 	import pickle
-from tfce_mediation.pyfunc import check_outname
+import nibabel as nib
+import numpy as np
 from time import gmtime, strftime
-strftime("%Y-%m-%dT%H:%M:%S",gmtime())
+from tfce_mediation.pyfunc import check_outname, save_fs
+
 
 # Helper functions
 def tm_filetype_version():
 	version = '0.1'
 	return version
+
 
 def savemgh_v2(image_array, index, imagename, affine=None):
 	if not imagename.endswith('mgh'):
@@ -66,7 +67,7 @@ def savenifti_v2(image_array, index, imagename, affine=None):
 #  WRITE TMI  #
 ###############
 
-def write_tm_filetype(outname, surface_object = 'unknown', subjectid = 'unknown', hemisphere = 'unknown', imgtype = 'unknown', checkname = True, output_binary = True, image_array=[], masking_array=[], maskname=[],  affine_array=[], vertex_array=[], face_array=[], adjacency_array=[], tmi_histroy=[]):
+def write_tm_filetype(outname, subjectids = [], imgtype = [], checkname = True, output_binary = True, image_array=[], masking_array=[], maskname=[],  affine_array=[], vertex_array=[], face_array=[], surfname=[], adjacency_array=[], tmi_history=[]): # NOTE: add ability to store subjectids and imgtypes
 	# timestamp
 	currentTime=int(strftime("%Y%m%d%H%M%S",gmtime()))
 	# counters
@@ -75,6 +76,27 @@ def write_tm_filetype(outname, surface_object = 'unknown', subjectid = 'unknown'
 	num_object = 0
 	num_affine = 0
 	num_adjacency = 0
+	# history counters
+	h_mask = 0
+	h_affine = 0
+	h_object = 0
+	h_adjacency = 0
+
+	if not tmi_history==[]:
+		for i in range(len(tmi_history)):
+			line = tmi_history[i].split(' ')
+			if line[1]== 'mode_add':
+				h_mask += int(line[4])
+				h_affine += int(line[5])
+				h_object += int(line[6])
+				h_adjacency += int(line[7])
+			elif line[1]== 'mode_sub':
+				h_mask -= int(line[4])
+				h_affine -= int(line[5])
+				h_object -= int(line[6])
+				h_adjacency -= int(line[7])
+			else:
+				print ("Error reading history. Mode %s is not understood. Count is reflect number of element in current file" % line[1])
 
 	if not masking_array==[]:
 		masking_array=np.array(masking_array)
@@ -133,16 +155,12 @@ def write_tm_filetype(outname, surface_object = 'unknown', subjectid = 'unknown'
 		else:
 			o.write("format ascii %s\n" % tm_filetype_version() )
 		o.write("comment made with TFCE_mediation\n")
-		o.write("image_type %s\n" % imgtype)
-		o.write("subject_id %s\n" % subjectid)
-		o.write("surface_obj %s\n" % surface_object)
-		o.write("hemisphere %s\n" % hemisphere) #lh, rh, bh
-
 		if not image_array==[]:
 			o.write("element data_array\n")
 			o.write("dtype float32\n")
 			o.write("nbytes %d\n" % image_array.astype('float32').nbytes)
 			o.write("datashape %d %d\n" % (nvert,nsub))
+
 		if num_mask>0:
 			for i in range(num_mask):
 				o.write("element masking_array\n")
@@ -162,9 +180,12 @@ def write_tm_filetype(outname, surface_object = 'unknown', subjectid = 'unknown'
 				o.write("nbytes %d\n" % affine_array[i].astype('float32').nbytes)
 				o.write("affineshape %d %d\n" % (affine_array[i].shape[0], affine_array[i].shape[1]) )
 
-
 		if num_object>0:
 			for i in range(num_object):
+				if not surfname==[]:
+					o.write("surfname %s\n" % surfname[i])
+				else:
+					o.write("surfname unknown\n")
 
 				o.write("element vertex\n")
 				o.write("dtype float32\n")
@@ -184,9 +205,9 @@ def write_tm_filetype(outname, surface_object = 'unknown', subjectid = 'unknown'
 				o.write("adjlength %d\n" % len(adjacency_array[i]) )
 
 		# create a recorded of what was added to the file. 'mode_add' denotes these items were added. tmi_history is expandable.
-		tmi_histroy.append("history mode_add %d %d %d %d %d %d %d\n" % (currentTime, num_data, num_mask, num_affine, num_object, num_object, num_adjacency) )
-		for i in range(len(tmi_histroy)):
-			o.write(tmi_histroy[i])
+		tmi_history.append("history mode_add %d %d %d %d %d %d" % (currentTime, num_data, num_mask-h_mask, num_affine-h_affine, num_object-h_object, num_adjacency-h_adjacency) )
+		for i in range(len(tmi_history)):
+			o.write('%s\n' % (tmi_history[i]) )
 		o.write("end_header\n")
 
 		if output_binary:
@@ -202,7 +223,7 @@ def write_tm_filetype(outname, surface_object = 'unknown', subjectid = 'unknown'
 					outaffine = np.array(affine_array[j].T, dtype='float32')
 					outaffine.tofile(o)
 			if num_object>0:
-				for j in range(num_mask):
+				for j in range(num_object):
 					outv = np.array(vertex_array[j].T, dtype='float32')
 					outv.tofile(o)
 					outf = np.array(face_array[j].T, dtype='uint32')
@@ -211,7 +232,8 @@ def write_tm_filetype(outname, surface_object = 'unknown', subjectid = 'unknown'
 				for j in range(num_adjacency):
 					pickle.dump(adjacency_array[j],o, protocol=pickle.HIGHEST_PROTOCOL)
 		else:
-			np.savetxt(o,image_array.astype(np.float32))
+			if not image_array==[]:
+				np.savetxt(o,image_array.astype(np.float32))
 			if num_mask>0:
 				for j in range(num_mask):
 					binarymask = masking_array[j] * 1
@@ -229,6 +251,7 @@ def write_tm_filetype(outname, surface_object = 'unknown', subjectid = 'unknown'
 						o.write("%1.6f %1.6f %1.6f\n" % (vertex_array[k][i,0], vertex_array[k][i,1], vertex_array[k][i,2] ) )
 					for j in xrange(len(face_array[k])):
 						o.write("%d %d %d\n" % (int(face_array[k][j,0]), int(face_array[k][j,1]), int(face_array[k][j,2]) ) )
+
 		o.close()
 
 ###############
@@ -236,9 +259,9 @@ def write_tm_filetype(outname, surface_object = 'unknown', subjectid = 'unknown'
 ###############
 
 def read_tm_filetype(tm_file):
-	#getfilesize
+	# getfilesize
 	filesize = os.stat(tm_file).st_size
-	#declare variables
+	# declare variables
 	element = []
 	element_dtype = []
 	element_nbyte = []
@@ -249,6 +272,7 @@ def read_tm_filetype(tm_file):
 	maskname = []
 	vertexshape = []
 	faceshape = []
+	surfname = []
 	affineshape = []
 	adjlength = []
 	array_read = []
@@ -266,7 +290,7 @@ def read_tm_filetype(tm_file):
 	adjacencycounter=0
 	tmi_history = []
 
-	#read first line
+	# read first line
 	obj = open(tm_file)
 	reader = obj.readline().strip().split()
 	firstword=reader[0]
@@ -303,18 +327,12 @@ def read_tm_filetype(tm_file):
 			affineshape.append(np.array((reader[1], reader[2])).astype(np.int))
 		if firstword=='vertexshape':
 			vertexshape.append(np.array((reader[1], reader[2])).astype(np.int))
+		if firstword=='surfname':
+			surfname.append((reader[1]))
 		if firstword=='faceshape':
 			faceshape.append(np.array((reader[1], reader[2])).astype(np.int))
 		if firstword=='adjlength':
 			adjlength.append(np.array(reader[1]).astype(np.int))
-		if firstword=='surface_obj':
-			surface_obj = str(reader[1])
-		if firstword=='subject_id':
-			subjectid = str(reader[1])
-		if firstword=='hemisphere':
-			hemisphere = str(reader[1])
-		if firstword=='image_type':
-			imgtype = str(reader[1])
 		if firstword=='history':
 			tmi_history.append(str(' '.join(reader)))
 	# skip header
@@ -333,7 +351,7 @@ def read_tm_filetype(tm_file):
 			else:
 				object_read.append(pickle.load(obj))
 			position += int(element_nbyte[e])
-			#reshape arrays
+			# reshape arrays
 			if str(element[e]) == 'data_array':
 				o_imgarray.append(np.array(array_read[e][:datashape[0][0]*datashape[0][1]]).reshape(datashape[0][1],datashape[0][0]).T)
 			if str(element[e]) == 'masking_array':
@@ -389,7 +407,7 @@ def read_tm_filetype(tm_file):
 				facecounter+=1
 	else:
 		print "Error unknown filetype: %s" % tm_filetype
-	return(element, subjectid, hemisphere, imgtype, surface_obj, o_imgarray, o_masking_array, maskname, o_affine, o_vertex, o_face, o_adjacency, tmi_history)
+	return(element, o_imgarray, o_masking_array, maskname, o_affine, o_vertex, o_face, surfname, o_adjacency, tmi_history)
 
 
 ###############
@@ -403,7 +421,6 @@ def convert_tmi(element, output_name, output_type='freesurfer', image_array=None
 	for e in range(len(element)):
 		if str(element[e]) == 'data_array':
 			if image_array is not None:
-				img_data = image_array[0]
 				if masking_array is not None:
 					num_masks = len(masking_array)
 				if affine_array is not None:

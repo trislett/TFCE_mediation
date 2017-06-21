@@ -181,8 +181,8 @@ def run(opts):
 		label = opts.fsmask
 		print("Loading fsaverage ?l.%s.label" % label)
 
-		index_lh, _, _ = convert_fslabel("$SUBJECTS_DIR/fsaverage/label/lh.%s.label" % label)
-		index_rh, _, _ = convert_fslabel("$SUBJECTS_DIR/fsaverage/label/rh.%s.label" % label)
+		index_lh, _, _ = convert_fslabel("%s/fsaverage/label/lh.%s.label" % (os.environ["SUBJECTS_DIR"],label))
+		index_rh, _, _ = convert_fslabel("%s/fsaverage/label/rh.%s.label" % (os.environ["SUBJECTS_DIR"],label))
 
 		bin_mask_lh = np.zeros_like(mean_lh)
 		bin_mask_lh[index_lh]=1
@@ -208,12 +208,8 @@ def run(opts):
 		bin_mask_rh = bin_mask_rh.astype(bool)
 	elif opts.binmask:
 		print("Loading masks")
-		img_binmgh_lh = nib.freesurfer.mghformat.load(opts.binmask[0])
-		binmgh_lh = img_binmgh_lh.get_data()
-		binmgh_lh = np.squeeze(binmgh_lh)
-		img_binmgh_rh = nib.freesurfer.mghformat.load(opts.binmask[1])
-		binmgh_rh = img_binmgh_rh.get_data()
-		binmgh_rh = np.squeeze(binmgh_rh)
+		binmgh_lh = np.squeeze(nib.freesurfer.mghformat.load(opts.binmask[0]).get_data())
+		binmgh_rh = np.squeeze(nib.freesurfer.mghformat.load(opts.binmask[1]).get_data())
 		bin_mask_lh = binmgh_lh>.99
 		bin_mask_rh = binmgh_rh>.99
 	else:

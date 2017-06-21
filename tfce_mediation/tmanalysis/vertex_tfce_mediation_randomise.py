@@ -64,8 +64,8 @@ def run(opts):
 	adjac_rh = np.load("python_temp_med_%s/adjac_rh.npy" % (surface))
 	all_vertex = np.load("python_temp_med_%s/all_vertex.npy" % (surface))
 	optstfce = np.load('python_temp_med_%s/optstfce.npy' % (surface))
-	vdensity_lh = np.load('python_temp_%s/vdensity_lh.npy'% (surface))
-	vdensity_rh = np.load('python_temp_%s/vdensity_rh.npy'% (surface))
+	vdensity_lh = np.load('python_temp_med_%s/vdensity_lh.npy'% (surface))
+	vdensity_rh = np.load('python_temp_med_%s/vdensity_rh.npy'% (surface))
 
 	#load TFCE fucntion
 	calcTFCE_lh = CreateAdjSet(float(optstfce[0]), float(optstfce[1]), adjac_lh) # H=2, E=1

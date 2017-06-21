@@ -21,7 +21,8 @@ import os
 import numpy as np
 import nibabel as nib
 import math
-from sys import exit
+import sys
+import struct
 from scipy.stats import linregress
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
@@ -358,34 +359,124 @@ def convert_gifti(gifti_surface):
 	return v, f
 
 def convert_ply(name_ply):
+	element = []
+	size = []
+	vertex_info = []
+	vertex_dtype = []
+	face_dtype = []
+	face_info = []
+	vertex_property = 0
+	face_property = 0
+	ply_ascii = False
+
 	obj = open(name_ply)
-	count=0
-	firstword=''
+	reader = obj.readline().strip().split()
+	firstword = reader[0]
+
+	# READ HEADER
 	while firstword != 'end_header':
 		reader = obj.readline().strip().split()
-		firstword=reader[0]
-		if reader[0] == 'element':
+		firstword = reader[0]
+		if firstword == 'format':
+			ply_format = reader[1]
+			if ply_format == 'binary_little_endian':
+				ply_format = '<'
+			elif ply_format == 'binary_big_endian':
+				ply_format = '>'
+			else:
+				ply_ascii = True
+		if firstword == 'element':
+			element.append((reader[1]))
+			size.append((reader[2]))
 			if reader[1] == 'vertex':
-				num_v = np.array(reader[2]).astype(np.int)
+				vertex_property = 1
+			else:
+				vertex_property = 0
 			if reader[1] == 'face':
-				num_f = np.array(reader[2]).astype(np.int)
-		count+=1
-		if count > 50: 
-			print "Error: malformed header"
-			exit()
-	v = np.zeros((num_v,3))
-	f = np.zeros((num_f,3))
-	for i in xrange(num_v):
-		reader = obj.readline().strip().split()
-		v[i,0] = np.array(reader[0]).astype(np.float)
-		v[i,1] = np.array(reader[1]).astype(np.float)
-		v[i,2] = np.array(reader[2]).astype(np.float)
-	for i in xrange(num_f):
-		reader = obj.readline().strip().split()
-		f[i,0] = np.array(reader[1]).astype(np.int)
-		f[i,1] = np.array(reader[2]).astype(np.int)
-		f[i,2] = np.array(reader[3]).astype(np.int)
-	return(v.astype(np.float),f.astype(np.int))
+				face_property = 1
+			else:
+				face_property = 0
+		if reader[0] == 'property':
+			if vertex_property == 1:
+				vertex_dtype.append((reader[1]))
+				vertex_info.append((reader[2]))
+			elif face_property == 1:
+				face_dtype.append((reader[2]))
+				face_dtype.append((reader[3]))
+				face_info.append((reader[4]))
+			else:
+				print("Unknown property")
+
+	# READ ELEMENTS
+	for e in range(len(element)):
+		# VERTEX DATA
+		if element[e] == 'vertex':
+			v = np.zeros((int(size[e]), 3), dtype=np.float32)
+			c = np.zeros((int(size[e]), 3), dtype=np.uint8)
+			if ply_ascii:
+				for i in range(int(size[e])):
+					reader = obj.readline().strip().split()
+					v[i, 0] = np.array(reader[0]).astype(np.float)
+					v[i, 1] = np.array(reader[1]).astype(np.float)
+					v[i, 2] = np.array(reader[2]).astype(np.float)
+					if len(vertex_info) == 6:
+						c[i, 0] = np.array(reader[3]).astype(np.uint8)
+						c[i, 1] = np.array(reader[4]).astype(np.uint8)
+						c[i, 2] = np.array(reader[5]).astype(np.uint8)
+			else:
+				struct_fmt = ply_format
+				for i in range(len(vertex_dtype)):
+					if vertex_dtype[i] == 'float':
+						struct_fmt += 'f'
+					if vertex_dtype[i] == 'uchar':
+						struct_fmt += 'B'
+					if vertex_dtype[i] == 'int':
+						struct_fmt += 'i'
+				struct_len = struct.calcsize(struct_fmt)
+				struct_unpack = struct.Struct(struct_fmt).unpack_from
+				vcounter = 0
+				while vcounter != int(size[e]):
+					if len(vertex_dtype) > 3:
+						s = struct_unpack(obj.read(struct_len))
+						v[vcounter] = s[:3]
+						c[vcounter] = s[3:]
+						vcounter += 1
+					else:
+						s = struct_unpack(obj.read(struct_len))
+						v[vcounter] = s[:3]
+						vcounter += 1
+		# FACE DATA
+		if element[e] == 'face':
+			if ply_ascii:
+				reader = obj.readline().strip().split()
+				numf = int(reader[0])
+				f = np.zeros((int(size[e]), numf), dtype=np.int32)
+				f[0] = reader[1:]
+				fcounter = 1
+				while fcounter != int(size[e]):
+					reader = obj.readline().strip().split()
+					f[fcounter] = reader[1:]
+					fcounter += 1
+			else:
+				if face_dtype[0] == 'uchar':
+					fcounter = 0
+					while fcounter != int(size[e]):
+						struct_unpack = struct.Struct(ply_format + 'B').unpack_from
+						numf = struct_unpack(obj.read(1))[0]
+						# creates empty face array if it doesn't exists
+						try:
+							f
+						except NameError:
+							f = np.zeros((int(size[e]), numf), dtype=np.int32)
+						struct_fmt = ply_format
+						for i in range(int(numf)):
+							struct_fmt += 'i'
+						struct_len = struct.calcsize(struct_fmt)
+						struct_unpack = struct.Struct(struct_fmt).unpack_from
+						s = struct_unpack(obj.read(struct_len))
+						f[fcounter] = s
+						fcounter += 1
+	return (v, f, c)
 
 def convert_fslabel(name_fslabel):
 	obj = open(name_fslabel)
@@ -440,44 +531,67 @@ def save_stl(v,f, outname):
 		o.write("endfacet\n")
 		o.close()
 
+
 def save_fs(v,f, outname):
 	if not outname.endswith('srf'):
 		outname += '.srf'
 	outname=check_outname(outname)
 	nib.freesurfer.io.write_geometry(outname, v, f)
 
-def save_ply(v,f, outname, color_array=np.array([])):
+
+def save_ply(v, f, outname, color_array=None, output_binary=True):
+	# check file extension
 	if not outname.endswith('ply'):
-		outname += '.ply'
-	outname=check_outname(outname)
-	with open(outname, "a") as o:
-		o.write("ply\n")
-		o.write("format ascii 1.0\n")
-		o.write("comment made with TFCE_mediation\n")
-		o.write("element vertex %d\n" % len(v))
-		if color_array.size == 0: #there's probably a better way to do this
-			o.write("property float x\n")
-			o.write("property float y\n")
-			o.write("property float z\n")
+		if output_binary:
+			outname += '.ply'
 		else:
-			o.write("property float x\n")
-			o.write("property float y\n")
-			o.write("property float z\n")
-			o.write("property uchar red\n")
-			o.write("property uchar green\n")
-			o.write("property uchar blue\n")
-		o.write("element face %d\n" % len(f))
-		o.write("property list uchar int vertex_index\n")
-		o.write("end_header\n")
-		if color_array.size == 0:
-			for i in xrange(len(v)):
-				o.write("%1.6f %1.6f %1.6f\n" % (v[i,0],v[i,1], v[i,2]) )
-		else: 
-			for i in xrange(len(v)):
-				o.write("%1.6f %1.6f %1.6f %d %d %d\n" % (v[i,0],v[i,1], v[i,2], color_array[i,0],color_array[i,1], color_array[i,2]) )
-		for j in xrange(len(f)):
-			o.write("3 %d %d %d\n" % (f[j,0],f[j,1], f[j,2]) )
-		o.close()
+			outname += '.ascii.ply'
+	outname=check_outname(outname)
+
+	# write header 
+	header = ("ply\n")
+	if output_binary:
+		header += ("format binary_%s_endian 1.0\n" % (sys.byteorder))
+		if sys.byteorder == 'little':
+			output_fmt = '<'
+		else:
+			output_fmt = '>'
+	else:
+		header += ("format ascii 1.0\n")
+	header += ("comment made with TFCE_mediation\n")
+	header += ("element vertex %d\n" % len(v))
+	header += ("property float x\n")
+	header += ("property float y\n")
+	header += ("property float z\n")
+	if color_array is not None:
+		header += ("property uchar red\n")
+		header += ("property uchar green\n")
+		header += ("property uchar blue\n")
+	header += ("element face %d\n" % len(f))
+	header += ("property list uchar int vertex_index\n")
+	header += ("end_header\n")
+
+	# write to file
+	with open(outname, "a") as o:
+		o.write(header)
+		for i in range(len(v)):
+			if output_binary:
+				if color_array is not None:
+					o.write(
+						struct.pack(output_fmt + 'fffBBB', v[i, 0], v[i, 1], v[i, 2], color_array[i, 0], color_array[i, 1], color_array[i, 2]))
+				else:
+					o.write(struct.pack(output_fmt + 'fff', v[i, 0], v[i, 1], v[i, 2]))
+			else:
+				if color_array is not None:
+					o.write("%1.6f %1.6f %1.6f %d %d %d\n" % (v[i, 0], v[i, 1], v[i, 2], color_array[i, 0], color_array[i, 1], color_array[i, 2]))
+				else:
+					o.write("%1.6f %1.6f %1.6f\n" % (v[i, 0], v[i, 1], v[i, 2]))
+		for j in range(len(f)):
+			if output_binary:
+				o.write(struct.pack('<Biii', 3, f[j, 0], f[j, 1], f[j, 2]))
+			else:
+				o.write("3 %d %d %d\n" % (f[j, 0], f[j, 1], f[j, 2]))
+
 
 #vertex paint functions
 def convert_redtoyellow(threshold,img_data, baseColour=[227,218,201]):

@@ -66,7 +66,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		metavar=('*'))
 
 	ap.add_argument("-p", "--paintsurface",
-		help="Projects surface file onto a ply mesh for visualization of resutls using a 3D viewer. Must be used with -o_ply option. Input the surface file (*.mgh), the sigificance threshold (low and high), and either: red-yellow (r_y), blue-lightblue (b_lb) or any matplotlib colorschemes (https://matplotlib.org/examples/color/colormaps_reference.html). Note, thresholds must be postive. e.g., -p image.mgh 0.95 1 r_y", 
+		help="Projects surface file onto a ply mesh for visualization of results using a 3D viewer. Must be used with -o_ply option. Input the surface file (*.mgh), the sigificance threshold (low and high), and either: red-yellow (r_y), blue-lightblue (b_lb) or any matplotlib colorschemes (https://matplotlib.org/examples/color/colormaps_reference.html). Note, thresholds must be postive. e.g., -p image.mgh 0.95 1 r_y", 
 		nargs=4, 
 		metavar=('*.mgh','float','float', 'colormap'))
 	ap.add_argument("-s", "--paintsecondsurface",
@@ -95,7 +95,7 @@ def run(opts):
 	if opts.inputmniobj:
 		v,f = convert_mni_object(str(opts.inputmniobj[0]))
 	if opts.inputply:
-		v,f = convert_ply(str(opts.inputply[0]))
+		v,f,_ = convert_ply(str(opts.inputply[0]))
 	#output
 	if opts.outputfreesurfer:
 		save_fs(v,f, opts.outputfreesurfer[0])

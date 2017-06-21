@@ -61,7 +61,7 @@ def run(opts):
 
 	if opts.outputneglog10:
 		tfce_fweP_name = "%s_FWEneglog10p.nii.gz" % (temp_outname)
-		nib.save(nib.Nifti1Image((-np.log10(1-corrp_img)),affine_mask),"%s_FWEneglog10p.mgh" % (arg_tfce_image_noext))
+		nib.save(nib.Nifti1Image((-np.log10(1-corrp_img)),affine_tfce_img),"%s_FWEneglog10p.mgh" % (temp_outname))
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

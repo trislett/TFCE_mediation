@@ -23,7 +23,6 @@ import numpy as np
 import nibabel as nib
 import argparse as ap
 
-
 from tfce_mediation.pyfunc import convert_mni_object, convert_fs, convert_gifti, convert_ply
 from tfce_mediation.tm_io import write_tm_filetype, read_tm_filetype
 
@@ -51,7 +50,7 @@ def maskdata(data):
 		exit()
 	return (data, mask)
 
-DESCRIPTION = ""
+DESCRIPTION = "Build a tmi file."
 
 #arguments parser
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatter_class=ap.RawTextHelpFormatter)):
@@ -149,7 +148,7 @@ def run(opts):
 				outname += '.ascii.tmi'
 	if opts.append:
 		outname = opts.append[0]
-		_, image_array, masking_array, maskname, affine_array, vertex_array, face_array, surfname, adjacency_array, tmi_history = read_tm_filetype(outname)
+		_, image_array, masking_array, maskname, affine_array, vertex_array, face_array, surfname, adjacency_array, tmi_history, subjectids = read_tm_filetype(outname)
 
 	if opts.inputimages:
 		for i in range(len(opts.inputimages)):

@@ -148,22 +148,22 @@ def run(opts):
 	if opts.fmri:
 		maskthresh = opts.fmri
 		print("fMRI threshold mask = %2.2f" % maskthresh)
-		bin_mask_lh = np.logical_or(mean_lh > maskthresh, mean_lh < (-1*maskthresh))
-		bin_mask_rh = np.logical_or(mean_rh > maskthresh, mean_rh < (-1*maskthresh))
+		bin_mask_lh = np.logical_or(mean_lh > maskthresh, mean_lh < (-1 * maskthresh))
+		bin_mask_rh = np.logical_or(mean_rh > maskthresh, mean_rh < (-1 * maskthresh))
 
 	elif opts.fsmask:
 		label = opts.fsmask
 		print("Loading fsaverage ?l.%s.label" % label)
 
-		index_lh, _, _ = convert_fslabel("$SUBJECTS_DIR/fsaverage/label/lh.%s.label" % label)
-		index_rh, _, _ = convert_fslabel("$SUBJECTS_DIR/fsaverage/label/rh.%s.label" % label)
+		index_lh, _, _ = convert_fslabel("%s/fsaverage/label/lh.%s.label" % (os.environ["SUBJECTS_DIR"],label))
+		index_rh, _, _ = convert_fslabel("%s/fsaverage/label/rh.%s.label" % (os.environ["SUBJECTS_DIR"],label))
 
 		bin_mask_lh = np.zeros_like(mean_lh)
-		bin_mask_lh[index_lh]=1
+		bin_mask_lh[index_lh] = 1
 		bin_mask_lh = bin_mask_lh.astype(bool)
 
 		bin_mask_rh = np.zeros_like(mean_rh)
-		bin_mask_rh[index_rh]=1
+		bin_mask_rh[index_rh] = 1
 		bin_mask_rh = bin_mask_rh.astype(bool)
 
 	elif opts.label:
@@ -174,11 +174,11 @@ def run(opts):
 		index_rh, _, _ = convert_fslabel(label_rh)
 
 		bin_mask_lh = np.zeros_like(mean_lh)
-		bin_mask_lh[index_lh]=1
+		bin_mask_lh[index_lh] = 1
 		bin_mask_lh = bin_mask_lh.astype(bool)
 
 		bin_mask_rh = np.zeros_like(mean_rh)
-		bin_mask_rh[index_rh]=1
+		bin_mask_rh[index_rh] = 1
 		bin_mask_rh = bin_mask_rh.astype(bool)
 	elif opts.binmask:
 		print("Loading masks")
@@ -256,8 +256,8 @@ def run(opts):
 	np.save("python_temp_med_%s/adjac_lh" % (surface),adjac_lh)
 	np.save("python_temp_med_%s/adjac_rh" % (surface),adjac_rh)
 	np.save("python_temp_med_%s/optstfce" % (surface), opts.tfce)
-	np.save('python_temp_%s/vdensity_lh'% (surface), vdensity_lh)
-	np.save('python_temp_%s/vdensity_rh'% (surface), vdensity_rh)
+	np.save('python_temp_med_%s/vdensity_lh'% (surface), vdensity_lh)
+	np.save('python_temp_med_%s/vdensity_rh'% (surface), vdensity_rh)
 
 	#step1
 	if opts.covariates:

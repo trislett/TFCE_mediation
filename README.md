@@ -11,6 +11,12 @@ The pre-print manuscript is available [here](tfce_mediation/doc/Lett_et_al_2017_
 
 ### What's new / updates ###
 
+21-06-2017
+
+* version 1.2 is now available on [pypipe (PIP)](https://pypi.python.org/pypi/tfce-mediation/1.2.0)
+* added the ability to read and write binarized PLY files using tm_tools convert-surfaces
+* a preview of the new tfce_mediation imaging (tmi) for format group analyses will be released before OHBM 2017. It is based on the the PLY file format. Some advantages include a fast, space efficient, and expandable neuroimaging that harmonizes voxel and vertex images as well as surfaces all with a file history function, but more on that later. 
+
 16-05-2017
 
 * added an option to use geodesic FWHM smoothing in tfce_mediation step0-vertex. Geodesic smoothing requires a distances list that can either be created using [fwhm_compute_distances_parallel.py](https://github.com/trislett/TFCE_mediation/tree/master/tfce_mediation/misc_scripts) or downloaded from [tm_addons](https://github.com/trislett/tm_addons). Currently, only the midthickness surface is supported, but other surfaces will be supported soon. 

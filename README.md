@@ -14,7 +14,7 @@ The pre-print manuscript is available [here](tfce_mediation/doc/Lett_et_al_2017_
 21-06-2017
 
 * version 1.2 is now available on [pypipe (PIP)](https://pypi.python.org/pypi/tfce-mediation/1.2.0)
-* added the ability to read and write binarized PLY files using tm_tools convert-surfaces
+* added the ability to read and write binarized PLY files using 'tm_tools convert-surface'
 * a preview of the new tfce_mediation imaging (tmi) for format group analyses will be released before OHBM 2017. It is based on the the PLY file format. Some advantages include a fast, space efficient, and expandable neuroimaging that harmonizes voxel and vertex images as well as surfaces all with a file history function, but more on that later. 
 
 16-05-2017

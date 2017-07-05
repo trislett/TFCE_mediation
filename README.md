@@ -1,5 +1,5 @@
 # TFCE_mediation
-Fast regression and mediation analysis of vertex or voxel MR data with TFCE
+Fast regression and mediation analysis of vertex or voxel MRI data with TFCE
 
 ![Splash type schematic](tfce_mediation/doc/TFCE_mediation_graphic.png "Schematic")
 

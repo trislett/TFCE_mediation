@@ -74,10 +74,8 @@ def compute_adjacency(geoname, hemi, min_dist, max_dist, step_dist):
 	v, f = mergeIdenticalVertices(v, f)
 	v, f = removeNonManifoldTriangles(v, f)
 
-	vn = computeNormals(v, f)
-
-	t = nib.freesurfer.read_morph_data("%s/fsaverage/surf/%s.thickness" % ((os.environ["SUBJECTS_DIR"]),hemi))
-
+#	vn = computeNormals(v, f)
+#	t = nib.freesurfer.read_morph_data("%s/fsaverage/surf/%s.thickness" % ((os.environ["SUBJECTS_DIR"]),hemi))
 #	v_ = projNormFracThick(v, vn, t, projfrac) # project to midthickness
 
 	nib.freesurfer.io.write_geometry("%s.midthickness" % hemi, v, f)

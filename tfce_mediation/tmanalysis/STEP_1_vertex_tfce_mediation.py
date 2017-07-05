@@ -235,8 +235,8 @@ def run(opts):
 			vdensity_lh[i] = len(adjac_lh[i])
 		for j in xrange(adjac_rh.shape[0]): 
 			vdensity_rh[j] = len(adjac_rh[j])
-		vdensity_lh = np.array(1 - (vdensity_lh/vdensity_lh.max()), dtype=np.float32)
-		vdensity_rh = np.array(1 - (vdensity_rh/vdensity_rh.max()), dtype=np.float32)
+		vdensity_lh = np.array((1 - (vdensity_lh/vdensity_lh.max()) + (vdensity_lh.mean()/vdensity_lh.max())), dtype=np.float32)
+		vdensity_rh = np.array((1 - (vdensity_rh/vdensity_rh.max()) + (vdensity_rh.mean()/vdensity_rh.max())), dtype=np.float32)
 	calcTFCE_lh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_lh)
 	calcTFCE_rh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_rh)
 

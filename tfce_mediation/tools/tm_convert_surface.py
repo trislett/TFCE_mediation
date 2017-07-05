@@ -135,7 +135,7 @@ def run(opts):
 				elif (str(opts.paintsecondsurface[3]) == 'b_lb') or (str(opts.paintsecondsurface[3]) == 'blue-lightblue'):
 					out_color_array2 = convert_bluetolightblue(np.array(( float(opts.paintsecondsurface[1]),float(opts.paintsecondsurface[2]) )), img_data)
 				elif np.any(colormaps == str(opts.paintsecondsurface[3])):
-					out_color_array = convert_mpl_colormaps(np.array(( float(opts.paintsecondsurface[1]),float(opts.paintsecondsurface[2]) )), img_data, str(opts.paintsecondsurface[3]))
+					out_color_array2 = convert_mpl_colormaps(np.array(( float(opts.paintsecondsurface[1]),float(opts.paintsecondsurface[2]) )), img_data, str(opts.paintsecondsurface[3]))
 				else:
 					print "Error: colour scheme %s does not exist" % str(opts.paintsecondsurface[3])
 					quit()

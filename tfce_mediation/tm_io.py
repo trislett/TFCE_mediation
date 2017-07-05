@@ -40,18 +40,17 @@ def savemgh_v2(image_array, index, imagename, affine=None):
 	if not imagename.endswith('mgh'):
 		imagename += '.mgh'
 	outdata = image_array.astype(np.float32, order = "C")
-	if image_array.ndim == 2:
+	if image_array.shape[1] > 1:
 		imgout = np.zeros((index.shape[0],index.shape[1],index.shape[2],image_array.shape[1]))
-	elif image_array.ndim == 1:
-		imgout = np.zeros((index.shape[0],index.shape[1],index.shape[2]))
+		imgout[index]=outdata
 	else:
-		print 'error'
-	imgout[index]=outdata
+		imgout = np.zeros((index.shape[0],index.shape[1],index.shape[2]))
+		imgout[index]=outdata[:,0]
 	nib.save(nib.freesurfer.mghformat.MGHImage(imgout.astype(np.float32, order = "C"),affine=affine),imagename)
 
 
 def savenifti_v2(image_array, index, imagename, affine=None):
-	if not ((imagename.endswith('nii')) or  (imagename.endswith('nii.gz'))):
+	if not ((imagename.endswith('nii')) or (imagename.endswith('nii.gz'))):
 		imagename += '.nii.gz'
 	outdata = image_array.astype(np.float32, order = "C")
 	if image_array.ndim == 2:
@@ -268,7 +267,7 @@ def write_tm_filetype(outname, subjectids = [], imgtype = [], checkname = True, 
 #  READ TMI   #
 ###############
 
-def read_tm_filetype(tm_file):
+def read_tm_filetype(tm_file, verbose=True):
 	# getfilesize
 	filesize = os.stat(tm_file).st_size
 	# declare variables
@@ -356,9 +355,10 @@ def read_tm_filetype(tm_file):
 
 	if tm_filetype == 'binary_little_endian':
 		for e in range(len(element)):
-			print "reading %s" % str(element[e])
 			obj.seek(position)
-			print position
+			if verbose:
+				print "reading %s" % str(element[e])
+				print position
 			if not str(element[e]) == 'adjacency_object':
 				array_read.append((np.fromfile(obj, dtype=element_dtype[e])))
 			else:

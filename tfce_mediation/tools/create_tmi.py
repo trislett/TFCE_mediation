@@ -273,8 +273,11 @@ def run(opts):
 		for i in range(len(opts.inputadjacencyobject)):
 			adjacency_array.append(np.load(str(opts.inputadjacencyobject[i])))
 		if not np.equal(len(adjacency_array),len(masking_array)):
-			print "Error number of adjacency objects does not match number of images"
-			exit()
+			if not len(adjacency_array) % len(masking_array) == 0:
+				print "Number of adjacency objects does not match number of images."
+			else:
+				print "Error number of adjacency objects is not divisable by the number of masking arrays."
+				exit()
 
 	# Write tmi file
 	if not image_array==[]:

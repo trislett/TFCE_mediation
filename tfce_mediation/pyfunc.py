@@ -611,7 +611,7 @@ def convert_redtoyellow(threshold,img_data, baseColour=[227,218,201]):
 	cmap_array = np.array(( (np.ones(256)*255), np.linspace(0,255,256), np.zeros(256))).T
 	rl_cmap = colors.ListedColormap(cmap_array/255)
 	write_colorbar(threshold, rl_cmap, cmap_name, 'png')
-
+	plt.clf()
 	return color_array
 
 def convert_bluetolightblue(threshold, img_data, baseColour=[227,218,201]):
@@ -631,7 +631,7 @@ def convert_bluetolightblue(threshold, img_data, baseColour=[227,218,201]):
 	cmap_array = np.array(( np.zeros(256), np.linspace(0,255,256), (np.ones(256)*255))).T
 	blb_cmap = colors.ListedColormap(cmap_array/255)
 	write_colorbar(threshold, blb_cmap, cmap_name, 'png')
-
+	plt.clf()
 	return color_array
 
 def convert_mpl_colormaps(threshold,img_data, cmapName, baseColour=[227,218,201]):
@@ -647,6 +647,7 @@ def convert_mpl_colormaps(threshold,img_data, cmapName, baseColour=[227,218,201]
 	temp_ = np.array(cmapFunc(np.searchsorted(color_cutoffs, color_cutoffs[255], side="left")))*255 # safer
 	color_array[img_data>=threshold[1]] = ((int(temp_[0]), int(temp_[1]), int(temp_[2]))) 
 	write_colorbar(threshold, cmapFunc, cmapName, 'png')
+	plt.clf()
 	return color_array
 
 def convert_fsannot(annot_name):

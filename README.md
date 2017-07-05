@@ -15,7 +15,7 @@ The pre-print manuscript is available [here](tfce_mediation/doc/Lett_et_al_2017_
 
 * version 1.2.1 is now available on [pypipe (PIP)](https://pypi.org/project/tfce-mediation/). 
 * A number of small fixes have been made. 
-* Release of an alpha version of multisurface, multimodality regression (mmr) analysis using the tmi imaging phenotype. The scripts can be found [here](https://github.com/trislett/TFCE_mediation/tree/master/tfce_mediation/tm_multisurface).
+* Release of an alpha version of multisurface, multimodality regression (mmr) analysis using the tmi image. The scripts can be found [here](https://github.com/trislett/TFCE_mediation/tree/master/tfce_mediation/tm_multisurface).
 * [tm_multimodality_multisurface_regression.py](https://github.com/trislett/TFCE_mediation/blob/master/tfce_mediation/tm_multisurface/tm_multimodality_multisurface_regression.py) is still in the early stages but it already has many new features including:
 	- Study-wide TFCE familywise error rate correction. In the same set of subjects, cortical thickness, surface area, neurite density, and fMRI constrast maps could be packaged in the same tmi file using [create_tmi.py](https://github.com/trislett/TFCE_mediation/blob/master/tfce_mediation/tools/create_tmi.py). Statistical analysis (and randomisation) across all modalities can be performed using [tm_multimodality_multisurface_regression.py](https://github.com/trislett/TFCE_mediation/blob/master/tfce_mediation/tm_multisurface/tm_multimodality_multisurface_regression.py)
 	- A standardization algorithm based on the permuted TFCE max values from each surface allows 1-p(FWE<0.05) images to be produced that are corrected maximum TFCE values among all surfaces (i.e., study-wide FWE correction using TFCE).

@@ -72,7 +72,7 @@ def run(opts):
 
 	#load the proper script
 
-	whichScript="python %s/tm_multimodality_multisurfce_regression.py" % get_script_path()
+	whichScript="python %s/tm_multimodality_multisurface_regression.py" % get_script_path()
 
 	#round number of permutations to the nearest 200
 	roundperm=int(np.round(opts.numperm[0]/200.0)*100.0)
@@ -95,7 +95,7 @@ def run(opts):
 
 	#submit text file for parallel processing; submit_condor_jobs_file is supplied with TFCE_mediation
 	if opts.gnuparallel:
-		os.system("cat cmd_MStmi_randomise_%d | parallel -j %d" % (currentTime,int(opts.gnuparallel[0])) )
+		os.system("cat cmd_MStmi_randomise_%d | parallel -j %d --delay 20" % (currentTime,int(opts.gnuparallel[0])) )
 	elif opts.condor:
 		os.system("submit_condor_jobs_file cmd_MStmi_randomise_%d" % (currentTime) )
 	elif opts.fslsub:

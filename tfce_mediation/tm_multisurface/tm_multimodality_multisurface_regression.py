@@ -22,7 +22,6 @@ import math
 import argparse as ap
 from time import time
 import matplotlib.pyplot as plt
-from joblib import dump, load
 
 from tfce_mediation.cynumstats import resid_covars, tval_int
 from tfce_mediation.tfce import CreateAdjSet
@@ -31,10 +30,10 @@ from tfce_mediation.pyfunc import save_ply, convert_redtoyellow, convert_bluetol
 
 DESCRIPTION = "Multisurface multiple regression with TFCE and tmi formated neuroimaging files."
 
-def calculate_tfce(merge_y, masking_array, pred_x, calcTFCE, vdensity, position_array, perm_number = None, randomise = False, verbose = False, no_intercept = True):
+def calculate_tfce(merge_y, masking_array, pred_x, calcTFCE, vdensity, position_array, fullmask, perm_number = None, randomise = False, verbose = False, no_intercept = True):
 	X = np.column_stack([np.ones(merge_y.shape[0]),pred_x])
 	if randomise:
-		np.random.seed(perm_number*int(time()/1000))
+		np.random.seed(perm_number+int(float(str(time())[-6:])*100))
 		X = X[np.random.permutation(range(merge_y.shape[0]))]
 	k = len(X.T)
 	invXX = np.linalg.inv(np.dot(X.T, X))
@@ -44,11 +43,6 @@ def calculate_tfce(merge_y, masking_array, pred_x, calcTFCE, vdensity, position_
 	tvals.astype(np.float32, order = "C")
 	tfce_tvals = np.zeros_like(tvals).astype(np.float32, order = "C")
 	neg_tfce_tvals = np.zeros_like(tvals).astype(np.float32, order = "C")
-
-	# make mega mask
-	fullmask = []
-	for i in range(len(masking_array)):
-		fullmask = np.hstack((fullmask, masking_array[i][:,0,0]))
 
 	for tstat_counter in range(tvals.shape[0]):
 		tval_temp = np.zeros_like((fullmask)).astype(np.float32, order = "C")
@@ -81,7 +75,15 @@ def calculate_tfce(merge_y, masking_array, pred_x, calcTFCE, vdensity, position_
 		print "Interation number: %d" % perm_number
 		os.system("echo %s >> perm_maxTFCE_allsurf.csv" % ( ','.join(["%0.2f" % i for i in tfce_tvals.max(axis=1)] )) )
 		os.system("echo %s >> perm_maxTFCE_allsurf.csv" % ( ','.join(["%0.2f" % i for i in neg_tfce_tvals.max(axis=1)] )) )
-	return (tvals.astype(np.float32, order = "C"), tfce_tvals.astype(np.float32, order = "C"), neg_tfce_tvals.astype(np.float32, order = "C"))
+		tvals = None
+		tfce_tvals = None
+		neg_tfce_tvals = None
+	tval_temp = None
+	tfce_temp = None
+	neg_tfce_temp = None
+	del calcTFCE
+	if not randomise:
+		return (tvals.astype(np.float32, order = "C"), tfce_tvals.astype(np.float32, order = "C"), neg_tfce_tvals.astype(np.float32, order = "C"))
 
 #find nearest permuted TFCE max value that corresponse to family-wise error rate 
 def find_nearest(array,value,p_array):
@@ -202,7 +204,7 @@ def run(opts):
 		#get first file
 		num_perm = len(np.genfromtxt('output_%s/perm_maxTFCE_surf0_tcon1.csv' % opts.tmifile[0]))
 		num_surf = len(masking_array)
-		print "Reading %d contrast(s) from %d surface(s)" % ((num_contrasts-1),num_surf)
+		print "Reading %d contrast(s) from %d surface(s)" % ((num_contrasts),num_surf)
 		print "Reading %s permutations with an accuracy of p=0.05+/-%.4f" % (num_perm,(2*(np.sqrt(0.05*0.95/num_perm))))
 		maxvalue_array = np.zeros((num_perm,num_contrasts))
 		temp_max = np.zeros((num_perm,num_surf))
@@ -307,6 +309,11 @@ def run(opts):
 		del temp_adjacency
 		calcTFCE = (CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjacency))
 
+		# make mega mask
+		fullmask = []
+		for i in range(len(masking_array)):
+			fullmask = np.hstack((fullmask, masking_array[i][:,0,0]))
+
 		if not opts.noweight:
 			# correction for vertex density
 			vdensity = []
@@ -350,9 +357,7 @@ def run(opts):
 		os.chdir("output_%s" % (outname))
 		if opts.randomise:
 			randTime=int(time())
-			dumpname = "temp_dump_s%d_e%d" % (int(opts.randomise[0]),int(opts.randomise[1]))
-			dump(merge_y, dumpname)
-			mapped_y = load(dumpname, mmap_mode='c')
+			mapped_y = merge_y.astype(np.float32, order = "C") # removed memory mapping
 			merge_y = None
 			if not outname.endswith('tmi'):
 				outname += '.tmi'
@@ -361,13 +366,12 @@ def run(opts):
 				os.mkdir("output_%s" % (outname))
 			os.chdir("output_%s" % (outname))
 			for i in range(opts.randomise[0],(opts.randomise[1]+1)):
-				_, _, _ = calculate_tfce(mapped_y, masking_array,  pred_x, calcTFCE, vdensity, position_array, perm_number=i, randomise = True)
+				calculate_tfce(mapped_y, masking_array,  pred_x, calcTFCE, vdensity, position_array, fullmask, perm_number=i, randomise = True)
 			print("Total time took %.1f seconds" % (time() - currentTime))
 			print("Randomization took %.1f seconds" % (time() - randTime))
-			os.remove('../%s' % dumpname)
 		else:
 			# Run TFCE
-			tvals, tfce_tvals, neg_tfce_tvals = calculate_tfce(merge_y, masking_array, pred_x, calcTFCE, vdensity, position_array)
+			tvals, tfce_tvals, neg_tfce_tvals = calculate_tfce(merge_y, masking_array, pred_x, calcTFCE, vdensity, position_array, fullmask)
 			if opts.outtype[0] == 'tmi':
 				if not outname.endswith('tmi'):
 					outname += '.tmi'

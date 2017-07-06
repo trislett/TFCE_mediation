@@ -1,0 +1,664 @@
+#!/usr/bin/env python
+
+#    tm_maths: math functions for vertex and voxel images
+#    Copyright (C) 2016 Tristram Lett
+
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+from __future__ import division
+import os
+import sys
+import numpy as np
+import argparse as ap
+import pickle
+from scipy import stats, signal
+import matplotlib.pyplot as plt
+from sklearn import mixture
+from sklearn.cluster import KMeans
+from sklearn.decomposition import FastICA, PCA, MiniBatchSparsePCA, NMF
+
+from tfce_mediation import cynumstats
+from tfce_mediation.pyfunc import converter_try, loadnifti, loadmgh, savenifti, savemgh, zscaler, minmaxscaler, find_nearest, loadtwomgh
+
+DESCRIPTION = "Basic functions on Nifti or MGH."
+
+def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
+#input
+	datatype = parser.add_mutually_exclusive_group(required=True)
+	datatype.add_argument("--voxel", 
+		help="Voxel input",
+		metavar=('*.nii.gz'),
+		nargs=1)
+	datatype.add_argument("--vertex", 
+		help="Vertex input",
+		metavar=('*.mgh'),
+		nargs=1)
+	datatype.add_argument("--bothhemi", 
+		help="Special case in which vertex images from both hemispheres are input and processed together. Input only the left hemisphere, and the program will automatically load the right hemisphere.",
+		metavar=('lh.*.mgh'),
+		nargs=1)
+
+#outname
+	parser.add_argument("-o", "--outname", 
+		nargs=1, 
+		help="Output basename", 
+		required=True)
+
+#optional mask
+	parser.add_argument("--mask", 
+		nargs=1, 
+		help="Input mask (recommended)", 
+		metavar=('*.[mgh or nii.gz]'))
+
+	parser.add_argument("--fullmask", 
+		help="Mask includes whole image instead of using non-zero data (not recommended).", 
+		action='store_true')
+
+	parser.add_argument("--outmask", 
+		help="Output binary mask(s) derived from input data. i.e. the mask of non-zero data. ", 
+		action='store_true')
+
+#math opts
+	parser.add_argument("-a", "--add", 
+		nargs=1, 
+		help="Add by number",
+		action='append',
+		metavar=('FLOAT'))
+	parser.add_argument("-s", "--subtract", 
+		nargs=1, 
+		help="Subtract by number",
+		action='append',
+		metavar=('FLOAT'))
+	parser.add_argument("-m", "--multiply", 
+		nargs=1, 
+		help="Multiple by number",
+		action='append',
+		metavar=('FLOAT'))
+	parser.add_argument("-d", "--divide", 
+		nargs=1, 
+		help="Divide by number",
+		action='append',
+		metavar=('FLOAT'))
+	parser.add_argument("-p","--power", 
+		nargs=1, 
+		help="Raise image to specified power. e.g., --power 0.5 takes the square root.",
+		action='append',
+		metavar=('FLOAT'))
+	parser.add_argument("-ln", "--naturallog", 
+		help="Natural log of image",
+		action='store_true')
+	parser.add_argument("-log", "--log10", 
+		help="Log base 10 of image", 
+		action='store_true')
+	parser.add_argument("--abs", 
+		help="Absolute value of image", 
+		action='store_true')
+
+#math opts with image
+	parser.add_argument("-ai", "--addimage", 
+		nargs=1, 
+		help="Add image", 
+		metavar=('image'))
+	parser.add_argument("-si", "--subtractimage", 
+		nargs=1, 
+		help="Subtract image", 
+		metavar=('image'))
+	parser.add_argument("-mi", "--multiplyimage", 
+		nargs=1, 
+		help="Multiple image", 
+		metavar=('image'))
+	parser.add_argument("-di", "--divideimage", 
+		nargs=1, 
+		help="Divide image", 
+		metavar=('image'))
+	parser.add_argument("-c", "--concatenate", 
+		nargs=1, 
+		help="Concatenate images", 
+		metavar=('image'))
+	parser.add_argument("--split", 
+		help="Split the images images", 
+		action='store_true')
+	parser.add_argument("--voxelfwhm", 
+		help="Full width half maximum smoothing for voxel images. Input the desired FWHM",
+		nargs=1,
+		metavar=('FLOAT'))
+
+#thresholding
+	parser.add_argument("-t", "--threshold", 
+		nargs=1,
+		help="Zero everything below the number",
+		metavar=('FLOAT'))
+	parser.add_argument("-u", "--upperthreshold", 
+		nargs=1,
+		help="Zero everything above the number",
+		metavar=('FLOAT'))
+	parser.add_argument("-b", "--binarize",
+		help="Binarize non-zero values of an image.",
+		action='store_true')
+
+#stats 
+	parser.add_argument("--ptoz", 
+		help="Convert 1-p image to Z statistic image (assumes the 1-p-value images is one sided)",
+		action='store_true')
+	parser.add_argument("--ztop", 
+		help="Convert  Z statistic image to 1-p image",
+		action='store_true')
+	parser.add_argument("--ttop", 
+		nargs=1,
+		help="Convert T statistic image to 1-p image (two-sided p-values). Degrees of freedom must be inputed",
+		metavar=('dof'))
+	parser.add_argument("--resids", 
+		nargs=1,
+		help="Regress out covariates, and return residuals",
+		metavar=('*.csv'))
+	parser.add_argument("--fwep",
+		help="TFCE image is converted to 1-P value image using the maximum permuted TFCE values.",
+		nargs=1,
+		metavar=('*_TFCE_maxVertex.csv'))
+	parser.add_argument("--fwegamma",
+		help="TFCE image is converted to 1-P value image using the CDF from fitting a gamma distribution to the maximum permuted TFCE values. Check PDF line fit on the histogram of maximum permuted values.",
+		nargs=1,
+		metavar=('*_TFCE_maxVertex.csv'))
+	parser.add_argument("--fwejohnsonsb",
+		help="TFCE image is converted to 1-P value image using the CDF from fitting a Johnson SB distribution to the maximum permuted TFCE values. Johnson SB should fit better than a gamma distribution. Check PDF line fit on the histogram of maximum permuted values.",
+		nargs=1,
+		metavar=('*_TFCE_maxVertex.csv'))
+
+#multi-subject operations
+	parser.add_argument("--mean", 
+		help="Output mean image across subjects",
+		action='store_true')
+	parser.add_argument("--variance", 
+		help="Output variance image across subjects",
+		action='store_true')
+	parser.add_argument("--scale", 
+		help="Scaled data to have zero mean and unit variance",
+		action='store_true')
+	parser.add_argument("--whiten", 
+		help="Whiten data (rescale by dividing by the standard deviation)",
+		action='store_true')
+	parser.add_argument("--minmax", 
+		help="Min-Max scaling data ( X = (X - Xmin) / (Xmax - Xmin) )",
+		action='store_true')
+	parser.add_argument("--percentthreshold",
+		help="Percent greater than threshold (i.e.,--percentthreshold 0 for non-zero values) values across all subjects (useful for building masks or checking data)",
+		nargs=1,
+		metavar=('FLOAT'))
+
+#signal processing
+	parser.add_argument("--detrend", 
+		help="Removes the linear trend from time series data.",
+		action='store_true')
+	parser.add_argument("--pcacompression",
+		help="Applies the inverse solution from the projected features of a principal component analysis. Input the number of components (e.g.,--pcacompression 40). The output retains the axes with the maximum variance.",
+		nargs=1,
+		metavar=('INT'))
+
+#dimension reduction
+	parser.add_argument("--pca",
+		help="Principal component analysis (spatial). Input the number of components (e.g.,--pca 12 for 12 components). Outputs the recovered sources, and the component fit for each subject.",
+		nargs=1,
+		metavar=('INT'))
+	parser.add_argument("--kmeans",
+		help="Input the number of clusters (e.g.,--kmeans 8 for eight clusters). Outputs k-means cluster labels as an image, and the cluster center for each subject (scale or whiten beforehand).",
+		nargs=1,
+		metavar=('INT'))
+	parser.add_argument("--fastica",
+		help="Independent component analysis. Input the number of components (e.g.,--fastica 8 for eight components). Outputs the recovered sources, and the component fit for each subject. (recommended to scale first)",
+		nargs=1,
+		metavar=('INT'))
+	parser.add_argument("--mbspca",
+		help="Mini-batch sparse principal component analysis. Input the number of components (e.g.,--mbspca 8 for eight components). Outputs the recovered sources, and the component fit for each subject. This analysis uses parallel processing. (recommended to scale first)",
+		nargs=1,
+		metavar=('INT'))
+	parser.add_argument("--nmf",
+		help="Non-Negative Matrix Factorization (NMF). Input the number of components (e.g.,--nmf 8 for eight components). Outputs the recovered sources, and the component fit for each subject.",
+		nargs=1,
+		metavar=('INT'))
+	parser.add_argument("--gmm",
+		help="Apply a three-component Gaussian mixture model to threshold dimension reduction images. Input a basename for the analysis (e.g.,--gmm lh_ica_area). Outputs the regions with greater than 66.7 percent posterior probability.",
+		action='store_true')
+	parser.add_argument("--timeplot",
+		help="Generates a figure of the components over time (or subjects) as jpeg. Input a basename for the analysis (e.g.,--timeplot lh_ica_area_plots).",
+		nargs=1,
+		metavar=('string'))
+
+	return parser
+
+def run(opts):
+
+# set image type
+
+	if opts.bothhemi:
+		tempname='temp_img.mgh'
+		outname=sys.argv[4].split('.mgh',1)[0]
+		outname='%s.mgh' % outname
+		img_data_trunc, midpoint, lh_img, rh_img, lh_mask_index, rh_mask_index = loadtwomgh(opts.bothhemi[0])
+	else:
+		if opts.voxel:
+			tempname='temp_img.nii'
+			outname=sys.argv[4]
+			outname=outname.split('.gz',1)[0]
+			outname=outname.split('.nii',1)[0]
+			outname='%s.nii.gz' % outname
+			img, img_data = loadnifti(opts.voxel[0])
+		if opts.vertex:
+			tempname='temp_img.mgh'
+			outname=sys.argv[4].split('.mgh',1)[0]
+			outname='%s.mgh' % outname
+			img, img_data = loadmgh(opts.vertex[0])
+		if opts.mask:
+			tempmaskname='temp_mask'
+		if opts.mask:
+			if opts.mask[0] != 'temp_mask':
+				if opts.voxel:
+					mask , mask_data = loadnifti(opts.mask[0])
+				if opts.vertex:
+					mask , mask_data = loadmgh(opts.mask[0])
+				mask_index = mask_data>.99
+		elif opts.fullmask:
+			mask_index=np.zeros((img_data.shape[0],img_data.shape[1],img_data.shape[2]))
+			mask_index = (mask_index == 0)
+		else:
+			if len(img.shape) == 4:
+				mean_data = np.mean(np.abs(img_data),axis=3)
+				mask_index = (mean_data != 0)
+			else:
+				mask_index = (img_data != 0)
+		img_data_trunc = img_data[mask_index]
+
+#output created mask
+	if opts.outmask:
+		outmask = np.ones((img_data_trunc.shape[0]))
+		if opts.voxel:
+			savenifti(outmask, img, mask_index, 'mask.%s' % outname)
+		if opts.vertex:
+			savemgh(outmask, img, mask_index, 'mask.%s' % outname)
+		if opts.bothhemi:
+			savemgh(outmask[:midpoint], lh_img, lh_mask_index, 'mask.lh.%s' % outname)
+			savemgh(outmask[midpoint:], rh_img, rh_mask_index, 'mask.rh.%s' % outname)
+
+
+# Initiating convoluted solution to doing multiple math functions in python
+	argcount=0
+	argdone=0
+	headflag=0
+	argcmd=np.array([])
+	functionlist= ["-ai", "--addimage","-si", "--subtractimage","-mi", "--multiplyimage","-di", "--divideimage", "-c", "--concatenate", "--fwep" ,"--fwegamma", "--fwejohnsonsb", "--resids", "--gmm", "--timeplot"] # options that input stings
+	if sys.argv[5]=='--mask':
+		headcmd="%s %s %s %s %s %s" % (sys.argv[1],sys.argv[2],sys.argv[3],tempname,sys.argv[5],sys.argv[6])
+		midcmd="%s %s %s %s %s %s" % (sys.argv[1],tempname,sys.argv[3],tempname, sys.argv[5],tempmaskname)
+		tailcmd="%s %s %s %s %s %s" % (sys.argv[1],tempname,sys.argv[3],outname,sys.argv[5],tempmaskname)
+		argcount=7
+	else:
+		headcmd="%s %s %s %s" % (sys.argv[1],sys.argv[2],sys.argv[3],tempname)
+		midcmd="%s %s %s %s" % (sys.argv[1],tempname,sys.argv[3],tempname)
+		tailcmd="%s %s %s %s" % (sys.argv[1],tempname,sys.argv[3],outname)
+		argcount=5
+	while argdone==0:
+		if not( (argcount+1) == len(sys.argv) or (argcount+2) == len(sys.argv)):
+			if (converter_try(sys.argv[(argcount+1)])==1) or (sys.argv[argcount] in functionlist):
+				if headflag == 0:
+					tempcmd ="%s %s %s" % (headcmd, sys.argv[argcount], sys.argv[(argcount+1)])
+					argcmd=np.append(argcmd,tempcmd)
+					headflag=1
+				else:
+					tempcmd="%s %s %s" % (midcmd, sys.argv[argcount], sys.argv[(argcount+1)])
+					argcmd=np.append(argcmd,tempcmd)
+				argcount+=2
+			else:
+				if headflag == 0:
+					tempcmd="%s %s" % (headcmd, sys.argv[argcount])
+					argcmd=np.append(argcmd,tempcmd)
+					headflag=1
+				else: 
+					tempcmd="%s %s" % (midcmd, sys.argv[argcount])
+					argcmd=np.append(argcmd,tempcmd)
+				argcount+=1
+		else:
+			if (argcount+2) == len(sys.argv):
+				tempcmd="%s %s %s" % (tailcmd, sys.argv[argcount], sys.argv[argcount+1])
+				argcmd=np.append(argcmd,tempcmd)
+				argdone=1
+			else:
+				tempcmd="%s %s" % (tailcmd, sys.argv[argcount])
+				argcmd=np.append(argcmd,tempcmd)
+				argdone=1
+
+
+	for i in range(len(argcmd)):
+		subopts = parser.parse_args(argcmd[i].split())
+
+		if subopts.voxel:
+			if subopts.voxel[0] != 'temp_img.nii':
+				tempname='temp_img.nii'
+		if subopts.vertex:
+			if subopts.vertex[0] != 'temp_img.mgh':
+				tempname='temp_img.mgh'
+		if subopts.bothhemi:
+			if subopts.bothhemi[0] != 'temp_img.mgh':
+				tempname='temp_img.mgh'
+		if subopts.add:
+				img_data_trunc += np.array(subopts.add[0]).astype(np.float)
+		if subopts.subtract:
+				img_data_trunc -= np.array(subopts.subtract[0]).astype(np.float)
+		if subopts.multiply:
+				img_data_trunc *= np.array(subopts.multiply[0]).astype(np.float)
+		if subopts.divide:
+				img_data_trunc /= np.array(subopts.divide[0]).astype(np.float)
+		if subopts.power:
+				img_data_trunc = np.power(img_data_trunc, np.array(subopts.power[0]).astype(np.float))
+		if subopts.naturallog:
+				img_data_trunc = np.log(img_data_trunc)
+		if subopts.log10:
+				img_data_trunc = np.log10(img_data_trunc)
+		if subopts.abs:
+				img_data_trunc = np.abs(img_data_trunc)
+		if subopts.voxelfwhm:
+			fwhm = subopts.voxelfwhm[0]
+			# convert fwhm to sigma
+			fwhm_sigma_ratio = np.sqrt(8 * np.log(2))
+			voxelSize = np.sqrt(np.sum(img.affine[:3, :3] ** 2, axis=0))
+			# get sigmas for voxel size
+			sigma = fwhm / (fwhm_sigma_ratio * voxelSize)
+			# convert to image_space (find better tfce based solution later)
+			if imgdata.ndim == 2:
+				temp_imgspace = np.zeros((img.shape[0],img.shape[1],img.shape[2],outdata.shape[1]))
+			elif imgdata.ndim == 1:
+				temp_imgspace = np.zeros((img.shape[0],img.shape[1],img.shape[2]))
+			else:
+				print 'Error: image dimension'
+			temp_imgspace[mask_index]=img_data_trunc
+			for temp_axis, sigmas in enumerate(sigma):
+				ndimage.gaussian_filter1d(temp_imgspace, sigmas, output=temp_imgspace, axis=temp_axis)
+			img_data_trunc=temp_imgspace[mask_index]
+		if subopts.addimage:
+			if subopts.voxel:
+				_, tempimgdata = loadnifti(subopts.addimage[0])
+				tempimgdata=tempimgdata[mask_index]
+			if subopts.vertex:
+				_, tempimgdata = loadnifti(subopts.addimage[0])
+				tempimgdata=tempimgdata[mask_index]
+			img_data_trunc+=tempimgdata
+		if subopts.subtractimage:
+			if subopts.voxel:
+				_, tempimgdata = loadnifti(subopts.subtractimage[0])
+				tempimgdata=tempimgdata[mask_index]
+			if subopts.vertex:
+				_, tempimgdata = loadnifti(subopts.subtractimage[0])
+				tempimgdata=tempimgdata[mask_index]
+			img_data_trunc-=tempimgdata
+		if subopts.multiplyimage:
+			if subopts.voxel:
+				_, tempimgdata = loadnifti(subopts.multiplyimage[0])
+				tempimgdata=tempimgdata[mask_index]
+			if subopts.vertex:
+				_, tempimgdata = loadnifti(subopts.multiplyimage[0])
+				tempimgdata=tempimgdata[mask_index]
+			img_data_trunc*=tempimgdata
+		if subopts.divideimage:
+			if subopts.voxel:
+				_, tempimgdata = loadnifti(subopts.divideimage[0])
+				tempimgdata=tempimgdata[mask_index]
+			if subopts.vertex:
+				_, tempimgdata = loadnifti(subopts.divideimage[0])
+				tempimgdata=tempimgdata[mask_index]
+			img_data_trunc/=tempimgdata
+		if subopts.concatenate:
+			if subopts.voxel:
+				_, tempimgdata = loadnifti(subopts.concatenate[0])
+				tempimgdata=tempimgdata[mask_index]
+			if subopts.vertex:
+				_, tempimgdata = loadnifti(subopts.concatenate[0])
+				tempimgdata=tempimgdata[mask_index]
+			img_data_trunc = np.column_stack((img_data_trunc,tempimgdata))
+		if subopts.split:
+			if img_data_trunc.ndim == 1:
+				print "Nothing to split"
+			else:
+				for i in range(img_data_trunc.shape[1]):
+					if opts.voxel:
+						savenifti(img_data_trunc[:,i], img, mask_index, ('img%05d_%s' % (i,outname)))
+					if opts.vertex:
+						savemgh(img_data_trunc[:,i], img, mask_index, ('img%05d_%s' % (i,outname)))
+		# Functions
+		if subopts.binarize:
+			img_data_trunc[img_data_trunc != 0] = 1
+		if subopts.threshold:
+			img_data_trunc[img_data_trunc < np.array(subopts.threshold[0]).astype(np.float)] = 0
+		if subopts.upperthreshold:
+			img_data_trunc[img_data_trunc > np.array(subopts.upperthreshold[0]).astype(np.float)] = 0
+		# Transformations
+		if subopts.ptoz:
+			img_data_trunc[img_data_trunc<=0.5] = 0.5 # only positive direction
+			img_data_trunc = stats.norm.ppf(img_data_trunc)
+		if subopts.ztop:
+			img_data_trunc = 1 - stats.norm.cdf(img_data_trunc)
+		if subopts.ttop: 
+			img_data_trunc = 1 - stats.t.sf(np.abs(img_data_trunc), np.array(subopts.ttop[0]).astype(np.int))*2
+		if subopts.resids:
+			covars = np.genfromtxt(subopts.resids[0],delimiter=",")
+			x_covars = np.column_stack([np.ones(covars.shape[0]),covars])
+			img_data_trunc = cynumstats.resid_covars(x_covars,img_data_trunc).T
+		if subopts.mean:
+			img_data_trunc = np.mean(img_data_trunc, axis=1)
+		if subopts.variance:
+			img_data_trunc = np.var(img_data_trunc, axis=1)
+		if subopts.whiten:
+			img_data_trunc = zscaler(img_data_trunc.T, w_mean=False).T
+		if subopts.scale:
+			img_data_trunc = zscaler(img_data_trunc.T).T
+		if subopts.minmax:
+			img_data_trunc = minmaxscaler(img_data_trunc.T).T
+		if subopts.percentthreshold:
+			nsubs = img_data_trunc.shape[1]
+			img_data_trunc[img_data_trunc > np.array(subopts.percentthreshold[0]).astype(np.float)] = 1
+			img_data_trunc[img_data_trunc <= np.array(subopts.percentthreshold[0]).astype(np.float)] = 0
+			img_data_trunc = np.sum(img_data_trunc, axis=1)/nsubs
+		if subopts.detrend:
+			img_data_trunc = signal.detrend(img_data_trunc)
+		if subopts.fwep:
+			arg_maxTFCE = str(opts.fwep[0])
+			y = np.sort(np.genfromtxt(arg_maxTFCE, delimiter=','))
+			p_array=np.zeros(y.shape)
+			num_perm=y.shape[0]
+			for j in xrange(num_perm):
+				p_array[j] = np.true_divide(j,num_perm)
+			for k in xrange(len(img_data_trunc)):
+				img_data_trunc[k] = find_nearest(y,img_data_trunc[k],p_array)
+			print "The accuracy is p = 0.05 +/- %.4f" % (2*(np.sqrt(0.05*0.95/num_perm)))
+		if subopts.fwegamma:
+			arg_maxTFCE = str(opts.fwegamma[0])
+			y = np.genfromtxt(arg_maxTFCE, delimiter=',')
+			x = np.linspace(0, y.max(), 100)
+			param = stats.gamma.fit(y)
+			img_data_trunc = stats.gamma.cdf(img_data_trunc, *param)
+			pdf_fitted = stats.gamma.pdf(x, *param)
+			plt.plot(x, pdf_fitted, color='r')
+			# plot the histogram
+			plt.hist(y, normed=True, bins=100)
+			plt.show()
+		if subopts.fwejohnsonsb:
+			arg_maxTFCE = str(opts.fwejohnsonsb[0])
+			y = np.genfromtxt(arg_maxTFCE, delimiter=',')
+			x = np.linspace(0, y.max(), 100)
+			param = stats.johnsonsb.fit(y)
+			img_data_trunc = stats.johnsonsb.cdf(img_data_trunc, *param)
+			pdf_fitted = stats.johnsonsb.pdf(x, *param)
+			plt.plot(x, pdf_fitted, color='r')
+			# plot the histogram
+			plt.hist(y, normed=True, bins=100)
+			plt.show()
+
+# Diminsion reduction
+		if subopts.kmeans:
+			kmeans = KMeans(n_clusters=int(subopts.kmeans[0])).fit(img_data_trunc)
+			img_data_trunc = (kmeans.labels_ + 1)
+			np.savetxt("%s.cluster_centres.csv" % sys.argv[4],kmeans.cluster_centers_.T, fmt='%10.5f', delimiter=',')
+
+		if subopts.pcacompression:
+			print "Temporal (or across subjects) PCA for compression"
+			pca = PCA(n_components=int(subopts.pcacompression[0]))
+			fitcomps = pca.fit_transform(img_data_trunc.T)
+			X_proj = pca.transform(img_data_trunc.T)
+			X_rec = pca.inverse_transform(X_proj)
+			img_data_trunc = np.copy(X_rec.T)
+			xaxis = np.arange(fitcomps.shape[1]) + 1
+			plt.plot(xaxis, pca.explained_variance_ratio_, 'ro-', linewidth=2)
+			plt.title('Scree Plot')
+			plt.xlabel('Principal Component')
+			plt.ylabel('Explained Variance Ratio')
+			plt.show()
+
+		if subopts.pca:
+			print "Spatial PCA."
+			pca = PCA(n_components=int(subopts.mbspca[0]))
+			S_ = pca.fit_transform(img_data_trunc).T
+			components = pca.components_.T
+			fitcomps = np.copy(S_).T
+			fitcomps = zscaler(fitcomps)
+			img_data_trunc =  np.copy(fitcomps.T)
+			np.savetxt("%s.PCA_fit.csv" % sys.argv[4],zscaler(components, w_mean=False), fmt='%10.8f', delimiter=',')
+			np.savetxt("%s.PCA_var_explained_ratio.csv" % sys.argv[4], pca.explained_variance_ratio_, fmt='%10.8f', delimiter=',')
+#			xaxis = np.arange(fitcomps.shape[1]) + 1
+#			plt.plot(xaxis, pca.explained_variance_ratio_, 'ro-', linewidth=2)
+#			plt.title('Scree Plot')
+#			plt.xlabel('Principal Component')
+#			plt.ylabel('Explained Variance Ratio')
+#			plt.show()
+
+		if subopts.fastica:
+			ica = FastICA(n_components=int(subopts.fastica[0]),max_iter=5000,  tol=0.0001)
+			S_ = ica.fit_transform(img_data_trunc).T
+			components = ica.components_.T
+			#scaling
+			fitcomps = np.copy(S_)
+			fitcomps = zscaler(fitcomps)
+			img_data_trunc =  np.copy(fitcomps.T) # ram shouldn't be an issue here...
+			np.savetxt("%s.ICA_fit.csv" % sys.argv[4],zscaler(components), fmt='%10.8f', delimiter=',')
+
+			#save outputs and ica functions for potential ica removal
+			if os.path.exists('ICA_temp'):
+				print 'ICA_temp directory exists'
+				exit()
+			else:
+				os.makedirs('ICA_temp')
+			np.save('ICA_temp/signals.npy',S_)
+			pickle.dump( ica, open( "ICA_temp/icasave.p", "wb" ) )
+			if opts.bothhemi:
+				lh_tempmask=lh_mask_index*1
+				rh_tempmask=rh_mask_index*1
+				savemgh(lh_tempmask[lh_tempmask==1], lh_img, lh_mask_index, 'ICA_temp/lh_mask.mgh')
+				savemgh(rh_tempmask[rh_tempmask==1], rh_img, rh_mask_index, 'ICA_temp/rh_mask.mgh')
+			else:
+				tempmask=mask_index*1
+				if opts.voxel:
+					savenifti(tempmask[tempmask==1], img, mask_index, 'ICA_temp/mask.nii.gz')
+				else:
+					savemgh(tempmask[tempmask==1], img, mask_index, 'ICA_temp/mask.mgh')
+
+		if subopts.mbspca:
+			spca = MiniBatchSparsePCA(n_components=int(subopts.mbspca[0]), alpha=0.01, n_jobs=-1)
+			S_ = spca.fit_transform(img_data_trunc).T
+			components = spca.components_.T
+			fitcomps = np.copy(S_)
+			fitcomps = zscaler(fitcomps)
+			fitcomps = zscaler(fitcomps.T, w_std=False).T # centre data
+			img_data_trunc =  np.copy(fitcomps.T)
+			np.savetxt("%s.mbSPCA_fit.csv" % sys.argv[4],zscaler(components), fmt='%10.8f', delimiter=',')
+
+		if subopts.nmf:
+			nnmf = NMF(n_components=int(subopts.nmf[0]), init='nndsvda')
+			S_ = nnmf.fit_transform(img_data_trunc).T
+			components = nnmf.components_.T
+			fitcomps = np.copy(S_)
+			fitcomps = zscaler(fitcomps, w_mean=False)
+			img_data_trunc =  np.copy(fitcomps.T)
+			np.savetxt("%s.nmf_fit.csv" % sys.argv[4],zscaler(components, w_mean=False), fmt='%10.8f', delimiter=',')
+
+		if subopts.gmm:
+			numComponents = img_data_trunc.shape[1]
+			gmm = mixture.GaussianMixture(n_components=3)
+			posterior_prob_threshold = 0.667
+
+			for i in range(numComponents):
+
+				tempIC = np.copy(img_data_trunc[:,i])
+				X= np.array([[x] for x in tempIC])
+
+				m = gmm.fit(X)
+				pred_props = m.predict_proba(X)
+
+				pos_mean_flag = np.argmax(m.means_)
+				neg_mean_flag = np.argmin(m.means_)
+
+				print 'Comp %d posterior means: Lower  %1.2f +/- %1.2f, Upper = %1.2f +/- %1.2f' % (int(i+1),m.means_[neg_mean_flag],m.covariances_[neg_mean_flag],m.means_[pos_mean_flag],m.covariances_[pos_mean_flag])
+
+				posteriormask = np.zeros((pred_props.shape[0]))
+				posteriormask[pred_props[:,neg_mean_flag]>posterior_prob_threshold]=1
+				posteriormask[pred_props[:,pos_mean_flag]>posterior_prob_threshold]=1
+				img_data_trunc[:,i]*=posteriormask
+
+
+		if subopts.timeplot:
+			# first test if fitcomps exists
+			try:
+				fitcomps
+			except NameError:
+				print "Run dimension reduction first (e.g. --pca, --fastica, etc.)"
+				exit()
+			# generate graphs
+			analysis_name = subopts.timeplot[0]
+#			components = np.copy(fitcomps)
+			components = zscaler(components.T).T
+			subs=np.array(range(components.shape[0]))+1
+			time_step = 1 / 100
+
+			if os.path.exists(analysis_name):
+				print '%s directory exists' % analysis_name
+				exit()
+			else:
+				os.makedirs(analysis_name)
+			plt.figure(figsize=(10,5))
+			for i in range(components.shape[1]):
+				plt.plot(subs, components[:,i], 'ro-', linewidth=2)
+				plt.title('Component %d Plot' % (i+1))
+				plt.xlabel('Time or Subject (units)')
+				plt.savefig('%s/%s_timeplot_comp%d.jpg' % (analysis_name,analysis_name,(i+1)))
+				plt.clf()
+
+				ps = np.abs(np.fft.fft(components[:,i]))**2
+				freqs = np.fft.fftfreq(components[:,i].size, time_step)
+				idx = np.argsort(freqs)
+				plt.plot(np.abs(freqs[idx]), ps[idx])
+
+				plt.title('Component %d Powerspectrum' % (i+1))
+				plt.xlabel('Unit Frequency (Hz / 100)')
+				plt.savefig('%s/%s_power_comp%d.jpg' % (analysis_name,analysis_name,(i+1)))
+				plt.clf()
+
+
+#write out
+	if opts.voxel:
+		savenifti(img_data_trunc, img, mask_index, outname)
+	if opts.vertex:
+		savemgh(img_data_trunc, img, mask_index, outname)
+	if opts.bothhemi:
+		savemgh(img_data_trunc[:midpoint], lh_img, lh_mask_index, 'lh.%s' % outname)
+		savemgh(img_data_trunc[midpoint:], rh_img, rh_mask_index, 'rh.%s' % outname)
+
+if __name__ == "__main__":
+	parser = getArgumentParser()
+	opts = parser.parse_args()
+	run(opts)

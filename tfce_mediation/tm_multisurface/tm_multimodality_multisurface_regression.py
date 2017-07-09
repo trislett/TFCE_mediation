@@ -112,6 +112,11 @@ def paint_surface(lowthresh, highthres, color_scheme, data_array):
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 
 	group = ap.add_mutually_exclusive_group(required=True)
+	ap.add_argument("-i_tmi", "--tmifile",
+		help="Input the *.tmi file for analysis.", 
+		nargs=1,
+		metavar=('*.tmi'),
+		required=True)
 	group.add_argument("-i", "--input", 
 		nargs=2, 
 		help="[Predictor(s)] [Covariate(s)] (recommended)", 
@@ -127,11 +132,6 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=2,
 		type=int,
 		metavar=['INT'])
-	ap.add_argument("-i_tmi", "--tmifile",
-		help="Input the *.tmi file for analysis.", 
-		nargs=1,
-		metavar=('*.tmi'),
-		required=True)
 	ap.add_argument("-i_name", "--analysisname",
 		help="Input the *.tmi file for analysis.", 
 		nargs=1)
@@ -144,7 +144,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		help="Specify the adjaceny object to use for each mask. The number of inputs must match the number of masks in the tmi file. Note, the objects start at zero. e.g., -sa 0 1 0 1",
 		nargs='+',
 		type=int,
-		metavar=('int'))
+		metavar=('INT'))
 	ap.add_argument("--noweight", 
 		help="Do not weight each vertex for density of vertices within the specified geodesic distance.", 
 		action="store_true")
@@ -163,6 +163,17 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		help="Projects pFWE corrected for negative and positive TFCE transformed t-statistics onto a ply mesh for visualization of results using a 3D viewer. Must be used with -mfwe option. The sigificance threshold (low and high), and either: red-yellow (r_y), blue-lightblue (b_lb) or any matplotlib colorschemes (https://matplotlib.org/examples/color/colormaps_reference.html). Note, thresholds must be postive. e.g., -op 0.95 1 r_y b_lb", 
 		nargs=4, 
 		metavar=('float','float', 'colormap', 'colormap'))
+	correctionoptions = ap.add_mutually_exclusive_group(required=False)
+	correctionoptions.add_argument("-ss","--setsurface", 
+		help="Must be used with -mfwe option. Input the set of surfaces to create pFWE corrected images using a range. Family-wise error rate correction will only applied to the specified surfaces. e.g., -ss 0 1 5 6", 
+		nargs='+',
+		type=int,
+		metavar=('INT'))
+	correctionoptions.add_argument("-ssr","--setsurfacerange", 
+		help="Must be used with -mfwe option. Input a range to set the surfaces to create pFWE corrected images using a range. Family-wise error rate correction will only applied to the specified surfaces. e.g., -ssr 0 3", 
+		nargs=2,
+		type=int,
+		metavar=('INT'))
 
 	return ap
 
@@ -204,14 +215,27 @@ def run(opts):
 		#get first file
 		num_perm = len(np.genfromtxt('output_%s/perm_maxTFCE_surf0_tcon1.csv' % opts.tmifile[0]))
 		num_surf = len(masking_array)
-		print "Reading %d contrast(s) from %d surface(s)" % ((num_contrasts),num_surf)
+		surface_range = range(num_surf)
+		if opts.setsurfacerange:
+			surface_range = range(opts.setsurfacerange[0], opts.setsurfacerange[1]+1)
+		elif opts.setsurface:
+			surface_range = opts.setsurface
+		if np.array(surface_range).max() > len(masking_array):
+			print "Error: range does note fit the surfaces contained in the tmi file. %s contains the following surfaces" % opts.tmifile[0]
+			for i in range(len(surfname)):
+				print ("Surface %d : %s, %s" % (i,surfname[i], maskname[i]))
+			quit()
+		print "Reading %d contrast(s) from %d of %d surface(s)" % ((num_contrasts),len(surface_range), num_surf)
 		print "Reading %s permutations with an accuracy of p=0.05+/-%.4f" % (num_perm,(2*(np.sqrt(0.05*0.95/num_perm))))
 		maxvalue_array = np.zeros((num_perm,num_contrasts))
 		temp_max = np.zeros((num_perm,num_surf))
 		positive_data = np.zeros((image_array[0].shape[0],num_contrasts))
 		negative_data = np.zeros((image_array[0].shape[0],num_contrasts))
+
+
+
 		for contrast in range(num_contrasts):
-			for surface in range(num_surf): # the standardization is done within each surface
+			for surface in surface_range: # the standardization is done within each surface
 				log_results = np.log(np.genfromtxt('output_%s/perm_maxTFCE_surf%d_tcon%d.csv' % (opts.tmifile[0],surface,contrast+1)))
 				start = position_array[surface]
 				end = position_array[surface+1]
@@ -256,8 +280,8 @@ def run(opts):
 			write_tm_filetype("pFWE_negtstats_%s" % opts.tmifile[0], image_array = negative_data, masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
 		if opts.outputply:
 			for contrast in range(num_contrasts):
-				surf_count = 0
-				for surf_outname in surfname:
+				for surf_count in surface_range:
+					surf_outname = surfname[surface]
 					start = position_array[surf_count]
 					end = position_array[surf_count+1]
 					basename = surf_outname[:-4]
@@ -271,7 +295,6 @@ def run(opts):
 					if not os.path.exists("output_ply"):
 						os.mkdir("output_ply")
 					save_ply(vertex_array[surf_count],face_array[surf_count], "output_ply/%d_%s_pFWE_tcon%d.ply" % (surf_count, basename, contrast+1), out_color_array)
-					surf_count += 1
 	else:
 		# read tmi file
 		if opts.randomise:
@@ -294,7 +317,7 @@ def run(opts):
 				print "Error: # of masking arrays %d must and list of matching adjacency %d must be equal." % (len(opts.setadjacencyobjs), len(masking_array))
 				quit()
 		else: 
-			adjacent_range = len(adjacency_array)
+			adjacent_range = range(len(adjacency_array))
 
 		v_count = 0
 		for e in adjacent_range:

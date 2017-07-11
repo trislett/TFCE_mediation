@@ -40,7 +40,10 @@ def savemgh_v2(image_array, index, imagename, affine=None):
 	if not imagename.endswith('mgh'):
 		imagename += '.mgh'
 	outdata = image_array.astype(np.float32, order = "C")
-	if image_array.shape[1] > 1:
+	if image_array.ndim == 1:
+		imgout = np.zeros((index.shape[0],index.shape[1],index.shape[2]))
+		imgout[index]=outdata
+	elif image_array.shape[1] > 1:
 		imgout = np.zeros((index.shape[0],index.shape[1],index.shape[2],image_array.shape[1]))
 		imgout[index]=outdata
 	else:

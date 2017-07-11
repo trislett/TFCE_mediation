@@ -523,7 +523,7 @@ def run(opts):
 
 		if subopts.pca:
 			print "Spatial PCA."
-			pca = PCA(n_components=int(subopts.mbspca[0]))
+			pca = PCA(n_components=int(subopts.pca[0]))
 			S_ = pca.fit_transform(img_data_trunc).T
 			components = pca.components_.T
 			fitcomps = np.copy(S_).T

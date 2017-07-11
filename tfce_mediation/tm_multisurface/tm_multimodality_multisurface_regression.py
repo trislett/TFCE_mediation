@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 
 from tfce_mediation.cynumstats import resid_covars, tval_int
 from tfce_mediation.tfce import CreateAdjSet
-from tfce_mediation.tm_io import read_tm_filetype, write_tm_filetype
+from tfce_mediation.tm_io import read_tm_filetype, write_tm_filetype, savemgh_v2
 from tfce_mediation.pyfunc import save_ply, convert_redtoyellow, convert_bluetolightblue, convert_mpl_colormaps
 
 DESCRIPTION = "Multisurface multiple regression with TFCE and tmi formated neuroimaging files."
@@ -107,6 +107,19 @@ def paint_surface(lowthresh, highthres, color_scheme, data_array):
 		print "Error: colour scheme %s does not exist" % str(color_scheme)
 		quit()
 	return out_color_array
+
+def strip_basename(basename):
+	if basename.endswith('.mgh'):
+		basename = basename[:-4]
+	elif basename.endswith('.nii.gz'):
+		basename = basename[:-7]
+	else:
+		pass
+	if basename.startswith('lh.all'):
+		basename = 'lh.%s' % basename[7:]
+	if basename.startswith('rh.all'):
+		basename = 'rh.%s' % basename[7:]
+	return basename
 
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
@@ -231,9 +244,6 @@ def run(opts):
 		temp_max = np.zeros((num_perm,num_surf))
 		positive_data = np.zeros((image_array[0].shape[0],num_contrasts))
 		negative_data = np.zeros((image_array[0].shape[0],num_contrasts))
-
-
-
 		for contrast in range(num_contrasts):
 			for surface in surface_range: # the standardization is done within each surface
 				log_results = np.log(np.genfromtxt('output_%s/perm_maxTFCE_surf%d_tcon%d.csv' % (opts.tmifile[0],surface,contrast+1)))
@@ -276,15 +286,39 @@ def run(opts):
 			_, image_array, masking_array, maskname, affine_array, vertex_array, face_array, surfname, adjacency_array, tmi_history, subjectids = read_tm_filetype(opts.tmifile[0], verbose=False)
 			write_tm_filetype(opts.tmifile[0], image_array = np.column_stack((image_array[0],negative_data)), masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, adjacency_array=adjacency_array, checkname=False, tmi_history=tmi_history)
 		else:
-			write_tm_filetype("pFWE_tstats_%s" % opts.tmifile[0], image_array = positive_data, masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
-			write_tm_filetype("pFWE_negtstats_%s" % opts.tmifile[0], image_array = negative_data, masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
+			if opts.outtype[0] == 'tmi':
+				write_tm_filetype("tstats_pFWER_%s" % opts.tmifile[0], image_array = positive_data, masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
+				write_tm_filetype("negtstats_pFWER_%s" % opts.tmifile[0], image_array = negative_data, masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
+				if opts.neglog:
+					write_tm_filetype("tstats_negLog_pFWER_%s" % opts.tmifile[0], image_array = -np.log10(1-positive_data), masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
+					write_tm_filetype("negtstats_negLog_pFWER_%s" % opts.tmifile[0], image_array = -np.log10(1-negative_data), masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
+			elif opts.outtype[0] == 'mgh':
+				for surf_count in surface_range:
+					start = position_array[surf_count]
+					end = position_array[surf_count+1]
+					basename = strip_basename(maskname[surf_count])
+					if not os.path.exists("output_mgh"):
+						os.mkdir("output_mgh")
+					out_image = positive_data[start:end]
+					temp_image = negative_data[start:end]
+					for contrast in range(num_contrasts):
+						out_image[temp_image[:, contrast] != 0,contrast] = temp_image[temp_image[:, contrast] != 0,contrast] * -1
+					savemgh_v2(out_image,masking_array[surf_count], "output_mgh/%d_%s_pFWER.mgh" % (surf_count, basename), affine_array[surf_count])
+					if opts.neglog:
+						out_image = -np.log10(1-positive_data[start:end,contrast])
+						temp_image = np.log10(1-negative_data[start:end,contrast])
+						for contrast in range(num_contrasts):
+							out_image[temp_image[:, contrast] != 0,contrast] = temp_image[temp_image[:, contrast] != 0,contrast]
+						savemgh_v2(out_image,masking_array[surf_count], "output_mgh/%d_%s_negLog_pFWER.mgh" % (surf_count, basename), affine_array[surf_count])
+			else:
+				print "Error: file type %s not implemented yet" % opts.outtype[0]
+				quit()
 		if opts.outputply:
 			for contrast in range(num_contrasts):
 				for surf_count in surface_range:
-					surf_outname = surfname[surface]
 					start = position_array[surf_count]
 					end = position_array[surf_count+1]
-					basename = surf_outname[:-4]
+					basename = strip_basename(maskname[surf_count])
 					img_data = np.zeros((masking_array[surf_count].shape[0]))
 					img_data[masking_array[surf_count][:,0,0]==True] = positive_data[start:end,contrast]
 					out_color_array = paint_surface(opts.outputply[0], opts.outputply[1], opts.outputply[2], img_data)

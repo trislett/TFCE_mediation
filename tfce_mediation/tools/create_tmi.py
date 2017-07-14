@@ -25,6 +25,7 @@ import argparse as ap
 
 from tfce_mediation.pyfunc import convert_mni_object, convert_fs, convert_gifti, convert_ply
 from tfce_mediation.tm_io import write_tm_filetype, read_tm_filetype
+from tfce_mediation.pyfunc import zscaler
 
 def maskdata(data):
 	if data.ndim==4:
@@ -74,6 +75,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		help="Input a set of neuroimages that are then concatenated. The images should be in the same space. Only one set of concatenated can be added at a time. To add multiple modalities (or surfaces) used the rerun %(prog)s --append (the number of subjects has to be the same). (e.g. -c_i FAtoStd/Subject*_FAtoStd.nii.gz",
 		nargs='+', 
 		metavar=('MGH or NIFTI or MNC'))
+	ap.add_argument("-s", "--scale",
+		help="Scale each image that is being concatenated. Must be used with -c_i. Useful when importing timeseries data.",
+		action = 'store_true')
 	ap.add_argument("--concatenatename",
 		help="Specify a 4D image name for concatenated images. Must be used with -c_i.",
 		nargs=1)
@@ -180,8 +184,8 @@ def run(opts):
 				os.system("rm %s" % basename)
 
 	if opts.concatenateimages:
-		firstimg = nib.load(opts.concatenateimages[0])
-		firstimg_data = firstimg.get_data()
+		img = nib.load(opts.concatenateimages[0])
+		img_data = img.get_data()
 		numMerge=len(opts.concatenateimages)
 
 		if opts.inputmasks:
@@ -190,19 +194,26 @@ def run(opts):
 				exit()
 			mask = nib.load(opts.inputmasks[0])
 			mask_data = mask.get_data()
-			if not np.array_equal(firstimg_data.shape[:3], mask_data.shape[:3]):
+			if not np.array_equal(img_data.shape[:3], mask_data.shape[:3]):
 				print "Error mask data dimension do not fit image dimension"
 				exit()
 			mask_data = mask_data==1
+			img_data = img_data[mask_data].astype(np.float32)
 		else:
 			print "Creating mask from first image."
-			img_data, mask_data = maskdata(firstimg_data)
+			img_data, mask_data = maskdata(img_data)
 
 		for i in xrange(numMerge):
 			print "merging image %s" % opts.concatenateimages[i]
 			if i > 0:
 				tempdata = nib.load(opts.concatenateimages[i]).get_data()
-			img_data = np.column_stack((img_data,tempdata[mask_data]))
+				tempdata = tempdata[mask_data].astype(np.float32)
+				if opts.scale: 
+					tempdata = zscaler(tempdata.T).T
+				img_data = np.column_stack((img_data,tempdata))
+			else:
+				if opts.scale: 
+					img_data = zscaler(img_data.T).T
 
 		masking_array.append(np.array(mask_data))
 		image_array.append(np.array(img_data))

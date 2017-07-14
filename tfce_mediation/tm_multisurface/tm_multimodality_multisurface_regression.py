@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 from tfce_mediation.cynumstats import resid_covars, tval_int
 from tfce_mediation.tfce import CreateAdjSet
 from tfce_mediation.tm_io import read_tm_filetype, write_tm_filetype, savemgh_v2
-from tfce_mediation.pyfunc import save_ply, convert_redtoyellow, convert_bluetolightblue, convert_mpl_colormaps
+from tfce_mediation.pyfunc import save_ply, convert_redtoyellow, convert_bluetolightblue, convert_mpl_colormaps, calc_sobelz
 
 DESCRIPTION = "Multisurface multiple regression with TFCE and tmi formated neuroimaging files."
 
@@ -40,7 +40,7 @@ def calculate_tfce(merge_y, masking_array, pred_x, calcTFCE, vdensity, position_
 	tvals = tval_int(X, invXX, merge_y, merge_y.shape[0], k, merge_y.shape[1])
 	if no_intercept:
 		tvals = tvals[1:,:]
-	tvals.astype(np.float32, order = "C")
+	tvals = tvals.astype(np.float32, order = "C")
 	tfce_tvals = np.zeros_like(tvals).astype(np.float32, order = "C")
 	neg_tfce_tvals = np.zeros_like(tvals).astype(np.float32, order = "C")
 
@@ -85,6 +85,49 @@ def calculate_tfce(merge_y, masking_array, pred_x, calcTFCE, vdensity, position_
 	if not randomise:
 		return (tvals.astype(np.float32, order = "C"), tfce_tvals.astype(np.float32, order = "C"), neg_tfce_tvals.astype(np.float32, order = "C"))
 
+def calculate_mediation_tfce(medtype, merge_y, masking_array, pred_x, depend_y, calcTFCE, vdensity, position_array, fullmask, perm_number = None, randomise = False, verbose = False, no_intercept = True):
+	n = len(pred_x)
+	if randomise:
+		np.random.seed(perm_number+int(float(str(time())[-6:])*100))
+		indices_perm = np.random.permutation(range(merge_y.shape[0]))
+	if (medtype == 'M') or (medtype == 'I'):
+		if randomise:
+			pathA_nx = pred_x[indices_perm]
+	else:
+		if randomise:
+			pathA_nx = pred_x[indices_perm]
+			pathB_nx = depend_y[indices_perm]
+	SobelZ = calc_sobelz(medtype, pred_x, depend_y, merge_y, merge_y.shape[0], merge_y.shape[1])
+	SobelZ = SobelZ.astype(np.float32, order = "C")
+	tfce_SobelZ = np.zeros_like(SobelZ).astype(np.float32, order = "C")
+	zval_temp = np.zeros_like((fullmask)).astype(np.float32, order = "C")
+	zval_temp[fullmask==1] = SobelZ
+	zval_temp = zval_temp.astype(np.float32, order = "C")
+	tfce_temp = np.zeros_like(zval_temp).astype(np.float32, order = "C")
+	calcTFCE.run(zval_temp, tfce_temp)
+	zval_temp = zval_temp[fullmask==1]
+	tfce_temp = tfce_temp[fullmask==1]
+	for surf_count in range(len(masking_array)):
+		start = position_array[surf_count]
+		end = position_array[surf_count+1]
+		tfce_SobelZ[:,start:end] = (tfce_temp[start:end] * (zval_temp[start:end].max()/100) * vdensity[start:end])
+		if randomise:
+			os.system("echo %f >> perm_maxTFCE_surf%d_zstat.csv" % (np.nanmax(tfce_SobelZ[:,start:end]),surf_count))
+	if verbose:
+		print "Max Zstat tfce from all surfaces = %f" % tfce_SobelZ.max()
+	if randomise:
+		print "Interation number: %d" % perm_number
+		os.system("echo %s >> perm_maxTFCE_allsurf_zstat.csv" % ( ','.join(["%0.2f" % i for i in tfce_SobelZ.max(axis=1)] )) )
+		SobelZ = None
+		tfce_SobelZ = None
+	zval_temp = None
+	tfce_temp = None
+	del calcTFCE
+	if not randomise:
+		return (SobelZ.astype(np.float32, order = "C"), tfce_SobelZ.astype(np.float32, order = "C"))
+
+
+
 #find nearest permuted TFCE max value that corresponse to family-wise error rate 
 def find_nearest(array,value,p_array):
 	idx = np.searchsorted(array, value, side="left")
@@ -124,15 +167,16 @@ def strip_basename(basename):
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 
-	group = ap.add_mutually_exclusive_group(required=True)
 	ap.add_argument("-i_tmi", "--tmifile",
 		help="Input the *.tmi file for analysis.", 
 		nargs=1,
 		metavar=('*.tmi'),
 		required=True)
+
+	group = ap.add_mutually_exclusive_group(required=True)
 	group.add_argument("-i", "--input", 
 		nargs=2, 
-		help="[Predictor(s)] [Covariate(s)] (recommended)", 
+		help="[Predictor(s)] [Covariate(s)]", 
 		metavar=('*.csv', '*.csv'))
 	group.add_argument("-r", "--regressors", 
 		nargs=1, help="Single step regression", 
@@ -140,6 +184,10 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	group.add_argument("-mfwe","--multisurfacefwecorrection", 
 		help="Input the stats tmi using -i_tmi *.tmi. The corrected files will be appended to the stats tmi. Note, the intercepts will be ignored.",
 		action='store_true')
+
+	ap.add_argument("-m", "--mediation"),
+		nargs=2, help="Perform a mediation analysis. The type of mediation {I,M,Y} and dependent variable must be inputted.", 
+		metavar=('mediation_type {I,M,Y}','*.csv'))
 	ap.add_argument("-p", "--randomise", 
 		help="Specify the range of permutations. e.g, -p 1 200", 
 		nargs=2,

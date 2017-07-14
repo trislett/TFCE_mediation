@@ -20,13 +20,20 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=1,
 		help="input a surface", 
 		metavar=('*.mgh'))
+	ap.add_argument("-t", "--transpose",
+		action='store_true',
+		help="Transpose input file.")
 	return ap
 
 def run(opts):
 	if opts.inputtxt:
 		txtname = opts.inputtxt[0]
 		surfVals = np.loadtxt(txtname, dtype=np.float, delimiter=',')
+		if opts.transpose:
+			print "Transposing array"
+			surfVals = surfVals.T
 		numVert = len(surfVals)
+		print "Reading in %d subjects and %d vertices. If this is incorrect re-run the script is the --transpose option." % (surfVals.shape[1], surfVals.shape[0])
 		if surfVals.ndim == 1:
 			outsurf = np.zeros((numVert,1,1))
 			outsurf[:,0,0] = surfVals

@@ -106,7 +106,11 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	ap.add_argument("--pca",
 		help="PCA.",
 		action = 'store_true')
-	ap.add_argument("-nc", "--numcomp",
+	ap.add_argument("-mc", "--maxnpcacomponents",
+		help="Limit the maximum components.",
+		nargs=1,
+		metavar=('INT'))
+	ap.add_argument("-nic", "--numicacomponents",
 		nargs=1,
 		metavar=('INT'))
 	ap.add_argument("--timeplot",
@@ -129,74 +133,95 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 
 def run(opts):
 	element, image_array, masking_array, maskname, affine_array, _, _, surfname, _, _, _  = read_tm_filetype(opts.tmifile[0])
-	img_data_trunc = image_array[0].astype(np.float32)
+	img_data_trunc = image_array[0]
+	del image_array # reduce ram usage
+	img_data_trunc = img_data_trunc.astype(np.float32)
 	img_data_trunc[np.isnan(img_data_trunc)]=0
 	if opts.detrend:
 		img_data_trunc = signal.detrend(img_data_trunc)
 		img_data_trunc = zscaler(img_data_trunc.T).T
-	pca = PCA()
-	S_ = pca.fit_transform(img_data_trunc).T
+	if opts.maxnpcacomponents:
+		numpcacomps = opts.maxnpcacomponents=[0]
+	else:
+		numpcacomps = img_data_trunc.shape[1]
+	if opts.pca:
+		pca = PCA(n_components=numpcacomps)
+		S_ = pca.fit_transform(img_data_trunc).T
+		for i in range(len(pca.explained_variance_ratio_)):
+			if (pca.explained_variance_ratio_[i] < 0.01):
+				start_comp_number = i
+				print "Component %d explains %1.4f of the variance." % (i, pca.explained_variance_ratio_[0:i].sum())
+				if pca.explained_variance_ratio_[0:i].sum() < 0.80:
+					pass
+				else:
+					break
 
-	for i in range(len(pca.explained_variance_ratio_)):
-		if (pca.explained_variance_ratio_[i] < 0.01):
-			start_comp_number = i
-			if pca.explained_variance_ratio_[0:i].sum() < 0.80:
-				pass
-			else:
-				break
+		print "%d number of components, explaining %1.2f of the variance." % (start_comp_number, (pca.explained_variance_ratio_[0:start_comp_number].sum()*100))
+
+		rsquare_scores = []
+		std_err = []
+		w_rsquare_scores = []
+		range_comp = np.arange(0,numpcacomps-2, 1)
+		for comp_number in range_comp:
+			x = np.array(range(len(pca.explained_variance_ratio_))[comp_number:])
+			y = pca.explained_variance_ratio_[comp_number:]
+			slope, intercept, r_value, p_value, se = stats.linregress(x,y)
+			rsquare_scores.append((r_value**2))
+			std_err.append((se))
+			w_rsquare_scores.append((r_value**2 * ((range_comp[-1] - comp_number+1) /range_comp[-1])))
+
+		best_comp = np.argmax(rsquare_scores)
+		best_comp2 = np.argmin(std_err)
+		best_comp3 = np.argmax(w_rsquare_scores)
+		print "Best Component %d; R-square residual score %1.4f; variance explained %1.4f" % (best_comp, rsquare_scores[best_comp], pca.explained_variance_ratio_[:best_comp].sum())
+
+		x = np.array(range(len(pca.explained_variance_ratio_))[best_comp:])
+		y = pca.explained_variance_ratio_[best_comp:]
+		m,b = np.polyfit(x,y,1)
+
+		%matplotlib
+
+		xaxis = np.arange(pca.explained_variance_ratio_.shape[0]) + 1
+		plt.plot(xaxis, pca.explained_variance_ratio_, 'ro-', linewidth=2)
+
+		plt.axvline(best_comp, color='r', linestyle='dashed', linewidth=2)
+		plt.text(int(best_comp - 10),pca.explained_variance_ratio_.max()*.99,'Noise; Comp=%d, Sum V(e)=%1.2f' % (best_comp, pca.explained_variance_ratio_[:best_comp].sum()),rotation=90)
+
+		plt.axvline(start_comp_number, color='g', linestyle='dashed', linewidth=2)
+		plt.text(int(start_comp_number - 10),pca.explained_variance_ratio_.max()*.99,'Threshold; Comp=%d, Sum V(e)=%1.2f' % (start_comp_number, pca.explained_variance_ratio_[:start_comp_number].sum()),rotation=90)
+
+		plt.axvline(best_comp3, color='b', linestyle='dashed', linewidth=2)
+		plt.text(int(best_comp3 - 10),pca.explained_variance_ratio_.max()*.99,'Weight Noise; Comp=%d, Sum V(e)=%1.2f' % (best_comp3, pca.explained_variance_ratio_[:best_comp3].sum()),rotation=90)
+
+		plt.plot(xaxis, m*xaxis + b, '--')
+		plt.title('Scree Plot')
+		plt.xlabel('Principal Component')
+		plt.ylabel('Explained Variance Ratio')
+		plt.show()
+
 
 ###### TEST ##########
 
-
-rsquare_scores = []
-range_comp = np.arange(0,img_data_trunc.shape[1]-2, 1)
-for comp_number in range_comp:
-	x = np.array(range(len(pca.explained_variance_ratio_))[comp_number:])
-	y = pca.explained_variance_ratio_[comp_number:]
-	_, _, r_value, _, _ = stats.linregress(x,y)
-	rsquare_scores.append((r_value**2))
-
-best_comp = np.argmax(rsquare_scores)
-print "Best Component %d; R-square residual score %1.4f; variance explained %1.4f" % (best_comp, rsquare_scores[best_comp], pca.explained_variance_ratio_[:best_comp].sum())
-
-x = np.array(range(len(pca.explained_variance_ratio_))[best_comp:])
-y = pca.explained_variance_ratio_[best_comp:]
-m,b = np.polyfit(x,y,1)
-
-%matplotlib
-xaxis = np.arange(pca.explained_variance_ratio_.shape[0]) + 1
-plt.plot(xaxis, pca.explained_variance_ratio_, 'ro-', linewidth=2)
-plt.axvline(start_comp_number, color='b', linestyle='dashed', linewidth=2)
-plt.plot(xaxis, m*xaxis + b, '--')
-plt.title('Scree Plot')
-plt.xlabel('Principal Component')
-plt.ylabel('Explained Variance Ratio')
-plt.show()
+#	xaxis = np.arange(pca.explained_variance_ratio_.shape[0]) + 1
+#	plt.plot(xaxis, pca.explained_variance_ratio_, 'ro-', linewidth=2)
+#	plt.axvline(start_comp_number, color='b', linestyle='dashed', linewidth=2)
+#	plt.title('Scree Plot')
+#	plt.xlabel('Principal Component')
+#	plt.ylabel('Explained Variance Ratio')
+#	plt.show()
 
 
-###### TEST ##########
-
-
-	xaxis = np.arange(pca.explained_variance_ratio_.shape[0]) + 1
-	plt.plot(xaxis, pca.explained_variance_ratio_, 'ro-', linewidth=2)
-	plt.axvline(start_comp_number, color='b', linestyle='dashed', linewidth=2)
-	plt.title('Scree Plot')
-	plt.xlabel('Principal Component')
-	plt.ylabel('Explained Variance Ratio')
-	plt.show()
-
-	print "%d number of components, explaining %1.2f of the variance." % (start_comp_number, (pca.explained_variance_ratio_[0:start_comp_number].sum()*100))
 
 	if opts.fastica:
 		if opts.pca:
 			num_comp = start_comp_number
-		elif opts.numcomp:
-			num_comp = int(opts.numcomp[0])
+		elif opts.numicacomponents:
+			num_comp = int(opts.numicacomponents[0])
 		else:
 			print "unknown number of compenents"
 			exit()
 		print num_comp
-		components, sort_mask, _ = tmi_run_ica(img_data_trunc,num_comp, variance_threshold=.8, masking_array = masking_array, affine_array = affine_array)
+		components, sort_mask, _ = tmi_run_ica(img_data_trunc,num_comp, variance_threshold=.8, masking_array = masking_array, affine_array = affine_array, filetype='mgh', outname='ica.mgh')
 
 	if opts.timeplot:
 		# generate graphs

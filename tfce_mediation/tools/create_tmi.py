@@ -223,7 +223,13 @@ def run(opts):
 
 	if opts.inputtext:
 		for i in range(len(opts.inputtext)):
-			img_data = np.genfromtxt(opts.file[0], delimiter=',')
+			#img_data = np.genfromtxt(opts.inputtext[i], delimiter=',') # slower, more ram usage
+			img_data = []
+			with open('lh_cortical_thickness_for_all_subjects.csv') as data_file:
+				for line in data_file:
+					img_data.append(line.strip().split(','))
+			img_data = np.array(img_data).astype(np.float32)
+
 			img_data, mask_data = maskdata(img_data)
 			masking_array.append(np.array(mask_data))
 			image_array.append(np.array(img_data))

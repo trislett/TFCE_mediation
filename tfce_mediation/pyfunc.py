@@ -105,9 +105,9 @@ def write_perm_maxTFCE_vertex(statname, vertStat, num_vertex, bin_mask_lh, bin_m
 	vertStat_out_rh[bin_mask_rh] = vertStat[num_vertex:]
 	calcTFCE_lh.run(vertStat_out_lh, vertStat_TFCE_lh)
 	calcTFCE_rh.run(vertStat_out_rh, vertStat_TFCE_rh)
-	max_lh = vertStat_TFCE_lh[np.isfinite(vertStat_TFCE_lh)].max() * (vertStat_out_lh[np.isfinite(vertStat_out_lh)].max()/100) * density_corr_lh
-	max_rh = vertStat_TFCE_rh[np.isfinite(vertStat_TFCE_rh)].max() * (vertStat_out_rh[np.isfinite(vertStat_out_rh)].max()/100) * density_corr_rh
-	maxTFCE = np.array([max_lh,max_rh]).max()
+	max_lh = vertStat_TFCE_lh[np.isfinite(vertStat_TFCE_lh)] * (vertStat_out_lh[np.isfinite(vertStat_out_lh)].max()/100) * density_corr_lh
+	max_rh = vertStat_TFCE_rh[np.isfinite(vertStat_TFCE_rh)] * (vertStat_out_rh[np.isfinite(vertStat_out_rh)].max()/100) * density_corr_rh
+	maxTFCE = np.array([max_lh.max(),max_rh.max()]).max()
 	os.system("echo %.4f >> perm_%s_TFCE_maxVertex.csv" % (maxTFCE,statname))
 
 def write_perm_maxTFCE_voxel(statname, voxelStat, TFCEfunc):

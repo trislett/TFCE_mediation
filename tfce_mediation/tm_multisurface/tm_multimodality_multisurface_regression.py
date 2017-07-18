@@ -184,10 +184,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	group.add_argument("-mfwe","--multisurfacefwecorrection", 
 		help="Input the stats tmi using -i_tmi *.tmi. The corrected files will be appended to the stats tmi. Note, the intercepts will be ignored.",
 		action='store_true')
-
-	ap.add_argument("-m", "--mediation"),
+	ap.add_argument("-m", "--mediation",
 		nargs=2, help="Perform a mediation analysis. The type of mediation {I,M,Y} and dependent variable must be inputted.", 
-		metavar=('mediation_type {I,M,Y}','*.csv'))
+		metavar=('{I,M,Y}','*.csv'))
 	ap.add_argument("-p", "--randomise", 
 		help="Specify the range of permutations. e.g, -p 1 200", 
 		nargs=2,
@@ -351,13 +350,19 @@ def run(opts):
 					temp_image = negative_data[start:end]
 					for contrast in range(num_contrasts):
 						out_image[temp_image[:, contrast] != 0,contrast] = temp_image[temp_image[:, contrast] != 0,contrast] * -1
-					savemgh_v2(out_image,masking_array[surf_count], "output_mgh/%d_%s_pFWER.mgh" % (surf_count, basename), affine_array[surf_count])
+					if affine_array == []:
+						savemgh_v2(out_image,masking_array[surf_count], "output_mgh/%d_%s_pFWER.mgh" % (surf_count, basename))
+					else:
+						savemgh_v2(out_image,masking_array[surf_count], "output_mgh/%d_%s_pFWER.mgh" % (surf_count, basename), affine_array[surf_count])
 					if opts.neglog:
 						out_image = -np.log10(1-positive_data[start:end,contrast])
 						temp_image = np.log10(1-negative_data[start:end,contrast])
 						for contrast in range(num_contrasts):
 							out_image[temp_image[:, contrast] != 0,contrast] = temp_image[temp_image[:, contrast] != 0,contrast]
-						savemgh_v2(out_image,masking_array[surf_count], "output_mgh/%d_%s_negLog_pFWER.mgh" % (surf_count, basename), affine_array[surf_count])
+						if affine_array == []:
+							savemgh_v2(out_image,masking_array[surf_count], "output_mgh/%d_%s_negLog_pFWER.mgh" % (surf_count, basename))
+						else:
+							savemgh_v2(out_image,masking_array[surf_count], "output_mgh/%d_%s_negLog_pFWER.mgh" % (surf_count, basename), affine_array[surf_count])
 			else:
 				print "Error: file type %s not implemented yet" % opts.outtype[0]
 				quit()

@@ -1,0 +1,41 @@
+#! /bin/bash
+count=0
+cmd_file=$1
+#memusg=$2 
+cdir=$(pwd)
+# dir=`dirname $inputdir`;
+# base=`basename $inputdir`;
+unset FSLPARALLEL
+
+if [ ! -d $cdir/${cmd_file}.condor_logs ]; then
+	mkdir $cdir/${cmd_file}.condor_logs
+fi
+
+timestamp=$(date +"%Y-%m-%d_%H-%M-%S");
+old_IFS=$IFS;
+IFS=$'\n';
+for i in $(cat $cmd_file); do 
+   	#echo ${i}_${count};
+	raw_command=$(echo ${i} | awk '{print $1}');
+	args_cmd=$(echo ${i} | awk '{$1=""; print substr($0,2)}');
+	#echo $args_cmd
+	full_command=$(which $raw_command);
+	#echo ${full_command}"/"${count};
+	count=$((count+1));
+	#echo $cdir;
+
+echo "Executable = $full_command
+Universe = vanilla
+initialdir = $cdir
+request_cpus = 1
+getenv = True
+arguments = $args_cmd
+error  = $cdir/${cmd_file}.condor_logs/jobnum_${count}_${timestamp}.e
+output = $cdir/${cmd_file}.condor_logs/jobnum_${count}_${timestamp}.o
+Queue" >$cdir/${cmd_file}.condor_logs/jobnum_${count}_${timestamp}.submit
+done
+cd ${cmd_file}.condor_logs
+for j in *${timestamp}.submit; do
+	condor_submit ${j};
+done
+IFS=$old_IFS

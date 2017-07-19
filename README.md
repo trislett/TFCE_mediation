@@ -11,6 +11,11 @@ The pre-print manuscript is available [here](tfce_mediation/doc/Lett_et_al_2017_
 
 ### What's new / updates ###
 
+19-07-2017
+
+* version 1.2.2 is now available on [pypipe (PIP)](https://pypi.org/project/tfce-mediation/).
+* fixes a bug in the permutation testing of surfaces with unequal sizes
+
 5-07-2017
 
 * version 1.2.1 is now available on [pypipe (PIP)](https://pypi.org/project/tfce-mediation/). 

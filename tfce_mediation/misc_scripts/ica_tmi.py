@@ -92,7 +92,7 @@ def tmi_run_ica(img_data_trunc, num_comp, masking_array, affine_array, variance_
 		pickle.dump( ica, open( "ICA_temp/icasave.p", "wb" ) )
 
 
-	return ica.components_.T, sort_mask,  sum_total_variance_explained
+	return ica, sort_mask,  sum_total_variance_explained
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	ap.add_argument("-i_tmi", "--tmifile",
@@ -137,9 +137,8 @@ def run(opts):
 	del image_array # reduce ram usage
 	img_data_trunc = img_data_trunc.astype(np.float32)
 	img_data_trunc[np.isnan(img_data_trunc)]=0
-	if opts.detrend:
-		img_data_trunc = signal.detrend(img_data_trunc)
-		img_data_trunc = zscaler(img_data_trunc.T).T
+	if opts.scale:
+		img_data_trunc = zscaler(img_data_trunc)
 	if opts.maxnpcacomponents:
 		numpcacomps = opts.maxnpcacomponents=[0]
 	else:
@@ -221,7 +220,8 @@ def run(opts):
 			print "unknown number of compenents"
 			exit()
 		print num_comp
-		components, sort_mask, _ = tmi_run_ica(img_data_trunc,num_comp, variance_threshold=.8, masking_array = masking_array, affine_array = affine_array, filetype='mgh', outname='ica.mgh')
+		ica, sort_mask, _ = tmi_run_ica(img_data_trunc,num_comp, variance_threshold=.8, masking_array = masking_array, affine_array = affine_array, filetype='mgh', outname='ica.mgh')
+		components = ica.components_.T
 
 	if opts.timeplot:
 		# generate graphs

@@ -1,0 +1,20 @@
+Metadata-Version: 1.1
+Name: tfce_mediation
+Version: 1.2.2
+Summary: TFCE_mediation
+Home-page: https://github.com/trislett/TFCE_mediation
+Author: Tristram Lett
+Author-email: tristram.lett@charite.de
+License: GNU General Public License v3 or later (GPLv3+)
+Description: Fast regression and mediation analysis of vertex or voxel MRI data with TFCE
+Platform: Linux
+Platform: Solaris
+Platform: Mac OS-X
+Platform: Unix
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Topic :: Scientific/Engineering :: Medical Science Apps.

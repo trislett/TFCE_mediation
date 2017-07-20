@@ -126,8 +126,6 @@ def calculate_mediation_tfce(medtype, merge_y, masking_array, pred_x, depend_y, 
 	if not randomise:
 		return (SobelZ.astype(np.float32, order = "C"), tfce_SobelZ.astype(np.float32, order = "C"))
 
-
-
 #find nearest permuted TFCE max value that corresponse to family-wise error rate 
 def find_nearest(array,value,p_array):
 	idx = np.searchsorted(array, value, side="left")
@@ -164,6 +162,19 @@ def strip_basename(basename):
 		basename = 'rh.%s' % basename[7:]
 	return basename
 
+def merge_adjacency_array(adjacent_range, adjacency_array):
+	v_count = 0
+	for e in adjacent_range:
+		if v_count == 0:
+			adjacency = adjacency_array[0]
+		else:
+			temp_adjacency = np.copy(adjacency_array[e])
+			for i in range(len(adjacency_array[e])):
+				temp_adjacency[i] = np.add(temp_adjacency[i], v_count).tolist()
+			adjacency = np.hstack((adjacency, temp_adjacency))
+		v_count += len(adjacency_array[e])
+	return adjacency
+
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 
@@ -197,20 +208,26 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=1)
 	ap.add_argument("--tfce", 
 		help="TFCE settings. H (i.e., height raised to power H), E (i.e., extent raised to power E). Default: %(default)s). H=2, E=2/3 is the point at which the cummulative density function is approximately Gaussian distributed.", 
-		nargs=2, 
-		default=[2.0,0.67], 
+		nargs='+', 
+		default=[2.0,0.67],
+		type=float,
 		metavar=('H', 'E'))
 	ap.add_argument("-sa", "--setadjacencyobjs",
 		help="Specify the adjaceny object to use for each mask. The number of inputs must match the number of masks in the tmi file. Note, the objects start at zero. e.g., -sa 0 1 0 1",
 		nargs='+',
 		type=int,
 		metavar=('INT'))
+	ap.add_argument("-st", "--setfcesettings",
+		help="Specify the tfce H and E settings for each mask. -st is useful for combined analysis do voxel and vertex data, and it only makes sense if more than one set of values are inputted with --tfce. The number of inputs must match the number of masks in the tmi file. The input corresponds to each pair of --tfce setting starting at zero. e.g., -st 0 0 0 0 1 1",
+		nargs='+',
+		type=int,
+		metavar=('INT'))
 	ap.add_argument("--noweight", 
-		help="Do not weight each vertex for density of vertices within the specified geodesic distance.", 
+		help="Do not weight each vertex for density of vertices within the specified geodesic distance (not recommended).", 
 		action="store_true")
 	ap.add_argument("--outtype", 
 		help="Specify the output file type", 
-		nargs=1, 
+		nargs='+', 
 		default=['tmi'], 
 		choices=('tmi', 'mgh', 'nii.gz'))
 	ap.add_argument("-c","--concatestats", 
@@ -401,23 +418,29 @@ def run(opts):
 			if len(opts.setadjacencyobjs) == len(masking_array):
 				adjacent_range = opts.setadjacencyobjs
 			else:
-				print "Error: # of masking arrays %d must and list of matching adjacency %d must be equal." % (len(opts.setadjacencyobjs), len(masking_array))
+				print "Error: # of masking arrays %d must and list of matching adjacency %d must be equal." % (len(masking_array), len(opts.setadjacencyobjs))
 				quit()
 		else: 
 			adjacent_range = range(len(adjacency_array))
 
-		v_count = 0
-		for e in adjacent_range:
-			if v_count == 0:
-				adjacency = adjacency_array[0]
-			else:
-				temp_adjacency = np.copy(adjacency_array[e])
-				for i in range(len(adjacency_array[e])):
-					temp_adjacency[i] = np.add(temp_adjacency[i], v_count).tolist()
-				adjacency = np.hstack((adjacency, temp_adjacency))
-			v_count += len(adjacency_array[e])
-		del temp_adjacency
-		calcTFCE = (CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjacency))
+		if opts.setfcesettings:
+			if len(opts.setfcesettings) == len(masking_array):
+				print "Error: # of masking arrays %d must and list of matching tfce setting %d must be equal." % (len(masking_array), len(opts.setfcesettings))
+				quit()
+			if len(opts.tfce) % 2 != 0:
+				print "Error. The must be an even number of input for --tfce"
+				quit()
+			m_calcTFCE = []
+			tfce_settings_mask = []
+			for i in range(len(opts.tfce)/2):
+				tfce_settings_mask.append((opts.setfcesettings == int(i)))
+				pointer = int(i*2)
+				adjacency = merge_adjacency_array(adjacent_range[tfce_settings_mask[i]], adjacency_array[tfce_settings_mask[i]])
+				m_calcTFCE.append((CreateAdjSet(float(opts.tfce[pointer]), float(opts.tfce[pointer+1]), adjacency)))
+				del adjacency
+		else:
+			adjacency = merge_adjacency_array(adjacent_range, adjacency_array)
+			calcTFCE = (CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjacency))
 
 		# make mega mask
 		fullmask = []
@@ -495,7 +518,6 @@ def run(opts):
 				write_tm_filetype(outname, image_array = np.column_stack((image_array[0],neg_tfce_tvals.T)), masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
 			else:
 				print "not implemented yet"
-
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

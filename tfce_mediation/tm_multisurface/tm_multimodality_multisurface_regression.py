@@ -422,7 +422,7 @@ def run(opts):
 				quit()
 		else: 
 			adjacent_range = range(len(adjacency_array))
-
+		calcTFCE = []
 		if opts.setfcesettings:
 			if len(opts.setfcesettings) == len(masking_array):
 				print "Error: # of masking arrays %d must and list of matching tfce setting %d must be equal." % (len(masking_array), len(opts.setfcesettings))
@@ -430,17 +430,17 @@ def run(opts):
 			if len(opts.tfce) % 2 != 0:
 				print "Error. The must be an even number of input for --tfce"
 				quit()
-			m_calcTFCE = []
+			calcTFCE = []
 			tfce_settings_mask = []
 			for i in range(len(opts.tfce)/2):
 				tfce_settings_mask.append((opts.setfcesettings == int(i)))
 				pointer = int(i*2)
 				adjacency = merge_adjacency_array(adjacent_range[tfce_settings_mask[i]], adjacency_array[tfce_settings_mask[i]])
-				m_calcTFCE.append((CreateAdjSet(float(opts.tfce[pointer]), float(opts.tfce[pointer+1]), adjacency)))
+				calcTFCE.append((CreateAdjSet(float(opts.tfce[pointer]), float(opts.tfce[pointer+1]), adjacency)))
 				del adjacency
 		else:
 			adjacency = merge_adjacency_array(adjacent_range, adjacency_array)
-			calcTFCE = (CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjacency))
+			calcTFCE.append((CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjacency)))
 
 		# make mega mask
 		fullmask = []
@@ -499,12 +499,12 @@ def run(opts):
 				os.mkdir("output_%s" % (outname))
 			os.chdir("output_%s" % (outname))
 			for i in range(opts.randomise[0],(opts.randomise[1]+1)):
-				calculate_tfce(mapped_y, masking_array,  pred_x, calcTFCE, vdensity, position_array, fullmask, perm_number=i, randomise = True)
+				calculate_tfce(mapped_y, masking_array,  pred_x, calcTFCE[0], vdensity, position_array, fullmask, perm_number=i, randomise = True)
 			print("Total time took %.1f seconds" % (time() - currentTime))
 			print("Randomization took %.1f seconds" % (time() - randTime))
 		else:
 			# Run TFCE
-			tvals, tfce_tvals, neg_tfce_tvals = calculate_tfce(merge_y, masking_array, pred_x, calcTFCE, vdensity, position_array, fullmask)
+			tvals, tfce_tvals, neg_tfce_tvals = calculate_tfce(merge_y, masking_array, pred_x, calcTFCE[0], vdensity, position_array, fullmask)
 			if opts.outtype[0] == 'tmi':
 				if not outname.endswith('tmi'):
 					outname += '.tmi'

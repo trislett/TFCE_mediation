@@ -678,4 +678,37 @@ def write_colorbar(threshold, input_cmap, name_cmap, outtype = 'png'):
 	plt.savefig("%s_colorbar.%s" % (os.path.basename(name_cmap), outtype),bbox_inches='tight')
 	plt.clf()
 
+# Converts a voxel image to a surface including outputs voxel values to paint vertex surface.
+#
+# Input:
+# 3D array of a voxel image
+#
+# Output:
+# v = vertices
+# f = faces
+# values = transformed voxels values to vertex space
+# Optional variables:
+# affine = affine [4x4] to convert vertices values to native space
+# threshold = threshold for output of voxels
+# data_mask = use a mask to create a backbone
+def convert_voxel(img_data, affine = None, threshold = None, data_mask = None):
+	try:
+		from skimage import measure
+	except:
+		print "Error skimage is required"
+		quit()
+	if threshold is not None:
+		print "Zeroing data less than threshold = %1.2f" % threshold
+		img_data[img_data<threshold] = 0
+	if data_mask is not None:
+		print "Including mask"
+		data_mask *= .5
+		data_mask[img_data!=0] = img_data[img_data!=0]
+		del img_data
+		img_data = np.copy(data_mask)
+	v, f, _, values = measure.marching_cubes_lewiner(img_data)
+	if affine is not None:
+		print "Applying affine transformation"
+		v = nib.affines.apply_affine(affine,v)
+	return v, f, values
 

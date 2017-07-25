@@ -21,7 +21,7 @@ import numpy as np
 import nibabel as nib
 import argparse as ap
 import matplotlib.pyplot as plt
-from tfce_mediation.pyfunc import convert_mni_object, convert_fs, convert_gifti, convert_ply, convert_fslabel, save_waveform, save_stl, save_fs, save_ply, convert_redtoyellow, convert_bluetolightblue, convert_mpl_colormaps, convert_fsannot
+from tfce_mediation.pyfunc import convert_mni_object, convert_fs, convert_gifti, convert_ply, convert_fslabel, save_waveform, save_stl, save_fs, save_ply, convert_redtoyellow, convert_bluetolightblue, convert_mpl_colormaps, convert_fsannot, convert_voxel
 
 DESCRIPTION = """
 Conversion of surfaces (freesurfer, gifti *.gii, mni *.obj, ply *.ply) to freesurfer surface or other objects (Waveform *obj, STereoLithography *stl, Polygon File Format *ply) for analysis with TFCE_mediation. *mgh files can also be imported and converted to PLY files.
@@ -47,6 +47,21 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		help="Input a MNI object file (e.g., --i_ply l_hemi.ply). Note, vertex colors will be stripped.", 
 		nargs=1, 
 		metavar=('*.ply'))
+	# voxel to surface conversion
+	igroup.add_argument("-i_voxel", "--inputvoxel",
+		help="Input a voxel (nifti, minc, mgh). e.g. -i_voxel tstat_pFWER_corr.nii.gz", 
+		nargs=1)
+	ap.add_argument("-vt", "--voxelthreshold",
+		help="Apply a threshold to -i_voxel image (zeros everything below value). e.g. -vt 0.95", 
+		nargs=1)
+	ap.add_argument("-vb", "--voxelbackbone",
+		help="Add binary mask backbone to the voxel image. e.g. -vb binary_mask_skeleton.nii.gz", 
+		nargs=1)
+	ap.add_argument("-vp", "--paintvoxelsurface",
+		help="Must be used with -i_voxel and -o_ply options. Input the sigificance threshold (low and high), and either: red-yellow (r_y), blue-lightblue (b_lb) or any matplotlib colorschemes (https://matplotlib.org/examples/color/colormaps_reference.html). Note, thresholds must be postive. e.g., -vp 0.95 1 r_y", 
+		nargs=3, 
+		metavar=('float','float', 'colormap'))
+
 	ogroup = ap.add_mutually_exclusive_group(required=True)
 	ogroup.add_argument("-o_fs", "--outputfreesurfer",
 		help="Output file name for freesurfer surface (e.g., -o_fs lh.32k.midthickness)", 
@@ -96,6 +111,17 @@ def run(opts):
 		v,f = convert_mni_object(str(opts.inputmniobj[0]))
 	if opts.inputply:
 		v,f,_ = convert_ply(str(opts.inputply[0]))
+	if opts.inputvoxel:
+		img = nib.load(opts.inputvoxel[0])
+		img_data = img.get_data()
+		if opts.voxelthreshold and opts.voxelbackbone: 
+			v,f,values = convert_voxel(img_data, affine = img.affine, threshold = float(opts.voxelthreshold), data_mask = opts.voxelbackbone[0])
+		elif opts.voxelthreshold:
+			v,f,values = convert_voxel(img_data, affine = img.affine, threshold = float(opts.voxelthreshold))
+		elif opts.voxelbackbone: 
+			v,f,values = convert_voxel(img_data, affine = img.affine, data_mask = opts.voxelbackbone[0])
+		else:
+			v,f,values = convert_voxel(img_data, affine = img.affine)
 	#output
 	if opts.outputfreesurfer:
 		save_fs(v,f, opts.outputfreesurfer[0])
@@ -169,6 +195,16 @@ def run(opts):
 		elif opts.paintfsannot:
 			out_color_array = convert_fsannot(opts.paintfsannot[0])
 			save_ply(v,f, opts.outputply[0], out_color_array)
+		elif opts.paintvoxelsurface:
+			if (str(opts.paintvoxelsurface[2]) == 'r_y') or (str(opts.paintvoxelsurface[2]) == 'red-yellow'):
+				out_color_array = convert_redtoyellow(np.array(( float(opts.paintvoxelsurface[0]),float(opts.paintvoxelsurface[1]) )), img_data)
+			elif (str(opts.paintvoxelsurface[2]) == 'b_lb') or (str(opts.paintvoxelsurface[2]) == 'blue-lightblue'):
+				out_color_array = convert_bluetolightblue(np.array(( float(opts.paintvoxelsurface[0]),float(opts.paintvoxelsurface[1]) )), img_data)
+			elif np.any(colormaps == str(opts.paintvoxelsurface[2])):
+				out_color_array = convert_mpl_colormaps(np.array(( float(opts.paintvoxelsurface[0]),float(opts.paintvoxelsurface[1]) )), img_data, str(opts.paintvoxelsurface[2]))
+			else:
+				print "Colour scheme %s does not exist" % str(opts.paintvoxelsurface[2])
+				quit()
 		else:
 			save_ply(v,f, opts.outputply[0])
 

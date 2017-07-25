@@ -128,6 +128,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	ap.add_argument("--detrend", 
 		help="Removes the linear trend from time series data.",
 		action='store_true')
+	ap.add_argument("--scale", 
+		help="Removes the spatial trend.",
+		action='store_true')
 
 	return ap
 
@@ -178,7 +181,7 @@ def run(opts):
 		y = pca.explained_variance_ratio_[best_comp:]
 		m,b = np.polyfit(x,y,1)
 
-		%matplotlib
+#		%matplotlib
 
 		xaxis = np.arange(pca.explained_variance_ratio_.shape[0]) + 1
 		plt.plot(xaxis, pca.explained_variance_ratio_, 'ro-', linewidth=2)

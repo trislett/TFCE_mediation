@@ -62,8 +62,12 @@ def calculate_tfce(merge_y, masking_array, pred_x, calcTFCE, vdensity, position_
 		for surf_count in range(len(masking_array)):
 			start = position_array[surf_count]
 			end = position_array[surf_count+1]
-			tfce_tvals[tstat_counter,start:end] = (tfce_temp[start:end] * (tval_temp[start:end].max()/100) * vdensity[start:end])
-			neg_tfce_tvals[tstat_counter,start:end] = (neg_tfce_temp[start:end] * ((tval_temp*-1)[start:end].max()/100) * vdensity[start:end])
+			if vdensity == 1: # check vdensity is a scalar
+				tfce_tvals[tstat_counter,start:end] = (tfce_temp[start:end] * (tval_temp[start:end].max()/100) * vdensity)
+				neg_tfce_tvals[tstat_counter,start:end] = (neg_tfce_temp[start:end] * ((tval_temp*-1)[start:end].max()/100) * vdensity)
+			else:
+				tfce_tvals[tstat_counter,start:end] = (tfce_temp[start:end] * (tval_temp[start:end].max()/100) * vdensity[start:end])
+				neg_tfce_tvals[tstat_counter,start:end] = (neg_tfce_temp[start:end] * ((tval_temp*-1)[start:end].max()/100) * vdensity[start:end])
 			if randomise:
 				os.system("echo %f >> perm_maxTFCE_surf%d_tcon%d.csv" % (np.nanmax(tfce_tvals[tstat_counter,start:end]),surf_count,tstat_counter+1))
 				os.system("echo %f >> perm_maxTFCE_surf%d_tcon%d.csv" % (np.nanmax(neg_tfce_tvals[tstat_counter,start:end]),surf_count,tstat_counter+1))
@@ -430,7 +434,6 @@ def run(opts):
 			if len(opts.tfce) % 2 != 0:
 				print "Error. The must be an even number of input for --tfce"
 				quit()
-			calcTFCE = []
 			tfce_settings_mask = []
 			for i in range(len(opts.tfce)/2):
 				tfce_settings_mask.append((opts.setfcesettings == int(i)))
@@ -445,7 +448,10 @@ def run(opts):
 		# make mega mask
 		fullmask = []
 		for i in range(len(masking_array)):
-			fullmask = np.hstack((fullmask, masking_array[i][:,0,0]))
+			if masking_array[i].shape[2] == 1: # check if vertex or voxel image
+				fullmask = np.hstack((fullmask, masking_array[i][:,0,0]))
+			else:
+				fullmask = np.hstack((fullmask, masking_array[i][masking_array[i]==True]))
 
 		if not opts.noweight:
 			# correction for vertex density
@@ -455,7 +461,8 @@ def run(opts):
 				temp_vdensity = np.zeros((adjacency_array[adjacent_range[i]].shape[0]))
 				for j in xrange(adjacency_array[adjacent_range[i]].shape[0]):
 					temp_vdensity[j] = len(adjacency_array[adjacent_range[i]][j])
-				temp_vdensity = temp_vdensity[masking_array[i][:,0,0]==True]
+				if masking_array[i].shape[2] == 1:
+					temp_vdensity = temp_vdensity[masking_array[i][:,0,0]==True]
 				vdensity = np.hstack((vdensity, np.array((1 - (temp_vdensity/temp_vdensity.max())+(temp_vdensity.mean()/temp_vdensity.max())), dtype=np.float32)))
 			del temp_vdensity
 		else:

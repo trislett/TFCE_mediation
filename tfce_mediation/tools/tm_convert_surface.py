@@ -22,6 +22,7 @@ import nibabel as nib
 import argparse as ap
 import matplotlib.pyplot as plt
 from tfce_mediation.pyfunc import convert_mni_object, convert_fs, convert_gifti, convert_ply, convert_fslabel, save_waveform, save_stl, save_fs, save_ply, convert_redtoyellow, convert_bluetolightblue, convert_mpl_colormaps, convert_fsannot, convert_voxel
+from tfce_mediation.tm_io import savemgh_v2
 
 DESCRIPTION = """
 Conversion of surfaces (freesurfer, gifti *.gii, mni *.obj, ply *.ply) to freesurfer surface or other objects (Waveform *obj, STereoLithography *stl, Polygon File Format *ply) for analysis with TFCE_mediation. *mgh files can also be imported and converted to PLY files.
@@ -61,6 +62,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		help="Must be used with -i_voxel and -o_ply options. Input the sigificance threshold (low and high), and either: red-yellow (r_y), blue-lightblue (b_lb) or any matplotlib colorschemes (https://matplotlib.org/examples/color/colormaps_reference.html). Note, thresholds must be postive. e.g., -vp 0.95 1 r_y", 
 		nargs=3, 
 		metavar=('float','float', 'colormap'))
+	ap.add_argument("-ov_mgh", "--outputvoxelsurfmgh",
+		help="Output a mgh file of the surface. This is only useful for visualization purposes.", 
+		nargs=1)
 
 	ogroup = ap.add_mutually_exclusive_group(required=True)
 	ogroup.add_argument("-o_fs", "--outputfreesurfer",
@@ -114,12 +118,14 @@ def run(opts):
 	if opts.inputvoxel:
 		img = nib.load(opts.inputvoxel[0])
 		img_data = img.get_data()
-		if opts.voxelthreshold and opts.voxelbackbone: 
-			v,f,values = convert_voxel(img_data, affine = img.affine, threshold = float(opts.voxelthreshold), data_mask = opts.voxelbackbone[0])
+		if opts.voxelthreshold and opts.voxelbackbone:
+			mask = nib.load(opts.voxelbackbone[0]).get_data()
+			v,f,values = convert_voxel(img_data, affine = img.affine, threshold = float(opts.voxelthreshold[0]), data_mask = mask)
 		elif opts.voxelthreshold:
-			v,f,values = convert_voxel(img_data, affine = img.affine, threshold = float(opts.voxelthreshold))
+			v,f,values = convert_voxel(img_data, affine = img.affine, threshold = float(opts.voxelthreshold[0]))
 		elif opts.voxelbackbone: 
-			v,f,values = convert_voxel(img_data, affine = img.affine, data_mask = opts.voxelbackbone[0])
+			mask = nib.load(opts.voxelbackbone[0]).get_data()
+			v,f,values = convert_voxel(img_data, affine = img.affine, data_mask = mask)
 		else:
 			v,f,values = convert_voxel(img_data, affine = img.affine)
 	#output
@@ -197,16 +203,22 @@ def run(opts):
 			save_ply(v,f, opts.outputply[0], out_color_array)
 		elif opts.paintvoxelsurface:
 			if (str(opts.paintvoxelsurface[2]) == 'r_y') or (str(opts.paintvoxelsurface[2]) == 'red-yellow'):
-				out_color_array = convert_redtoyellow(np.array(( float(opts.paintvoxelsurface[0]),float(opts.paintvoxelsurface[1]) )), img_data)
+				out_color_array = convert_redtoyellow(np.array(( float(opts.paintvoxelsurface[0]),float(opts.paintvoxelsurface[1]) )), values)
 			elif (str(opts.paintvoxelsurface[2]) == 'b_lb') or (str(opts.paintvoxelsurface[2]) == 'blue-lightblue'):
-				out_color_array = convert_bluetolightblue(np.array(( float(opts.paintvoxelsurface[0]),float(opts.paintvoxelsurface[1]) )), img_data)
+				out_color_array = convert_bluetolightblue(np.array(( float(opts.paintvoxelsurface[0]),float(opts.paintvoxelsurface[1]) )), values)
 			elif np.any(colormaps == str(opts.paintvoxelsurface[2])):
-				out_color_array = convert_mpl_colormaps(np.array(( float(opts.paintvoxelsurface[0]),float(opts.paintvoxelsurface[1]) )), img_data, str(opts.paintvoxelsurface[2]))
+				out_color_array = convert_mpl_colormaps(np.array(( float(opts.paintvoxelsurface[0]),float(opts.paintvoxelsurface[1]) )), values, str(opts.paintvoxelsurface[2]))
 			else:
 				print "Colour scheme %s does not exist" % str(opts.paintvoxelsurface[2])
 				quit()
+			save_ply(v,f, opts.outputply[0], out_color_array)
 		else:
 			save_ply(v,f, opts.outputply[0])
+	if opts.inputvoxel:
+		if opts.outputvoxelsurfmgh:
+			temp_index = np.zeros((len(values),1,1))
+			temp_index = temp_index == 0
+			savemgh_v2(values, temp_index, opts.outputvoxelsurfmgh[0], img.affine)
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

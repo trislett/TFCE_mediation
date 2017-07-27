@@ -39,7 +39,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	ap.add_argument("-i_tmi", "--tmifile",
 		help="Vertex analysis. Input surface: e.g. --vertex [area or thickness]", 
 		nargs=1,
-		metavar=('stats*.tmi'),
+		metavar=('*.tmi'),
 		required=True)
 	ap.add_argument("-sa", "--setadjacencyobjs",
 		help="Specify the adjaceny object to use for each mask. The number of inputs must match the number of masks in the tmi file. Note, the objects start at zero. e.g., -sa 0 1 0 1",

@@ -17,6 +17,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import sys
 import numpy as np
 import argparse as ap
 
@@ -53,6 +54,14 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	return ap
 
 def run(opts):
+	if len(sys.argv) == 3:
+		opts.outputbasicinfo = True
+		opts.fileformat = True
+		opts.headersize = True
+		opts.outputhistory = True
+		opts.outputmaskinfo = True
+		opts.outputshapeinfo = True
+
 	tm_file = opts.inputtmi[0]
 	# getfilesize
 	filesize = os.stat(tm_file).st_size

@@ -52,6 +52,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 	igroup.add_argument("-i_voxel", "--inputvoxel",
 		help="Input a voxel (nifti, minc, mgh). e.g. -i_voxel tstat_pFWER_corr.nii.gz", 
 		nargs=1)
+	ap.add_argument("-vol", "--specifyvolume",
+		help="Specify volume if -i_voxel is 4D (the first volume is 0)", 
+		nargs=1)
 	ap.add_argument("-vt", "--voxelthreshold",
 		help="Apply a threshold to -i_voxel image (zeros everything below value). e.g. -vt 0.95", 
 		nargs=1)
@@ -118,6 +121,12 @@ def run(opts):
 	if opts.inputvoxel:
 		img = nib.load(opts.inputvoxel[0])
 		img_data = img.get_data()
+		if img_data.ndim > 3:
+			if opts.specifyvolume:
+				img_data = img_data[:,:,:,int(opts.specifyvolume[0])]
+			else:
+				print "Error: -i_voxel is a 4D image. Use -vol to specify the volume of interest."
+				quit()
 		if opts.voxelthreshold and opts.voxelbackbone:
 			mask = nib.load(opts.voxelbackbone[0]).get_data()
 			v,f,values = convert_voxel(img_data, affine = img.affine, threshold = float(opts.voxelthreshold[0]), data_mask = mask)

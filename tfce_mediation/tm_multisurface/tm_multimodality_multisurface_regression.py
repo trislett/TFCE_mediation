@@ -62,7 +62,7 @@ def calculate_tfce(merge_y, masking_array, pred_x, calcTFCE, vdensity, position_
 		for surf_count in range(len(masking_array)):
 			start = position_array[surf_count]
 			end = position_array[surf_count+1]
-			if vdensity == 1: # check vdensity is a scalar
+			if isinstance(vdensity, int): # check vdensity is a scalar
 				tfce_tvals[tstat_counter,start:end] = (tfce_temp[start:end] * (tval_temp[start:end].max()/100) * vdensity)
 				neg_tfce_tvals[tstat_counter,start:end] = (neg_tfce_temp[start:end] * ((tval_temp*-1)[start:end].max()/100) * vdensity)
 			else:
@@ -71,6 +71,9 @@ def calculate_tfce(merge_y, masking_array, pred_x, calcTFCE, vdensity, position_
 			if randomise:
 				os.system("echo %f >> perm_maxTFCE_surf%d_tcon%d.csv" % (np.nanmax(tfce_tvals[tstat_counter,start:end]),surf_count,tstat_counter+1))
 				os.system("echo %f >> perm_maxTFCE_surf%d_tcon%d.csv" % (np.nanmax(neg_tfce_tvals[tstat_counter,start:end]),surf_count,tstat_counter+1))
+			else:
+				print "Maximum (untransformed) postive tfce value for surface %s, tcon %d: %f" % (surf_count,tstat_counter+1,np.nanmax(tfce_tvals[tstat_counter,start:end])) 
+				print "Maximum (untransformed) negative tfce value for surface %s, tcon %d: %f" % (surf_count,tstat_counter+1,np.nanmax(neg_tfce_tvals[tstat_counter,start:end]))
 		if verbose:
 			print "T-contrast: %d" % tstat_counter
 			print "Max tfce from all surfaces = %f" % tfce_tvals[tstat_counter].max()
@@ -178,6 +181,13 @@ def merge_adjacency_array(adjacent_range, adjacency_array):
 			adjacency = np.hstack((adjacency, temp_adjacency))
 		v_count += len(adjacency_array[e])
 	return adjacency
+
+def lowest_length(num_contrasts, surface_range, tmifilename):
+	lengths = []
+	for contrast in range(num_contrasts):
+		for surface in surface_range: # the standardization is done within each surface
+			lengths.append(np.array(np.genfromtxt('output_%s/perm_maxTFCE_surf%d_tcon%d.csv' % (tmifilename,surface,contrast+1)).shape[0]))
+	return np.array(lengths).min()
 
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
@@ -293,10 +303,11 @@ def run(opts):
 			print 'Permutation folder not found. Please run --randomise first.'
 			quit()
 
-		#get first file
-		num_perm = len(np.genfromtxt('output_%s/perm_maxTFCE_surf0_tcon1.csv' % opts.tmifile[0]))
+		#check permutation file lengths
 		num_surf = len(masking_array)
 		surface_range = range(num_surf)
+		num_perm = lowest_length(num_contrasts, surface_range, opts.tmifile[0])
+
 		if opts.setsurfacerange:
 			surface_range = range(opts.setsurfacerange[0], opts.setsurfacerange[1]+1)
 		elif opts.setsurface:
@@ -312,9 +323,10 @@ def run(opts):
 		temp_max = np.zeros((num_perm,num_surf))
 		positive_data = np.zeros((image_array[0].shape[0],num_contrasts))
 		negative_data = np.zeros((image_array[0].shape[0],num_contrasts))
+
 		for contrast in range(num_contrasts):
 			for surface in surface_range: # the standardization is done within each surface
-				log_results = np.log(np.genfromtxt('output_%s/perm_maxTFCE_surf%d_tcon%d.csv' % (opts.tmifile[0],surface,contrast+1)))
+				log_results = np.log(np.genfromtxt('output_%s/perm_maxTFCE_surf%d_tcon%d.csv' % (opts.tmifile[0],surface,contrast+1)))[:num_perm]
 				start = position_array[surface]
 				end = position_array[surface+1]
 				positive_data[start:end,contrast] = np.log(image_array[0][start:end,pos_range[contrast]]) # log and z transform the images by the permutation values (the max tfce values are left skewed)

@@ -691,7 +691,7 @@ def write_colorbar(threshold, input_cmap, name_cmap, outtype = 'png'):
 # affine = affine [4x4] to convert vertices values to native space
 # threshold = threshold for output of voxels
 # data_mask = use a mask to create a surface backbone
-def convert_voxel(img_data, affine = None, threshold = None, data_mask = None):
+def convert_voxel(img_data, affine = None, threshold = None, data_mask = None, absthreshold = None):
 	try:
 		from skimage import measure
 	except:
@@ -700,6 +700,9 @@ def convert_voxel(img_data, affine = None, threshold = None, data_mask = None):
 	if threshold is not None:
 		print "Zeroing data less than threshold = %1.2f" % threshold
 		img_data[img_data<threshold] = 0
+	if absthreshold is not None:
+		print "Zeroing absolute values less than threshold = %1.2f" % absthreshold
+		img_data[np.abs(img_data)<threshold] = 0
 	if data_mask is not None:
 		print "Including mask"
 		data_mask *= .1

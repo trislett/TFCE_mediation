@@ -25,8 +25,9 @@ import matplotlib.pyplot as plt
 
 from tfce_mediation.cynumstats import resid_covars, tval_int
 from tfce_mediation.tfce import CreateAdjSet
-from tfce_mediation.tm_io import read_tm_filetype, write_tm_filetype, savemgh_v2
-from tfce_mediation.pyfunc import save_ply, convert_redtoyellow, convert_bluetolightblue, convert_mpl_colormaps, calc_sobelz
+from tfce_mediation.tm_io import read_tm_filetype, write_tm_filetype, savemgh_v2, savenifti_v2
+from tfce_mediation.pyfunc import save_ply, convert_redtoyellow, convert_bluetolightblue, convert_mpl_colormaps, calc_sobelz, convert_voxel
+
 
 DESCRIPTION = "Multisurface multiple regression with TFCE and tmi formated neuroimaging files."
 
@@ -177,7 +178,7 @@ def merge_adjacency_array(adjacent_range, adjacency_array):
 		else:
 			temp_adjacency = np.copy(adjacency_array[e])
 			for i in range(len(adjacency_array[e])):
-				temp_adjacency[i] = np.add(temp_adjacency[i], v_count).tolist()
+				temp_adjacency[i] = np.add(list(temp_adjacency[i]), v_count).tolist() # list fixes 'set' 'int' error
 			adjacency = np.hstack((adjacency, temp_adjacency))
 		v_count += len(adjacency_array[e])
 	return adjacency
@@ -188,6 +189,12 @@ def lowest_length(num_contrasts, surface_range, tmifilename):
 		for surface in surface_range: # the standardization is done within each surface
 			lengths.append(np.array(np.genfromtxt('output_%s/perm_maxTFCE_surf%d_tcon%d.csv' % (tmifilename,surface,contrast+1)).shape[0]))
 	return np.array(lengths).min()
+
+def saveauto(image_array, index, imagename, affine=None):
+	if index.shape[2] > 1:
+		savenifti_v2(image_array,index, imagename, affine)
+	else:
+		savemgh_v2(image_array,index, imagename, affine)
 
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
@@ -243,7 +250,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		help="Specify the output file type", 
 		nargs='+', 
 		default=['tmi'], 
-		choices=('tmi', 'mgh', 'nii.gz'))
+		choices=('tmi', 'mgh', 'nii.gz', 'auto'))
 	ap.add_argument("-c","--concatestats", 
 		help="Concantenate FWE corrected p statistic images to the stats file. Must be used with -mfwe option", 
 		action="store_true")
@@ -326,20 +333,36 @@ def run(opts):
 
 		for contrast in range(num_contrasts):
 			for surface in surface_range: # the standardization is done within each surface
-				log_results = np.log(np.genfromtxt('output_%s/perm_maxTFCE_surf%d_tcon%d.csv' % (opts.tmifile[0],surface,contrast+1)))[:num_perm]
+				log_perm_results = np.log(np.genfromtxt('output_%s/perm_maxTFCE_surf%d_tcon%d.csv' % (opts.tmifile[0],surface,contrast+1))[:num_perm])
+
 				start = position_array[surface]
 				end = position_array[surface+1]
-				positive_data[start:end,contrast] = np.log(image_array[0][start:end,pos_range[contrast]]) # log and z transform the images by the permutation values (the max tfce values are left skewed)
-				positive_data[start:end,contrast] -= log_results.mean()
-				positive_data[start:end,contrast] /= log_results.std()
-				negative_data[start:end,contrast] = np.log(image_array[0][start:end,neg_range[contrast]])
-				negative_data[start:end,contrast] -= log_results.mean()
-				negative_data[start:end,contrast] /= log_results.std()
-				log_results -= log_results.mean() # standarsize the max TFCE values 
-				log_results /= log_results.std()
-				temp_max[:,surface] = log_results
-				del log_results
+
+				# log transform, standarization
+				posvmask = np.log(image_array[0][start:end,pos_range[contrast]]) > 0
+				temp_lt = np.log(image_array[0][start:end,pos_range[contrast]][posvmask]) # log and z transform the images by the permutation values (the max tfce values are left skewed)
+				temp_lt -= log_perm_results.mean()
+				temp_lt /= log_perm_results.std()
+				temp_lt += 10
+				positive_data[start:end,contrast][posvmask] = temp_lt
+				del temp_lt, posvmask
+
+				posvmask = np.log(image_array[0][start:end,neg_range[contrast]]) > 0
+				temp_lt = np.log(image_array[0][start:end,neg_range[contrast]][posvmask]) # log and z transform the images by the permutation values (the max tfce values are left skewed)
+				temp_lt -= log_perm_results.mean()
+				temp_lt /= log_perm_results.std()
+				temp_lt += 10
+				negative_data[start:end,contrast][posvmask] = temp_lt
+				del temp_lt, posvmask
+
+				log_perm_results -= log_perm_results.mean() # standardize the max TFCE values 
+				log_perm_results /= log_perm_results.std()
+				log_perm_results += 10
+				temp_max[:,surface] = log_perm_results
+
+				del log_perm_results
 			maxvalue_array[:,contrast] = np.sort(temp_max.max(axis=1))
+			del temp_max
 
 		# two for loops just so my brain doesn't explode
 		for contrast in range(num_contrasts):
@@ -366,55 +389,73 @@ def run(opts):
 			_, image_array, masking_array, maskname, affine_array, vertex_array, face_array, surfname, adjacency_array, tmi_history, subjectids = read_tm_filetype(opts.tmifile[0], verbose=False)
 			write_tm_filetype(opts.tmifile[0], image_array = np.column_stack((image_array[0],negative_data)), masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, adjacency_array=adjacency_array, checkname=False, tmi_history=tmi_history)
 		else:
-			if opts.outtype[0] == 'tmi':
-				write_tm_filetype("tstats_pFWER_%s" % opts.tmifile[0], image_array = positive_data, masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
-				write_tm_filetype("negtstats_pFWER_%s" % opts.tmifile[0], image_array = negative_data, masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
-				if opts.neglog:
-					write_tm_filetype("tstats_negLog_pFWER_%s" % opts.tmifile[0], image_array = -np.log10(1-positive_data), masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
-					write_tm_filetype("negtstats_negLog_pFWER_%s" % opts.tmifile[0], image_array = -np.log10(1-negative_data), masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
-			elif opts.outtype[0] == 'mgh':
-				for surf_count in surface_range:
-					start = position_array[surf_count]
-					end = position_array[surf_count+1]
-					basename = strip_basename(maskname[surf_count])
-					if not os.path.exists("output_mgh"):
-						os.mkdir("output_mgh")
-					out_image = positive_data[start:end]
-					temp_image = negative_data[start:end]
-					for contrast in range(num_contrasts):
-						out_image[temp_image[:, contrast] != 0,contrast] = temp_image[temp_image[:, contrast] != 0,contrast] * -1
-					if affine_array == []:
-						savemgh_v2(out_image,masking_array[surf_count], "output_mgh/%d_%s_pFWER.mgh" % (surf_count, basename))
-					else:
-						savemgh_v2(out_image,masking_array[surf_count], "output_mgh/%d_%s_pFWER.mgh" % (surf_count, basename), affine_array[surf_count])
+			for i in range(len(opts.outtype)):
+				if opts.outtype[i] == 'tmi':
+					write_tm_filetype("tstats_pFWER_%s" % opts.tmifile[0], image_array = positive_data, masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
+					write_tm_filetype("negtstats_pFWER_%s" % opts.tmifile[0], image_array = negative_data, masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
 					if opts.neglog:
-						out_image = -np.log10(1-positive_data[start:end,contrast])
-						temp_image = np.log10(1-negative_data[start:end,contrast])
+						write_tm_filetype("tstats_negLog_pFWER_%s" % opts.tmifile[0], image_array = -np.log10(1-positive_data), masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
+						write_tm_filetype("negtstats_negLog_pFWER_%s" % opts.tmifile[0], image_array = -np.log10(1-negative_data), masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
+				else:
+					if opts.outtype[i] == 'mgh':
+						savefunc = savemgh_v2
+					if opts.outtype[i] == 'nii.gz':
+						savefunc = savenifti_v2
+					if opts.outtype[i] == 'auto':
+						savefunc = saveauto
+					for surf_count in surface_range:
+						start = position_array[surf_count]
+						end = position_array[surf_count+1]
+						basename = strip_basename(maskname[surf_count])
+						if not os.path.exists("output_stats"):
+							os.mkdir("output_stats")
+						out_image = positive_data[start:end]
+						temp_image = negative_data[start:end]
 						for contrast in range(num_contrasts):
-							out_image[temp_image[:, contrast] != 0,contrast] = temp_image[temp_image[:, contrast] != 0,contrast]
+							out_image[temp_image[:, contrast] != 0,contrast] = temp_image[temp_image[:, contrast] != 0,contrast] * -1
 						if affine_array == []:
-							savemgh_v2(out_image,masking_array[surf_count], "output_mgh/%d_%s_negLog_pFWER.mgh" % (surf_count, basename))
+							savefunc(out_image,masking_array[surf_count], "output_stats/%d_%s_pFWER" % (surf_count, basename))
 						else:
-							savemgh_v2(out_image,masking_array[surf_count], "output_mgh/%d_%s_negLog_pFWER.mgh" % (surf_count, basename), affine_array[surf_count])
-			else:
-				print "Error: file type %s not implemented yet" % opts.outtype[0]
-				quit()
+							savefunc(out_image,masking_array[surf_count], "output_stats/%d_%s_pFWER" % (surf_count, basename), affine_array[surf_count])
+						if opts.neglog:
+							out_image = -np.log10(1-positive_data[start:end,contrast])
+							temp_image = np.log10(1-negative_data[start:end,contrast])
+							for contrast in range(num_contrasts):
+								out_image[temp_image[:, contrast] != 0,contrast] = temp_image[temp_image[:, contrast] != 0,contrast]
+							if affine_array == []:
+								savefunc(out_image,masking_array[surf_count], "output_stats/%d_%s_negLog_pFWER" % (surf_count, basename))
+							else:
+								savefunc(out_image,masking_array[surf_count], "output_stats/%d_%s_negLog_pFWER" % (surf_count, basename), affine_array[surf_count])
 		if opts.outputply:
+			if not os.path.exists("output_ply"):
+				os.mkdir("output_ply")
 			for contrast in range(num_contrasts):
 				for surf_count in surface_range:
 					start = position_array[surf_count]
 					end = position_array[surf_count+1]
 					basename = strip_basename(maskname[surf_count])
-					img_data = np.zeros((masking_array[surf_count].shape[0]))
-					img_data[masking_array[surf_count][:,0,0]==True] = positive_data[start:end,contrast]
-					out_color_array = paint_surface(opts.outputply[0], opts.outputply[1], opts.outputply[2], img_data)
-					img_data[masking_array[surf_count][:,0,0]==True] = negative_data[start:end,contrast]
-					index = img_data > float(opts.outputply[0])
-					out_color_array2 = paint_surface(opts.outputply[0], opts.outputply[1], opts.outputply[3], img_data)
-					out_color_array[index,:] = out_color_array2[index,:]
-					if not os.path.exists("output_ply"):
-						os.mkdir("output_ply")
-					save_ply(vertex_array[surf_count],face_array[surf_count], "output_ply/%d_%s_pFWE_tcon%d.ply" % (surf_count, basename, contrast+1), out_color_array)
+					if masking_array[surf_count].shape[2] > 1:
+						img_data = np.zeros((masking_array[surf_count].shape))
+						combined_data = positive_data[start:end,contrast]
+						combined_data[combined_data<=0] = negative_data[start:end,contrast][combined_data<=0] * -1
+						combined_data[np.abs(combined_data)<float(opts.outputply[0])] = 0
+						img_data[masking_array[surf_count]] = combined_data
+						v, f, values = convert_voxel(img_data, affine = affine_array[surf_count], absthreshold = float(opts.outputply[0]))
+						out_color_array = paint_surface(opts.outputply[0], opts.outputply[1], opts.outputply[2], values)
+						negvalues = values * -1
+						index = negvalues > float(opts.outputply[0])
+						out_color_array2 = paint_surface(opts.outputply[0], opts.outputply[1], opts.outputply[3], negvalues)
+						out_color_array[index,:] = out_color_array2[index,:]
+						save_ply(v,f, "output_ply/%d_%s_pFWE_tcon%d.ply" % (surf_count, basename, contrast+1), out_color_array)
+					else:
+						img_data = np.zeros((masking_array[surf_count].shape[0]))
+						img_data[masking_array[surf_count][:,0,0]==True] = positive_data[start:end,contrast]
+						out_color_array = paint_surface(opts.outputply[0], opts.outputply[1], opts.outputply[2], img_data)
+						img_data[masking_array[surf_count][:,0,0]==True] = negative_data[start:end,contrast]
+						index = img_data > float(opts.outputply[0])
+						out_color_array2 = paint_surface(opts.outputply[0], opts.outputply[1], opts.outputply[3], img_data)
+						out_color_array[index,:] = out_color_array2[index,:]
+						save_ply(vertex_array[surf_count],face_array[surf_count], "output_ply/%d_%s_pFWE_tcon%d.ply" % (surf_count, basename, contrast+1), out_color_array)
 	else:
 		# read tmi file
 		if opts.randomise:

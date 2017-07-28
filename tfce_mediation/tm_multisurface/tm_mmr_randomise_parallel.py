@@ -64,6 +64,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	parallel.add_argument("-f","--fslsub", 
 		help="Use fsl_sub script.",
 		action="store_true")
+	parallel.add_argument("-t","--cmdtext", 
+		help="Outputs a text file with one command per line.",
+		action="store_true")
 	return ap
 
 def run(opts):
@@ -100,6 +103,8 @@ def run(opts):
 		os.system("submit_condor_jobs_file cmd_MStmi_randomise_%d" % (currentTime) )
 	elif opts.fslsub:
 		os.system("${FSLDIR}/bin/fsl_sub -t cmd_MStmi_randomise_%d" % (currentTime) )
+	elif opts.cmdtext:
+		pass
 	else:
 		print "Submit cmd_MStmi_randomise_%d to your job clustering platform for randomisation." % (currentTime)
 

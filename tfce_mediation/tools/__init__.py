@@ -19,3 +19,5 @@ from . import tm_remove_components
 from . import tm_gd_fwhm_smoothing
 from . import tm_convert_surface
 from . import create_tmi
+from . import read_tmi_header
+from . import tm_mulitmodality_adjacency

@@ -20,6 +20,7 @@ def configuration(parent_package = "", top_path = None):
 
 	CONFIG.add_subpackage("tmanalysis")
 	CONFIG.add_subpackage("tools")
+	CONFIG.add_subpackage("tm_multisurface")
 
 	CONFIG.add_extension("tfce", 
 		sources = ["tfce.pyx"],

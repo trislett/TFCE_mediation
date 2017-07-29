@@ -39,6 +39,7 @@ def configuration(parent_package = "", top_path = None):
   CONFIG.add_scripts(os.path.join("bin", PACKAGE_NAME))
   CONFIG.add_scripts(os.path.join("bin", "tm_tools"))
   CONFIG.add_scripts(os.path.join("bin", "tm_maths"))
+  CONFIG.add_scripts(os.path.join("bin", "tm_multimodal"))
   CONFIG.add_scripts(os.path.join("bin", "submit_condor_jobs_file"))
 
   CONFIG.add_subpackage(PACKAGE_NAME)

@@ -225,7 +225,7 @@ def run(opts):
 		for i in range(len(opts.inputtext)):
 			#img_data = np.genfromtxt(opts.inputtext[i], delimiter=',') # slower, more ram usage
 			img_data = []
-			with open('lh_cortical_thickness_for_all_subjects.csv') as data_file:
+			with open(opts.inputtext[i]) as data_file:
 				for line in data_file:
 					img_data.append(line.strip().split(','))
 			img_data = np.array(img_data).astype(np.float32)

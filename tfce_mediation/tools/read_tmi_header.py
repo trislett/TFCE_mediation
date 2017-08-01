@@ -54,7 +54,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	return ap
 
 def run(opts):
-	if len(sys.argv) == 3:
+	if len(sys.argv) <= 4:
 		opts.outputbasicinfo = True
 		opts.fileformat = True
 		opts.headersize = True

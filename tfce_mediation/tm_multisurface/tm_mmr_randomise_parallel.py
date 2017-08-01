@@ -75,7 +75,8 @@ def run(opts):
 
 	#load the proper script
 
-	whichScript="python %s/tm_multimodality_multisurface_regression.py" % get_script_path()
+#	whichScript="python %s/tm_multimodality_multisurface_regression.py" % get_script_path()
+	whichScript="tm_multimodal mmr"
 
 	#round number of permutations to the nearest 200
 	roundperm=int(np.round(opts.numperm[0]/200.0)*100.0)

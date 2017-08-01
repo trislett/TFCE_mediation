@@ -16,6 +16,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
 import os
 import numpy as np
 import math
@@ -196,6 +197,87 @@ def saveauto(image_array, index, imagename, affine=None):
 	else:
 		savemgh_v2(image_array,index, imagename, affine)
 
+def apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, tminame, position_array, pos_range, neg_range, method='scale', weight=None):
+
+	maxvalue_array = np.zeros((num_perm,num_contrasts))
+	temp_max = np.zeros((num_perm, num_surf))
+	positive_data = np.zeros((image_array[0].shape[0],num_contrasts))
+	negative_data = np.zeros((image_array[0].shape[0],num_contrasts))
+
+	if weight == 'logmasksize':
+		x = []
+		for i in range(len(position_array)-1):
+			x.append((position_array[i+1] - position_array[i]))
+		weights = (np.log(x)/np.log(x).sum())/np.mean(np.log(x)/np.log(x).sum())
+		w_temp_max = np.zeros((num_perm, num_surf))
+
+	for contrast in range(num_contrasts):
+		for surface in surface_range: # the standardization is done within each surface
+			log_perm_results = np.log(np.genfromtxt('output_%s/perm_maxTFCE_surf%d_tcon%d.csv' % (tminame,surface,contrast+1))[:num_perm])
+			# set log(0) back to zero (only happens with very small masks and very large effect sizes)
+			log_perm_results[np.isinf(log_perm_results)] = 0
+			start = position_array[surface]
+			end = position_array[surface+1]
+
+			# log transform, standarization
+			posvmask = np.log(image_array[0][start:end,pos_range[contrast]]) > 0
+			temp_lt = np.log(image_array[0][start:end,pos_range[contrast]][posvmask]) # log and z transform the images by the permutation values (the max tfce values are left skewed)
+			temp_lt -= log_perm_results.mean()
+			temp_lt /= log_perm_results.std()
+			temp_lt += 10
+			positive_data[start:end,contrast][posvmask] = temp_lt
+			del temp_lt, posvmask
+
+			posvmask = np.log(image_array[0][start:end,neg_range[contrast]]) > 0
+			temp_lt = np.log(image_array[0][start:end,neg_range[contrast]][posvmask]) # log and z transform the images by the permutation values (the max tfce values are left skewed)
+			temp_lt -= log_perm_results.mean()
+			temp_lt /= log_perm_results.std()
+			temp_lt += 10
+			negative_data[start:end,contrast][posvmask] = temp_lt
+			del temp_lt, posvmask
+
+			log_perm_results -= log_perm_results.mean() # standardize the max TFCE values 
+			log_perm_results /= log_perm_results.std()
+			if weight == 'logmasksize':
+				w_log_perm_results = log_perm_results * weights[surface]
+				w_log_perm_results += 10
+				w_temp_max[:,surface] = w_log_perm_results
+#					del w_log_perm_results
+			log_perm_results += 10
+			temp_max[:,surface] = log_perm_results
+#				del log_perm_results
+		if weight == 'logmasksize':
+			w_temp_max[np.isnan(w_temp_max)]=0
+			max_index = np.argmax(w_temp_max, axis=1)
+			max_value_list = np.zeros((len(max_index)),dtype=np.float32) # this should not be necessary
+			for i in range(len(temp_max)):
+				max_value_list[i]= temp_max[i,max_index[i]]
+			maxvalue_array[:,contrast] = np.sort(max_value_list)
+			del max_value_list
+		else:
+			maxvalue_array[:,contrast] = np.sort(temp_max.max(axis=1))
+	del temp_max
+	# two for loops just so my brain doesn't explode
+	for contrast in range(num_contrasts):
+		sorted_perm_tfce_max=maxvalue_array[:,contrast]
+		p_array=np.zeros_like(sorted_perm_tfce_max)
+		corrp_img = np.zeros((positive_data.shape[0]))
+		for j in xrange(num_perm):
+			p_array[j] = np.true_divide(j,num_perm)
+		cV=0
+		for k in positive_data[:,contrast]:
+			corrp_img[cV] = find_nearest(sorted_perm_tfce_max,k,p_array)
+			cV+=1
+		positive_data[:,contrast] = np.copy(corrp_img)
+		cV=0
+		corrp_img = np.zeros((negative_data.shape[0]))
+		for k in negative_data[:,contrast]:
+			corrp_img[cV] = find_nearest(sorted_perm_tfce_max,k,p_array)
+			cV+=1
+		negative_data[:,contrast] = np.copy(corrp_img)
+
+	return positive_data, negative_data
+
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 
@@ -286,7 +368,7 @@ def run(opts):
 			print 'Print file format is not understood. Please make sure %s is statistics file.' % opts.tmifile[0]
 			quit()
 		else:
-			num_contrasts = image_array[0].shape[1] / 3
+			num_contrasts = int(image_array[0].shape[1] / 3)
 
 		# get surface coordinates in data array
 		pointer = 0
@@ -326,62 +408,9 @@ def run(opts):
 			quit()
 		print "Reading %d contrast(s) from %d of %d surface(s)" % ((num_contrasts),len(surface_range), num_surf)
 		print "Reading %s permutations with an accuracy of p=0.05+/-%.4f" % (num_perm,(2*(np.sqrt(0.05*0.95/num_perm))))
-		maxvalue_array = np.zeros((num_perm,num_contrasts))
-		temp_max = np.zeros((num_perm, num_surf))
-		positive_data = np.zeros((image_array[0].shape[0],num_contrasts))
-		negative_data = np.zeros((image_array[0].shape[0],num_contrasts))
 
-		for contrast in range(num_contrasts):
-			for surface in surface_range: # the standardization is done within each surface
-				log_perm_results = np.log(np.genfromtxt('output_%s/perm_maxTFCE_surf%d_tcon%d.csv' % (opts.tmifile[0],surface,contrast+1))[:num_perm])
-
-				start = position_array[surface]
-				end = position_array[surface+1]
-
-				# log transform, standarization
-				posvmask = np.log(image_array[0][start:end,pos_range[contrast]]) > 0
-				temp_lt = np.log(image_array[0][start:end,pos_range[contrast]][posvmask]) # log and z transform the images by the permutation values (the max tfce values are left skewed)
-				temp_lt -= log_perm_results.mean()
-				temp_lt /= log_perm_results.std()
-				temp_lt += 10
-				positive_data[start:end,contrast][posvmask] = temp_lt
-				del temp_lt, posvmask
-
-				posvmask = np.log(image_array[0][start:end,neg_range[contrast]]) > 0
-				temp_lt = np.log(image_array[0][start:end,neg_range[contrast]][posvmask]) # log and z transform the images by the permutation values (the max tfce values are left skewed)
-				temp_lt -= log_perm_results.mean()
-				temp_lt /= log_perm_results.std()
-				temp_lt += 10
-				negative_data[start:end,contrast][posvmask] = temp_lt
-				del temp_lt, posvmask
-
-				log_perm_results -= log_perm_results.mean() # standardize the max TFCE values 
-				log_perm_results /= log_perm_results.std()
-				log_perm_results += 10
-				temp_max[:,surface] = log_perm_results
-
-				del log_perm_results
-			maxvalue_array[:,contrast] = np.sort(temp_max.max(axis=1))
-		del temp_max
-
-		# two for loops just so my brain doesn't explode
-		for contrast in range(num_contrasts):
-			sorted_perm_tfce_max=maxvalue_array[:,contrast]
-			p_array=np.zeros_like(sorted_perm_tfce_max)
-			corrp_img = np.zeros((positive_data.shape[0]))
-			for j in xrange(num_perm):
-				p_array[j] = np.true_divide(j,num_perm)
-			cV=0
-			for k in positive_data[:,contrast]:
-				corrp_img[cV] = find_nearest(sorted_perm_tfce_max,k,p_array)
-				cV+=1
-			positive_data[:,contrast] = np.copy(corrp_img)
-			cV=0
-			corrp_img = np.zeros((negative_data.shape[0]))
-			for k in negative_data[:,contrast]:
-				corrp_img[cV] = find_nearest(sorted_perm_tfce_max,k,p_array)
-				cV+=1
-			negative_data[:,contrast] = np.copy(corrp_img)
+		# calculate the P(FWER) images from all surfaces
+		positive_data, negative_data = apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, opts.tmifile[0], position_array, pos_range, neg_range, weight='logmasksize')
 
 		# write out files
 		if opts.concatestats: 

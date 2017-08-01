@@ -238,6 +238,9 @@ def run(opts):
 			if opts.datatype[0] == 'voxel':
 				outname = 'adjac_set_%d_dir%d_%s.npy' % (i,opts.voxeladjacency[0], basename)
 				np.save(outname,adjacency[i])
+			elif opts.setappendadj:
+				outname = 'adjac_set_%d_%1.2fmm_%s.npy' % (i, float(opts.setappendadj[0]), basename)
+				np.save(outname,adjacency[i])
 			else:
 				count = 0
 				for j in step_range:

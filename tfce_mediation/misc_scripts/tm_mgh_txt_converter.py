@@ -3,6 +3,7 @@
 import numpy as np
 import nibabel as nib
 import argparse as ap
+import os
 
 from tfce_mediation.pyfunc import loadmgh
 
@@ -28,6 +29,11 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 def run(opts):
 	if opts.inputtxt:
 		txtname = opts.inputtxt[0]
+
+		if txtname.endswith(('.mgh', '.mgz')):
+			print "Error: mgh file input detected. Please use -s option."
+			quit()
+
 		surfVals = np.loadtxt(txtname, dtype=np.float, delimiter=',')
 		if opts.transpose:
 			print "Transposing array"
@@ -40,14 +46,24 @@ def run(opts):
 		if surfVals.ndim == 2:
 			outsurf = np.zeros((numVert,1,1,surfVals.shape[1]))
 			outsurf[:,0,0,:] = surfVals
+		txtname = os.path.splitext(txtname)[0]
 		nib.save(nib.freesurfer.mghformat.MGHImage(outsurf.astype(np.float32, order = "C"),affine=None),'%s.mgh' % txtname)
 	if opts.inputsurface:
 		surfname = opts.inputsurface[0]
+
+		if surfname.endswith(('.txt', '.csv')):
+			print "Error: text file input detected. Please use -i option."
+			quit()
+
 		img, imgdata = loadmgh(surfname)
 		if imgdata.ndim==3:
 			imgdata = imgdata[:,0,0]
 		if imgdata.ndim==4:
 			imgdata = imgdata[:,0,0,:]
+		if opts.transpose:
+			print "Transposing array"
+			imgdata = imgdata.T
+		surfname = os.path.splitext(surfname)[0]
 		np.savetxt(("%s.csv" % surfname), imgdata, delimiter=",", fmt='%10.8f')
 if __name__ == "__main__":
 	parser = getArgumentParser()

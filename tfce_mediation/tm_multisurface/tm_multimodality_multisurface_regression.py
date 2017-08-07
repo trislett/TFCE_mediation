@@ -197,7 +197,7 @@ def saveauto(image_array, index, imagename, affine=None):
 	else:
 		savemgh_v2(image_array,index, imagename, affine)
 
-def apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, tminame, position_array, pos_range, neg_range, method='scale', weight=None):
+def apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, tminame, position_array, pos_range, neg_range, method = 'scale', weight = None): # weight = None is essentially Tippet without considering mask size
 
 	maxvalue_array = np.zeros((num_perm,num_contrasts))
 	temp_max = np.zeros((num_perm, num_surf))
@@ -208,13 +208,13 @@ def apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, t
 		x = []
 		for i in range(len(position_array)-1):
 			x.append((position_array[i+1] - position_array[i]))
-		weights = (np.log(x)/np.log(x).sum())/np.mean(np.log(x)/np.log(x).sum())
+		weights = (np.log(x)/np.log(x).sum())/np.mean(np.log(x)/np.log(x).sum()) # weights between mask size and max values probablity.
 		w_temp_max = np.zeros((num_perm, num_surf))
 
 	for contrast in range(num_contrasts):
 		for surface in surface_range: # the standardization is done within each surface
 			log_perm_results = np.log(np.genfromtxt('output_%s/perm_maxTFCE_surf%d_tcon%d.csv' % (tminame,surface,contrast+1))[:num_perm])
-			# set log(0) back to zero (only happens with very small masks and very large effect sizes)
+			# set log(0) back to zero (only happens with small masks and very large effect sizes)
 			log_perm_results[np.isinf(log_perm_results)] = 0
 			start = position_array[surface]
 			end = position_array[surface+1]
@@ -222,6 +222,9 @@ def apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, t
 			# log transform, standarization
 			posvmask = np.log(image_array[0][start:end,pos_range[contrast]]) > 0
 			temp_lt = np.log(image_array[0][start:end,pos_range[contrast]][posvmask]) # log and z transform the images by the permutation values (the max tfce values are left skewed)
+			if weight == 'unstandardize':
+				temp_mean = log_perm_results.mean()
+				temp_std = log_perm_results.std()
 			temp_lt -= log_perm_results.mean()
 			temp_lt /= log_perm_results.std()
 			temp_lt += 10
@@ -242,11 +245,16 @@ def apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, t
 				w_log_perm_results = log_perm_results * weights[surface]
 				w_log_perm_results += 10
 				w_temp_max[:,surface] = w_log_perm_results
-#					del w_log_perm_results
+			if weight == 'unstandardize':
+				w_log_perm_results = log_perm_results * temp_std
+				w_log_perm_results += temp_mean
+				w_log_perm_results += 10
+				w_temp_max[:,surface] = w_log_perm_results
 			log_perm_results += 10
 			temp_max[:,surface] = log_perm_results
-#				del log_perm_results
-		if weight == 'logmasksize':
+
+
+		if not weight == None:
 			w_temp_max[np.isnan(w_temp_max)]=0
 			max_index = np.argmax(w_temp_max, axis=1)
 			max_value_list = np.zeros((len(max_index)),dtype=np.float32) # this should not be necessary
@@ -410,7 +418,7 @@ def run(opts):
 		print "Reading %s permutations with an accuracy of p=0.05+/-%.4f" % (num_perm,(2*(np.sqrt(0.05*0.95/num_perm))))
 
 		# calculate the P(FWER) images from all surfaces
-		positive_data, negative_data = apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, opts.tmifile[0], position_array, pos_range, neg_range, weight='logmasksize')
+		positive_data, negative_data = apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, opts.tmifile[0], position_array, pos_range, neg_range, weight='unstandardize')
 
 		# write out files
 		if opts.concatestats: 

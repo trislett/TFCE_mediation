@@ -69,7 +69,7 @@ def savenifti_v2(image_array, index, imagename, affine=None):
 #  WRITE TMI  #
 ###############
 
-def write_tm_filetype(outname, subjectids = [], imgtype = [], checkname = True, output_binary = True, image_array = [], masking_array = [], maskname = [],  affine_array = [], vertex_array = [], face_array = [], surfname = [], adjacency_array = [], tmi_history = []): # NOTE: add ability to store subjectids and imgtypes
+def write_tm_filetype(outname, subjectids = [], imgtype = [], checkname = True, output_binary = True, image_array = [], masking_array = [], maskname = [],  affine_array = [], vertex_array = [], face_array = [], surfname = [], adjacency_array = [], tmi_history = [], append_history = True): # NOTE: add ability to store subjectids and imgtypes
 	# timestamp
 	currentTime=int(strftime("%Y%m%d%H%M%S",gmtime()))
 	# counters
@@ -213,7 +213,8 @@ def write_tm_filetype(outname, subjectids = [], imgtype = [], checkname = True, 
 				o.write("listlength %d\n" % len(subjectids[0]))
 
 		# create a recorded of what was added to the file. 'mode_add' denotes these items were added. tmi_history is expandable.
-		tmi_history.append("history mode_add %d %d %d %d %d %d" % (currentTime, num_data, num_mask-h_mask, num_affine-h_affine, num_object-h_object, num_adjacency-h_adjacency) )
+		if append_history:
+			tmi_history.append("history mode_add %d %d %d %d %d %d" % (currentTime, num_data, num_mask-h_mask, num_affine-h_affine, num_object-h_object, num_adjacency-h_adjacency) )
 		for i in range(len(tmi_history)):
 			o.write('%s\n' % (tmi_history[i]) )
 		o.write("end_header\n")

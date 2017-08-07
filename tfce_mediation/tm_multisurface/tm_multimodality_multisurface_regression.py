@@ -222,9 +222,6 @@ def apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, t
 			# log transform, standarization
 			posvmask = np.log(image_array[0][start:end,pos_range[contrast]]) > 0
 			temp_lt = np.log(image_array[0][start:end,pos_range[contrast]][posvmask]) # log and z transform the images by the permutation values (the max tfce values are left skewed)
-			if weight == 'unstandardize':
-				temp_mean = log_perm_results.mean()
-				temp_std = log_perm_results.std()
 			temp_lt -= log_perm_results.mean()
 			temp_lt /= log_perm_results.std()
 			temp_lt += 10
@@ -243,11 +240,6 @@ def apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, t
 			log_perm_results /= log_perm_results.std()
 			if weight == 'logmasksize':
 				w_log_perm_results = log_perm_results * weights[surface]
-				w_log_perm_results += 10
-				w_temp_max[:,surface] = w_log_perm_results
-			if weight == 'unstandardize':
-				w_log_perm_results = log_perm_results * temp_std
-				w_log_perm_results += temp_mean
 				w_log_perm_results += 10
 				w_temp_max[:,surface] = w_log_perm_results
 			log_perm_results += 10
@@ -418,7 +410,7 @@ def run(opts):
 		print "Reading %s permutations with an accuracy of p=0.05+/-%.4f" % (num_perm,(2*(np.sqrt(0.05*0.95/num_perm))))
 
 		# calculate the P(FWER) images from all surfaces
-		positive_data, negative_data = apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, opts.tmifile[0], position_array, pos_range, neg_range, weight='unstandardize')
+		positive_data, negative_data = apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, opts.tmifile[0], position_array, pos_range, neg_range, weight='logmasksize')
 
 		# write out files
 		if opts.concatestats: 

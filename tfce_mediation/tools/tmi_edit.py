@@ -26,7 +26,6 @@ from time import gmtime, strftime
 
 from tfce_mediation.pyfunc import convert_mni_object, convert_fs, convert_gifti, convert_ply
 from tfce_mediation.tm_io import write_tm_filetype, read_tm_filetype
-from tfce_mediation.pyfunc import zscaler
 
 def maskdata(data):
 	if data.ndim==4:
@@ -52,6 +51,43 @@ def maskdata(data):
 		exit()
 	return (data, mask)
 
+def replacemask(orig_mask, orig_maskname, maskfile):
+	mask = nib.load(maskfile)
+	mask_data = mask.get_data()
+	_, mask_index = maskdata(mask_data)
+	if not orig_mask.shape == mask_index.shape:
+		print "Error. Replacement mask dimensions %s does not match the original mask dimensions %s" % (mask_index.shape, orig_mask.shape)
+		sys.exit()
+	newname = raw_input("Enter a new mask name or press enter to keep the exist replacement name: %s\n" % orig_maskname)
+	if newname:
+		mask_name = newname
+	else:
+		mask_name = orig_maskname
+	return (mask_index, mask_name)
+
+def replacesurface(orig_v, orig_f, surf_filename):
+	surf_ext = os.path.splitext(surf_filename)[1]
+	surfname = os.path.basename(surf_filename)
+	if surf_ext == '.ply':
+		v, f = convert_ply(surf_filename)
+	elif surf_ext == '.gii':
+		v, f = convert_gifti(surf_filename)
+	elif surf_ext == '.obj':
+		print "Reading surface as MNI object"
+		v, f = convert_mni_object(surf_filename)
+	elif surf_ext == '.srf':
+		v, f = convert_fs(surf_filename)
+	else:
+		v, f = convert_fs(surf_filename) # place holder
+	if not orig_v.shape == v.shape:
+		print "Error. Vertices shape mismatch."
+		sys.exit()
+	if not orig_f.shape == f.shape:
+		print "Error. Faces shape mismatch."
+		sys.exit()
+	return  v, f, surfname
+
+
 DESCRIPTION = "Edit tmi file."
 
 #arguments parser
@@ -65,14 +101,63 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 	ap.add_argument("-oh", "--history",
 		help="Output tmi file history and exits.", 
 		action='store_true')
-	ap.add_argument("-r", "--revert",
+	ap.add_argument("--revert",
 		help="Revert tmi to earlier time-point (removed elements cannot be restored!). Make sure to check the history first (-oh) or by using tm_multimodal read-tmi-header. Input the time-point that you wish to revert the tmi file. e.g. -r 5",
 		nargs=1, 
 		metavar='int',
 		required=False)
+	ap.add_argument("-rm", "--replacemask",
+		help="Edit existing *.tmi file.",
+		nargs=2, 
+		metavar=('int', 'nii.gz|minc|mgh'),
+		required=False)
+	ap.add_argument("-rom", "--reordermasks",
+		help="Edit existing *.tmi file.",
+		nargs='+', 
+		metavar=('int'),
+		type=int,
+		required=False)
+	ap.add_argument("-ra", "--replaceaffine",
+		help="Replace existing affine with inputted one. Must specifiy affine, and input 4x4 affine (as a *.csv). e.g., -ra 2 new_affine.csv",
+		nargs=2, 
+		metavar=('int', '*.csv'),
+		required=False)
+	ap.add_argument("-roa", "--reorderaffines",
+		help="Reorder the existing affines. The number of inputs must match the number of affines. e.g., -rom 3 4 1 2",
+		nargs='+', 
+		metavar=('int'),
+		type=int,
+		required=False)
+	ap.add_argument("-rs", "--replacesurface",
+		help="Replace existing surface with inputted one. Must specifiy surface to replace, and input a freesurface object (no extension or *.srf). e.g., -rs 2 lh.midthickness.",
+		nargs=2, 
+		metavar=('int', '*.srf'),
+		required=False)
+	ap.add_argument("-ros", "--reordersurfaces",
+		help="Reorder the existing surfaces. The number of inputs must match the number of surfaces. e.g., -ros 3 4 1 2. Note, both vertices and faces will be reordered.",
+		nargs='+',
+		type=int,
+		metavar=('int'),
+		required=False)
+	ap.add_argument("-radj", "--replaceadj",
+		help="Replace existing adjacency with inputted one. Must specifiy adjacency, and input new adjacency (as a *.npy). e.g., -radj 2 lh.midthickness.adj.3mm.npy",
+		nargs=2,
+		metavar=('int', '*.npy'),
+		required=False)
+	ap.add_argument("-roadj", "--reorderadj",
+		help="Reorder the existing adjacency sets. The number of inputs must match the number of adjacency sets. e.g., -roadj 3 4 1 2.",
+		nargs='+',
+		type=int,
+		metavar=('int'),
+		required=False)
+	ap.add_argument("-d", "--delete",
+		help="Remove element(s). Input the type {mask|affine|surface|adjacency} and the element number or range. e.g. -d mask 2 3 OR -d surface 3",
+		nargs='+',
+		metavar=('element','int'),
+		required=False)
 	ap.add_argument("-o", "--outputnewtmi",
 		help="Output a new tmi file (instead of editing existing one).",
-		nargs=1, 
+		nargs=1,
 		metavar='*.tmi',
 		required=False)
 
@@ -112,19 +197,30 @@ def run(opts):
 				num_affines -= int(line[5])
 				num_surfaces -= int(line[6])
 				num_adjac -= int(line[7])
+			elif line[1] == 'mode_replace':
+				print "Element replaced"
+			elif line[1] == 'mode_reorder':
+				print "Element reordered"
 			else:
 				print "Error: mode is not understood"
-			print "Number of masks: %s" % line[4]
-			print "Number of affines: %s" % line[5]
-			print "Number of surfaces: %s" % line[6]
-			print "Number of adjacency sets: %s\n" % line[7]
+			print "# masks: %s" % line[4]
+			print "# affines: %s" % line[5]
+			print "# surfaces: %s" % line[6]
+			print "# adjacency sets: %s\n" % line[7]
 
+		print "--- Mask names ---"
+		print maskname_array
+		print ""
+		print "--- Surface names ---"
+		print surfname
+		print ""
 		print "--- Total ---"
-		print "Number of masks: %d ([0 -> %d])" % (num_masks, num_masks-1)
-		print "Number of affines: %d ([0 -> %d])" % (num_affines, num_affines-1)
-		print "Number of surfaces: %d ([0 -> %d])" % (num_surfaces, num_affines-1)
-		print "Number of adjacency sets: %d ([0 -> %d])\n" % (num_adjac, num_affines-1)
+		print "# masks: %d ([0 -> %d])" % (num_masks, num_masks-1)
+		print "# affines: %d ([0 -> %d])" % (num_affines, num_affines-1)
+		print "# surfaces: %d ([0 -> %d])" % (num_surfaces, num_affines-1)
+		print "# adjacency sets: %d ([0 -> %d])\n" % (num_adjac, num_affines-1)
 		quit()
+	# revert
 	if opts.revert:
 		for i in range(int(opts.revert[0])+1):
 #		for i in range(int(6)):
@@ -171,11 +267,175 @@ def run(opts):
 				orig_num_adjac -= int(line[7])
 		tmi_history.append("history mode_sub %d %d %d %d %d %d" % (currentTime, 1, orig_num_masks-num_masks, orig_num_affines-num_affines, orig_num_surfaces - num_surfaces, orig_num_adjac-num_adjac))
 		append_history = False
+
+	# masks
+	if opts.replacemask:
+		original_mask = masking_array[int(opts.replacemask[0])]
+		print "Replacing mask %s" % maskname_array[int(opts.replacemask[0])]
+		masking_array[int(opts.replacemask[0])], maskname_array[int(opts.replacemask[0])] = replacemask(original_mask, maskname_array[int(opts.replacemask[0])], opts.replacemask[1])
+		tmi_history.append("history mode_replace %s 1 1 0 0 0" % currentTime)
+		append_history = False
+	if opts.reordermasks:
+		if not len(opts.reordermasks) == len(masking_array):
+			print "Error. The number of inputs [%d] must match the number of masks [%] in %s." % (len(opts.reordermasks),len(masking_array),opts.inputtmi[0])
+			sys.exit()
+		print "Reordering \n%s\n to \n%s\n" % (str(maskname_array),str([maskname_array[i] for i in opts.reordermasks]))
+		masking_array = [masking_array[i] for i in opts.reordermasks]
+		maskname_array = [maskname_array[i] for i in opts.reordermasks]
+		tmi_history.append("history mode_reorder %d 1 %d 0 0 0" % (currentTime, len(opts.reordermasks)))
+		append_history = False
+
+		# get surface coordinates in data array
+		pointer = 0
+		position_array = [0]
+		for i in range(len(masking_array)):
+			pointer += len(masking_array[i][masking_array[i]==True])
+			position_array.append(pointer)
+		del pointer
+		new_data_array = np.zeros_like(image_array[0])
+		pointer = 0
+		for surface in opts.reordermasks:
+			start = position_array[surface]
+			end = position_array[surface+1]
+			size = end - start
+			new_data_array[pointer:size,:] = image_array[0][start:end,:]
+		image_array[0] = new_data_array
+		del new_data_array
+
+	# affines
+	if opts.replaceaffine:
+		original_affine = affine_array[int(opts.replaceaffine[0])]
+		new_affine = np.genfromtxt(opts.replaceaffine[1], delimiter=',')
+		if np.isnan(new_affine).any():
+			new_affine = np.genfromtxt(opts.replaceaffine[1], delimiter=' ')
+		if np.isnan(new_affine).any():
+			new_affine = np.genfromtxt(opts.replaceaffine[1], delimiter='\t')
+		if np.isnan(new_affine).any():
+			print "Error. Input file must be a comma, space, or tab separate (if they are, check that the line ending is UNIX and utf-8))."
+			sys.exit()
+		if not new_affine.shape == (4, 4):
+			print "Error. Input affine must (4,4)."
+			sys.exit()
+		print "Replacing affine:\n %s\n" % str(original_affine)
+		print "With affine:\n %s\n" % str(new_affine)
+		affine_array[int(opts.replaceaffine[0])] = new_affine
+		tmi_history.append("history mode_replace %d 1 0 1 0 0" % currentTime)
+		append_history = False
+	if opts.reorderaffines:
+		if not len(opts.reorderaffines) == len(affine_array):
+			print "Error. The number of inputs [%d] must match the number of affines [%] in %s." % (len(opts.reorderaffines),len(affine_array),opts.inputtmi[0])
+			sys.exit()
+		print "Reordering %s to %s" % (str(range(len(affine_array))),str(opts.reorderaffines))
+		affine_array = [affine_array[i] for i in opts.reorderaffines]
+		maskname_array = [maskname_array[i] for i in opts.reorderaffines]
+		tmi_history.append("history mode_reorder %d 1 %d 0 0 0" % (currentTime,len(opts.reorderaffines)))
+		append_history = False
+
+	# surfaces
+	if opts.replacesurface:
+		orig_v = vertex_array[int(opts.replacesurface[0])]
+		orig_f = face_array[int(opts.replacesurface[0])]
+		vertex_array[int(opts.replacesurface[0])], face_array[int(opts.replacesurface[0])], surfname[int(opts.replacesurface[0])] = replacesurface(orig_v, orig_f, opts.replacesurface[1])
+		tmi_history.append("history mode_replace %d 1 0 0 1 0" % currentTime)
+		append_history = False
+	if opts.reordersurfaces:
+		if not len(opts.reordersurfaces) == len(vertex_array):
+			print "Error. The number of inputs [%d] must match the number of surfaces [%] in %s." % (len(opts.reordersurfaces),len(vertex_array),opts.inputtmi[0])
+			sys.exit()
+		print "Reordering \n%s\n to \n%s\n" % (str(surfname),str([surfname[i] for i in opts.reordersurfaces]))
+		vertex_array = [vertex_array[i] for i in opts.reordersurfaces]
+		face_array = [face_array[i] for i in opts.reordersurfaces]
+		surfname = [surfname[i] for i in opts.reordersurfaces]
+		tmi_history.append("history mode_reorder %d 1 0 0 %d 0" % (currentTime,len(opts.reordersurfaces)))
+		append_history = False
+
+	# adjacency sets
+	if opts.replaceadj:
+		original_adj = adjacency_array[int(opts.replaceadj[0])]
+		new_adj = np.load(opts.replaceadj[1])
+
+		if not len(original_adj) == len(new_adj):
+			print "Error. Adjacency set lengths must match."
+			sys.exit()
+		affine_array[int(opts.replaceadj[0])] = new_adj
+		tmi_history.append("history mode_replace %d 1 0 0 0 1" % currentTime)
+		append_history = False
+	if opts.reorderadj:
+		if not len(opts.reorderadj) == len(adjacency_array):
+			print "Error. The number of inputs [%d] must match the number of adjacency sets [%] in %s." % (len(opts.reorderadj),len(affine_array),opts.inputtmi[0])
+			sys.exit()
+		print "Reordering %s to %s" % (str(range(len(adjacency_array))),str(opts.reorderadj))
+		adjacency_array = [adjacency_array[i] for i in opts.reorderadj]
+		tmi_history.append("history mode_reorder %d 1 0 0 0 %d" % (currentTime,len(opts.reorderadj)))
+		append_history = False
+
+	# delete element
+	if opts.delete:
+		if len(opts.delete) == 3:
+			delete_range = int(opts.delete[1])
+		if len(opts.delete) == 4:
+			delete_range = range(int(opts.delete[1]), (int(opts.delete[2])+1))
+		else:
+			print "Error. -d option can only be a single value or a range"
+			sys.exit()
+		if opts.delele[0] == 'mask':
+			arr_size = len(masking_array)
+
+			mask_mask = np.ones(len(masking_array), dtype=bool)
+			data_mask = np.ones(len(image_array[0]), dtype=bool)
+
+			pointer = 0
+			position_array = [0]
+			for i in range(len(masking_array)):
+				pointer += len(masking_array[i][masking_array[i]==True])
+				position_array.append(pointer)
+			del pointer
+			new_data_array = np.zeros_like(image_array[0])
+
+			for surface in delete_range:
+				start = position_array[surface]
+				end = position_array[surface+1]
+				data_mask[start:end] = False
+			image_array[0] = image_array[0][data_mask]
+
+			mask_mask[delete_range] = False
+			masking_array = masking_array[mask_mask]
+
+			tmi_history.append("history mode_sub %d 1 %d 0 0 0" % (currentTime,int(arr_size-len(delete_range))))
+			append_history = False
+
+		elif opts.delele[0] == 'affine':
+			arr_size = len(affine_array)
+			mask = np.ones(len(affine_array), dtype=bool)
+			mask[delete_range] = False
+			affine_array = affine_array[mask]
+			tmi_history.append("history mode_sub %d 1 0 %d 0 0" % (currentTime,int(arr_size-len(delete_range))))
+			append_history = False
+		elif opts.delele[0] == 'surface':
+			arr_size = len(vertex_array)
+			mask = np.ones(len(vertex_array), dtype=bool)
+			mask[delete_range] = False
+			vertex_array = vertex_array[mask]
+			face_array = face_array[mask]
+			surfname = face_array[mask]
+			tmi_history.append("history mode_sub %d 1 0 0 %d 0" % (currentTime,int(arr_size-len(delete_range))))
+			append_history = False
+		elif opts.delele[0] == 'adjacency':
+			arr_size = len(adjacency_array)
+			mask = np.ones(len(adjacency_array), dtype=bool)
+			mask[delete_range] = False
+			adjacency_array = adjacency_array[mask]
+			tmi_history.append("history mode_sub %d 1 0 0 0 %d" % (currentTime,int(arr_size-len(delete_range))))
+			append_history = False
+		else: 
+			print "Error. Type must be one of the following: {mask|affine|surface|adjacency}"
+			sys.exit()
+
 	# Write tmi file
 	if not image_array==[]:
-		write_tm_filetype(outname, output_binary = opts.outputtype=='binary', image_array=np.vstack(image_array), masking_array=masking_array, maskname=maskname,  affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, adjacency_array=adjacency_array, checkname=False, tmi_history=tmi_history, append_history=append_history)
+		write_tm_filetype(outname, output_binary = 'binary', image_array=np.vstack(image_array), masking_array=masking_array, maskname=maskname_array,  affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, adjacency_array=adjacency_array, checkname=False, tmi_history=tmi_history, append_history=append_history)
 	else:
-		write_tm_filetype(outname, output_binary = opts.outputtype=='binary', masking_array=masking_array, maskname=maskname,  affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, adjacency_array=adjacency_array, checkname=False, tmi_history=tmi_history, append_history=append_history)
+		write_tm_filetype(outname, output_binary = 'binary', masking_array=masking_array, maskname=maskname_array,  affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, adjacency_array=adjacency_array, checkname=False, tmi_history=tmi_history, append_history=append_history)
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

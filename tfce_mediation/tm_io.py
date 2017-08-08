@@ -97,6 +97,10 @@ def write_tm_filetype(outname, subjectids = [], imgtype = [], checkname = True, 
 				h_affine -= int(line[5])
 				h_object -= int(line[6])
 				h_adjacency -= int(line[7])
+			elif line[1] == 'mode_replace':
+				pass
+			elif line[1] == 'mode_reorder':
+				pass
 			else:
 				print ("Error reading history. Mode %s is not understood. Count is reflect number of element in current file" % line[1])
 

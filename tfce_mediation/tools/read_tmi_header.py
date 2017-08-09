@@ -163,7 +163,7 @@ def run(opts):
 		else:
 			print "Header size: %d bytes, %d lines\n" % (position,linecounter+2)
 
-	if opts.outputhistory:
+	if opts.outputhistory: # in future, make this into a function
 		print "--- History ---"
 		for i in range(len(tmi_history)):
 			print "Time-point %d" % i
@@ -173,6 +173,10 @@ def run(opts):
 				print "Elements added:"
 			elif line[1]=='mode_sub':
 				print "Elements removed:"
+			elif line[1] == 'mode_replace':
+				print "Element replaced"
+			elif line[1] == 'mode_reorder':
+				print "Element reordered"
 			else:
 				print "Error: mode is not understood"
 			print "Number of masks: %s" % line[4]

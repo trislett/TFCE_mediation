@@ -209,16 +209,18 @@ def run(opts):
 			print "# adjacency sets: %s\n" % line[7]
 
 		print "--- Mask names ---"
-		print maskname_array
+		for i in range(len(maskname_array)):
+			print "Mask %d : %s" % (i,maskname_array[i])
 		print ""
 		print "--- Surface names ---"
-		print surfname
+		for i in range(len(surfname)):
+			print "Surface %d : %s" % (i,surfname[i])
 		print ""
 		print "--- Total ---"
 		print "# masks: %d ([0 -> %d])" % (num_masks, num_masks-1)
 		print "# affines: %d ([0 -> %d])" % (num_affines, num_affines-1)
-		print "# surfaces: %d ([0 -> %d])" % (num_surfaces, num_affines-1)
-		print "# adjacency sets: %d ([0 -> %d])\n" % (num_adjac, num_affines-1)
+		print "# surfaces: %d ([0 -> %d])" % (num_surfaces, num_surfaces-1)
+		print "# adjacency sets: %d ([0 -> %d])\n" % (num_adjac, num_adjac-1)
 		quit()
 	# revert
 	if opts.revert:
@@ -371,14 +373,16 @@ def run(opts):
 
 	# delete element
 	if opts.delete:
-		if len(opts.delete) == 3:
+		if len(opts.delete) == 2:
 			delete_range = int(opts.delete[1])
-		if len(opts.delete) == 4:
+		elif len(opts.delete) == 3:
 			delete_range = range(int(opts.delete[1]), (int(opts.delete[2])+1))
 		else:
+			print opts.delete
+			print len(opts.delete)
 			print "Error. -d option can only be a single value or a range"
 			sys.exit()
-		if opts.delele[0] == 'mask':
+		if opts.delete[0] == 'mask':
 			arr_size = len(masking_array)
 
 			mask_mask = np.ones(len(masking_array), dtype=bool)
@@ -399,33 +403,33 @@ def run(opts):
 			image_array[0] = image_array[0][data_mask]
 
 			mask_mask[delete_range] = False
-			masking_array = masking_array[mask_mask]
+			masking_array = np.array(masking_array)[mask_mask]
 
-			tmi_history.append("history mode_sub %d 1 %d 0 0 0" % (currentTime,int(arr_size-len(delete_range))))
+			tmi_history.append("history mode_sub %d 1 %d 0 0 0" % (currentTime,int(len(delete_range))))
 			append_history = False
 
-		elif opts.delele[0] == 'affine':
+		elif opts.delete[0] == 'affine':
 			arr_size = len(affine_array)
 			mask = np.ones(len(affine_array), dtype=bool)
 			mask[delete_range] = False
-			affine_array = affine_array[mask]
-			tmi_history.append("history mode_sub %d 1 0 %d 0 0" % (currentTime,int(arr_size-len(delete_range))))
+			affine_array = np.array(affine_array)[mask]
+			tmi_history.append("history mode_sub %d 1 0 %d 0 0" % (currentTime,int(len(delete_range))))
 			append_history = False
-		elif opts.delele[0] == 'surface':
+		elif opts.delete[0] == 'surface':
 			arr_size = len(vertex_array)
 			mask = np.ones(len(vertex_array), dtype=bool)
 			mask[delete_range] = False
-			vertex_array = vertex_array[mask]
-			face_array = face_array[mask]
-			surfname = face_array[mask]
-			tmi_history.append("history mode_sub %d 1 0 0 %d 0" % (currentTime,int(arr_size-len(delete_range))))
+			vertex_array = np.array(vertex_array)[mask]
+			face_array = np.array(face_array)[mask]
+			surfname = np.array(surfname)[mask]
+			tmi_history.append("history mode_sub %d 1 0 0 %d 0" % (currentTime,int(len(delete_range))))
 			append_history = False
-		elif opts.delele[0] == 'adjacency':
+		elif opts.delete[0] == 'adjacency':
 			arr_size = len(adjacency_array)
 			mask = np.ones(len(adjacency_array), dtype=bool)
 			mask[delete_range] = False
-			adjacency_array = adjacency_array[mask]
-			tmi_history.append("history mode_sub %d 1 0 0 0 %d" % (currentTime,int(arr_size-len(delete_range))))
+			adjacency_array = np.array(adjacency_array)[mask]
+			tmi_history.append("history mode_sub %d 1 0 0 0 %d" % (currentTime,int(len(delete_range))))
 			append_history = False
 		else: 
 			print "Error. Type must be one of the following: {mask|affine|surface|adjacency}"

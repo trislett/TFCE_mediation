@@ -145,14 +145,14 @@ def find_nearest(array,value,p_array):
 	else:
 		return p_array[idx]
 
-def paint_surface(lowthresh, highthres, color_scheme, data_array):
+def paint_surface(lowthresh, highthres, color_scheme, data_array, save_colorbar = True):
 	colormaps = np.array(plt.colormaps(),dtype=np.str)
 	if (str(color_scheme) == 'r_y') or (str(color_scheme) == 'red-yellow'):
-		out_color_array = convert_redtoyellow(np.array((float(lowthresh),float(highthres))), data_array)
+		out_color_array = convert_redtoyellow(np.array((float(lowthresh),float(highthres))), data_array, save_colorbar = save_colorbar)
 	elif (str(color_scheme) == 'b_lb') or (str(color_scheme) == 'blue-lightblue'):
-		out_color_array = convert_bluetolightblue(np.array((float(lowthresh),float(highthres))), data_array)
+		out_color_array = convert_bluetolightblue(np.array((float(lowthresh),float(highthres))), data_array, save_colorbar = save_colorbar)
 	elif np.any(colormaps == str(color_scheme)):
-		out_color_array = convert_mpl_colormaps(np.array((float(lowthresh),float(highthres))), data_array, str(color_scheme))
+		out_color_array = convert_mpl_colormaps(np.array((float(lowthresh),float(highthres))), data_array, str(color_scheme), save_colorbar = save_colorbar)
 	else:
 		print "Error: colour scheme %s does not exist" % str(color_scheme)
 		quit()
@@ -456,6 +456,7 @@ def run(opts):
 							else:
 								savefunc(out_image,masking_array[surf_count], "output_stats/%d_%s_negLog_pFWER" % (surf_count, basename), affine_array[surf_count])
 		if opts.outputply:
+			colorbar = True
 			if not os.path.exists("output_ply"):
 				os.mkdir("output_ply")
 			for contrast in range(num_contrasts):
@@ -470,21 +471,26 @@ def run(opts):
 						combined_data[np.abs(combined_data)<float(opts.outputply[0])] = 0
 						img_data[masking_array[surf_count]] = combined_data
 						v, f, values = convert_voxel(img_data, affine = affine_array[surf_count], absthreshold = float(opts.outputply[0]))
-						out_color_array = paint_surface(opts.outputply[0], opts.outputply[1], opts.outputply[2], values)
-						negvalues = values * -1
-						index = negvalues > float(opts.outputply[0])
-						out_color_array2 = paint_surface(opts.outputply[0], opts.outputply[1], opts.outputply[3], negvalues)
-						out_color_array[index,:] = out_color_array2[index,:]
-						save_ply(v,f, "output_ply/%d_%s_pFWE_tcon%d.ply" % (surf_count, basename, contrast+1), out_color_array)
+						if not v == []:
+							out_color_array = paint_surface(opts.outputply[0], opts.outputply[1], opts.outputply[2], values, save_colorbar=colorbar)
+							negvalues = values * -1
+							index = negvalues > float(opts.outputply[0])
+							out_color_array2 = paint_surface(opts.outputply[0], opts.outputply[1], opts.outputply[3], negvalues, save_colorbar=colorbar)
+							out_color_array[index,:] = out_color_array2[index,:]
+							save_ply(v,f, "output_ply/%d_%s_pFWE_tcon%d.ply" % (surf_count, basename, contrast+1), out_color_array)
+							colorbar = False
+						else:
+							print "No output for %d %s T-contrast %d" % (surf_count, basename, contrast+1)
 					else:
 						img_data = np.zeros((masking_array[surf_count].shape[0]))
 						img_data[masking_array[surf_count][:,0,0]==True] = positive_data[start:end,contrast]
-						out_color_array = paint_surface(opts.outputply[0], opts.outputply[1], opts.outputply[2], img_data)
+						out_color_array = paint_surface(opts.outputply[0], opts.outputply[1], opts.outputply[2], img_data, save_colorbar=colorbar)
 						img_data[masking_array[surf_count][:,0,0]==True] = negative_data[start:end,contrast]
 						index = img_data > float(opts.outputply[0])
-						out_color_array2 = paint_surface(opts.outputply[0], opts.outputply[1], opts.outputply[3], img_data)
+						out_color_array2 = paint_surface(opts.outputply[0], opts.outputply[1], opts.outputply[3], img_data, save_colorbar=colorbar)
 						out_color_array[index,:] = out_color_array2[index,:]
 						save_ply(vertex_array[surf_count],face_array[surf_count], "output_ply/%d_%s_pFWE_tcon%d.ply" % (surf_count, basename, contrast+1), out_color_array)
+						colorbar = False
 	else:
 		# read tmi file
 		if opts.randomise:

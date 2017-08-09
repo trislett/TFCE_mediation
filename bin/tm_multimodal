@@ -41,8 +41,9 @@ class _Usage(ap._HelpAction):
 		splist = []
 		splist.append(tm_multimodality_multisurface_regression)
 		splist.append(tm_mmr_randomise_parallel)
-		splist.append(create_tmi)
 		splist.append(read_tmi_header)
+		splist.append(create_tmi)
+		splist.append(tmi_edit)
 		splist.append(tm_mulitmodality_adjacency)
 
 		helps = []
@@ -71,13 +72,17 @@ tm_mmr_randomise_parallel = subparsers.add_parser("mmr-parallel", help="mmr-para
 tm_mmr_randomise_parallel.set_defaults(func = tfce_mediation.tm_multisurface.tm_mmr_randomise_parallel.run)
 tfce_mediation.tm_multisurface.tm_mmr_randomise_parallel.getArgumentParser(tm_mmr_randomise_parallel)
 
+read_tmi_header = subparsers.add_parser("read-tmi-header", help="read-tmi-header")
+read_tmi_header.set_defaults(func = tfce_mediation.tools.read_tmi_header.run)
+tfce_mediation.tools.read_tmi_header.getArgumentParser(read_tmi_header)
+
 create_tmi = subparsers.add_parser("create-tmi", help="create-tmi")
 create_tmi.set_defaults(func = tfce_mediation.tools.create_tmi.run)
 tfce_mediation.tools.create_tmi.getArgumentParser(create_tmi)
 
-read_tmi_header = subparsers.add_parser("read-tmi-header", help="read-tmi-header")
-read_tmi_header.set_defaults(func = tfce_mediation.tools.read_tmi_header.run)
-tfce_mediation.tools.read_tmi_header.getArgumentParser(read_tmi_header)
+tmi_edit = subparsers.add_parser("edit-tmi", help="edit-tmi")
+tmi_edit.set_defaults(func = tfce_mediation.tools.tmi_edit.run)
+tfce_mediation.tools.tmi_edit.getArgumentParser(tmi_edit)
 
 tm_mulitmodality_adjacency = subparsers.add_parser("multimodal-adjacency", help="multimodal-adjacency")
 tm_mulitmodality_adjacency.set_defaults(func = tfce_mediation.tools.tm_mulitmodality_adjacency.run)

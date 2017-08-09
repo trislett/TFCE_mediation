@@ -594,7 +594,7 @@ def save_ply(v, f, outname, color_array=None, output_binary=True):
 
 
 #vertex paint functions
-def convert_redtoyellow(threshold,img_data, baseColour=[227,218,201]):
+def convert_redtoyellow(threshold,img_data, baseColour=[227,218,201], save_colorbar = True):
 	color_array = np.zeros((img_data.shape[0],3))
 	color_cutoffs = np.linspace(threshold[0],threshold[1],256)
 	colored_img_data = np.zeros_like(img_data)
@@ -610,11 +610,12 @@ def convert_redtoyellow(threshold,img_data, baseColour=[227,218,201]):
 	cmap_name = 'red_yellow'
 	cmap_array = np.array(( (np.ones(256)*255), np.linspace(0,255,256), np.zeros(256))).T
 	rl_cmap = colors.ListedColormap(cmap_array/255)
-	write_colorbar(threshold, rl_cmap, cmap_name, 'png')
-	plt.clf()
+	if save_colorbar:
+		write_colorbar(threshold, rl_cmap, cmap_name, 'png')
+		plt.clf()
 	return color_array
 
-def convert_bluetolightblue(threshold, img_data, baseColour=[227,218,201]):
+def convert_bluetolightblue(threshold, img_data, baseColour=[227,218,201], save_colorbar = True):
 	color_array = np.zeros((img_data.shape[0],3))
 	color_cutoffs = np.linspace(threshold[0],threshold[1],256)
 	colored_img_data = np.zeros_like(img_data)
@@ -630,11 +631,12 @@ def convert_bluetolightblue(threshold, img_data, baseColour=[227,218,201]):
 	cmap_name = 'blue_lightblue'
 	cmap_array = np.array(( np.zeros(256), np.linspace(0,255,256), (np.ones(256)*255))).T
 	blb_cmap = colors.ListedColormap(cmap_array/255)
-	write_colorbar(threshold, blb_cmap, cmap_name, 'png')
-	plt.clf()
+	if save_colorbar:
+		write_colorbar(threshold, blb_cmap, cmap_name, 'png')
+		plt.clf()
 	return color_array
 
-def convert_mpl_colormaps(threshold,img_data, cmapName, baseColour=[227,218,201]):
+def convert_mpl_colormaps(threshold,img_data, cmapName, baseColour=[227,218,201], save_colorbar = True):
 	cmapFunc = plt.get_cmap(str(cmapName))
 	color_array = np.zeros((img_data.shape[0],3))
 	color_cutoffs = np.linspace(threshold[0],threshold[1],256)
@@ -645,9 +647,10 @@ def convert_mpl_colormaps(threshold,img_data, cmapName, baseColour=[227,218,201]
 		cV+=1
 	color_array[img_data<threshold[0]] = baseColour
 	temp_ = np.array(cmapFunc(np.searchsorted(color_cutoffs, color_cutoffs[255], side="left")))*255 # safer
-	color_array[img_data>=threshold[1]] = ((int(temp_[0]), int(temp_[1]), int(temp_[2]))) 
-	write_colorbar(threshold, cmapFunc, cmapName, 'png')
-	plt.clf()
+	color_array[img_data>=threshold[1]] = ((int(temp_[0]), int(temp_[1]), int(temp_[2])))
+	if save_colorbar:
+		write_colorbar(threshold, cmapFunc, cmapName, 'png')
+		plt.clf()
 	return color_array
 
 def convert_fsannot(annot_name):
@@ -697,21 +700,26 @@ def convert_voxel(img_data, affine = None, threshold = None, data_mask = None, a
 	except:
 		print "Error skimage is required"
 		quit()
+
 	if threshold is not None:
 		print "Zeroing data less than threshold = %1.2f" % threshold
 		img_data[img_data<threshold] = 0
 	if absthreshold is not None:
 		print "Zeroing absolute values less than threshold = %1.2f" % absthreshold
-		img_data[np.abs(img_data)<threshold] = 0
+		img_data[np.abs(img_data)<absthreshold] = 0
 	if data_mask is not None:
 		print "Including mask"
 		data_mask *= .1
 		data_mask[img_data!=0] = img_data[img_data!=0]
 		del img_data
 		img_data = np.copy(data_mask)
-	v, f, _, values = measure.marching_cubes_lewiner(img_data)
-	if affine is not None:
-		print "Applying affine transformation"
-		v = nib.affines.apply_affine(affine,v)
+	try:
+		v, f, _, values = measure.marching_cubes_lewiner(img_data)
+		if affine is not None:
+			print "Applying affine transformation"
+			v = nib.affines.apply_affine(affine,v)
+	except:
+		print "No voxels above threshold"
+		v = f = values = []
 	return v, f, values
 

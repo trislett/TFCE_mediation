@@ -7,7 +7,7 @@ from setuptools import setup
 PACKAGE_NAME = "tfce_mediation"
 BUILD_REQUIRES = ["numpy", "scipy", "matplotlib", "nibabel", "cython", "scikit-learn", "joblib", "h5py"]
 
-CLASSIFIERS = ["Development Status :: 3 - Alpha",
+CLASSIFIERS = ["Development Status :: 4 - Beta",
   "Environment :: Console",
   "Intended Audience :: Science/Research",
   "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",

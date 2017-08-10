@@ -32,7 +32,7 @@ from tfce_mediation.pyfunc import save_ply, convert_redtoyellow, convert_bluetol
 
 DESCRIPTION = "Multisurface multiple regression with TFCE and tmi formated neuroimaging files."
 
-def calculate_tfce(merge_y, masking_array, pred_x, calcTFCE, vdensity, position_array, fullmask, perm_number = None, randomise = False, verbose = False, no_intercept = True):
+def calculate_tfce(merge_y, masking_array, pred_x, calcTFCE, vdensity, position_array, fullmask, perm_number = None, randomise = False, verbose = False, no_intercept = True, set_surf_count = None, print_interation = False):
 	X = np.column_stack([np.ones(merge_y.shape[0]),pred_x])
 	if randomise:
 		np.random.seed(perm_number+int(float(str(time())[-6:])*100))
@@ -71,19 +71,28 @@ def calculate_tfce(merge_y, masking_array, pred_x, calcTFCE, vdensity, position_
 				tfce_tvals[tstat_counter,start:end] = (tfce_temp[start:end] * (tval_temp[start:end].max()/100) * vdensity[start:end])
 				neg_tfce_tvals[tstat_counter,start:end] = (neg_tfce_temp[start:end] * ((tval_temp*-1)[start:end].max()/100) * vdensity[start:end])
 			if randomise:
-				os.system("echo %f >> perm_maxTFCE_surf%d_tcon%d.csv" % (np.nanmax(tfce_tvals[tstat_counter,start:end]),surf_count,tstat_counter+1))
-				os.system("echo %f >> perm_maxTFCE_surf%d_tcon%d.csv" % (np.nanmax(neg_tfce_tvals[tstat_counter,start:end]),surf_count,tstat_counter+1))
+				if set_surf_count is not None:
+					os.system("echo %f >> perm_maxTFCE_surf%d_tcon%d.csv" % (np.nanmax(tfce_tvals[tstat_counter,start:end]),int(set_surf_count[surf_count]),tstat_counter+1))
+					os.system("echo %f >> perm_maxTFCE_surf%d_tcon%d.csv" % (np.nanmax(neg_tfce_tvals[tstat_counter,start:end]),int(set_surf_count[surf_count]),tstat_counter+1))
+				else:
+					os.system("echo %f >> perm_maxTFCE_surf%d_tcon%d.csv" % (np.nanmax(tfce_tvals[tstat_counter,start:end]),surf_count,tstat_counter+1))
+					os.system("echo %f >> perm_maxTFCE_surf%d_tcon%d.csv" % (np.nanmax(neg_tfce_tvals[tstat_counter,start:end]),surf_count,tstat_counter+1))
 			else:
-				print "Maximum (untransformed) postive tfce value for surface %s, tcon %d: %f" % (surf_count,tstat_counter+1,np.nanmax(tfce_tvals[tstat_counter,start:end])) 
-				print "Maximum (untransformed) negative tfce value for surface %s, tcon %d: %f" % (surf_count,tstat_counter+1,np.nanmax(neg_tfce_tvals[tstat_counter,start:end]))
+				if set_surf_count is not None:
+					print "Maximum (untransformed) postive tfce value for surface %s, tcon %d: %f" % (int(set_surf_count[surf_count]),tstat_counter+1,np.nanmax(tfce_tvals[tstat_counter,start:end])) 
+					print "Maximum (untransformed) negative tfce value for surface %s, tcon %d: %f" % (int(set_surf_count[surf_count]),tstat_counter+1,np.nanmax(neg_tfce_tvals[tstat_counter,start:end]))
+				else:
+					print "Maximum (untransformed) postive tfce value for surface %s, tcon %d: %f" % (surf_count,tstat_counter+1,np.nanmax(tfce_tvals[tstat_counter,start:end])) 
+					print "Maximum (untransformed) negative tfce value for surface %s, tcon %d: %f" % (surf_count,tstat_counter+1,np.nanmax(neg_tfce_tvals[tstat_counter,start:end]))
 		if verbose:
 			print "T-contrast: %d" % tstat_counter
 			print "Max tfce from all surfaces = %f" % tfce_tvals[tstat_counter].max()
 			print "Max negative tfce from all surfaces = %f" % neg_tfce_tvals[tstat_counter].max()
 	if randomise:
-		print "Interation number: %d" % perm_number
-		os.system("echo %s >> perm_maxTFCE_allsurf.csv" % ( ','.join(["%0.2f" % i for i in tfce_tvals.max(axis=1)] )) )
-		os.system("echo %s >> perm_maxTFCE_allsurf.csv" % ( ','.join(["%0.2f" % i for i in neg_tfce_tvals.max(axis=1)] )) )
+		if print_interation:
+			print "Interation number: %d" % perm_number
+#		os.system("echo %s >> perm_maxTFCE_allsurf.csv" % ( ','.join(["%0.2f" % i for i in tfce_tvals.max(axis=1)] )) )
+#		os.system("echo %s >> perm_maxTFCE_allsurf.csv" % ( ','.join(["%0.2f" % i for i in neg_tfce_tvals.max(axis=1)] )) )
 		tvals = None
 		tfce_tvals = None
 		neg_tfce_tvals = None
@@ -173,15 +182,23 @@ def strip_basename(basename):
 
 def merge_adjacency_array(adjacent_range, adjacency_array):
 	v_count = 0
-	for e in adjacent_range:
-		if v_count == 0:
-			adjacency = adjacency_array[0]
-		else:
-			temp_adjacency = np.copy(adjacency_array[e])
-			for i in range(len(adjacency_array[e])):
-				temp_adjacency[i] = np.add(list(temp_adjacency[i]), v_count).tolist() # list fixes 'set' 'int' error
-			adjacency = np.hstack((adjacency, temp_adjacency))
-		v_count += len(adjacency_array[e])
+	if len(adjacent_range) == 1:
+		adjacency = np.copy(adjacency_array[0])
+		for i in range(len(adjacency)):
+			adjacency[i] = np.array(list(adjacency[i])).tolist() # list fixes 'set' 'int' error
+	else:
+		for e in adjacent_range:
+			if v_count == 0:
+				adjacency = np.copy(adjacency_array[0])
+				for i in range(len(adjacency)):
+					adjacency[i] = np.array(list(adjacency[i])).tolist() # list fixes 'set' 'int' error
+				v_count += len(adjacency_array[e])
+			else:
+				temp_adjacency = np.copy(adjacency_array[e])
+				for i in range(len(adjacency_array[e])):
+					temp_adjacency[i] = np.add(list(temp_adjacency[i]), v_count).tolist() # list fixes 'set' 'int' error
+				adjacency = np.hstack((adjacency, temp_adjacency))
+				v_count += len(adjacency_array[e])
 	return adjacency
 
 def lowest_length(num_contrasts, surface_range, tmifilename):
@@ -278,6 +295,77 @@ def apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, t
 
 	return positive_data, negative_data
 
+def create_position_array(masking_array):
+	pointer = 0
+	position_array = [0]
+	for i in range(len(masking_array)):
+		pointer += len(masking_array[i][masking_array[i]==True])
+		position_array.append(pointer)
+	return position_array
+
+def create_full_mask(masking_array):
+	# make mega mask
+	fullmask = []
+	for i in range(len(masking_array)):
+		if masking_array[i].shape[2] == 1: # check if vertex or voxel image
+			fullmask = np.hstack((fullmask, masking_array[i][:,0,0]))
+		else:
+			fullmask = np.hstack((fullmask, masking_array[i][masking_array[i]==True]))
+	return fullmask
+
+def calc_mixed_tfce(assigntfcesettings, merge_y, masking_array, position_array, vdensity, pred_x, calcTFCE, perm_number = None, randomise = False, medtype = None, depend_y = None):
+	for i in np.unique(assigntfcesettings):
+		data_mask = np.zeros(merge_y.shape[1], dtype=bool)
+		extract_range = np.argwhere(assigntfcesettings==i)
+		for surface in extract_range:
+			start = position_array[int(surface)]
+			end = position_array[int(surface)+1]
+			data_mask[start:end] = True
+		subset_merge_y = merge_y[:,data_mask]
+		try:
+			temp_vdensity = vdensity[data_mask]
+		except:
+			temp_vdensity = 1
+
+		if randomise:
+			
+			if i == 0:
+				display_iter = True
+			else:
+				display_iter = False
+
+			calculate_tfce(subset_merge_y, 
+				np.array(masking_array)[assigntfcesettings==i], 
+				pred_x, 
+				calcTFCE[i], 
+				temp_vdensity, 
+				create_position_array(np.array(masking_array)[assigntfcesettings==i]),
+				create_full_mask(np.array(masking_array)[assigntfcesettings==i]),
+				set_surf_count = extract_range,
+				perm_number=perm_number, 
+				randomise = True,
+				print_interation = display_iter)
+		else:
+			temp_tvals, temp_tfce_tvals, temp_neg_tfce_tvals = calculate_tfce(subset_merge_y, 
+				np.array(masking_array)[assigntfcesettings==i], 
+				pred_x, 
+				calcTFCE[i], 
+				temp_vdensity, 
+				create_position_array(np.array(masking_array)[assigntfcesettings==i]),
+				create_full_mask(np.array(masking_array)[assigntfcesettings==i]),
+				set_surf_count = extract_range)
+
+			if i == 0: # at first instance
+				tvals = tfce_tvals = neg_tfce_tvals = np.zeros((temp_tvals.shape[0],merge_y.shape[1]))
+			tvals[:,data_mask] = temp_tvals
+			tfce_tvals[:,data_mask] = temp_tfce_tvals
+			neg_tfce_tvals[:,data_mask] = temp_neg_tfce_tvals
+			temp_tvals = None
+			temp_tfce_tvals = None
+			temp_neg_tfce_tvals = None
+	if not randomise:
+		return tvals, tfce_tvals, neg_tfce_tvals
+
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 
@@ -320,8 +408,8 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs='+',
 		type=int,
 		metavar=('INT'))
-	ap.add_argument("-st", "--setfcesettings",
-		help="Specify the tfce H and E settings for each mask. -st is useful for combined analysis do voxel and vertex data, and it only makes sense if more than one set of values are inputted with --tfce. The number of inputs must match the number of masks in the tmi file. The input corresponds to each pair of --tfce setting starting at zero. e.g., -st 0 0 0 0 1 1",
+	ap.add_argument("-st", "--assigntfcesettings",
+		help="Specify the tfce H and E settings for each mask. -st is useful for combined analysis do voxel and vertex data. More than one set of values must inputted with --tfce. The number of inputs must match the number of masks in the tmi file. The input corresponds to each pair of --tfce setting starting at zero. e.g., -st 0 0 0 0 1 1",
 		nargs='+',
 		type=int,
 		metavar=('INT'))
@@ -358,8 +446,11 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	return ap
 
 def run(opts):
-
 	currentTime=int(time())
+
+#############################
+###### FWER CORRECTION ######
+#############################
 	if opts.multisurfacefwecorrection:
 		_, image_array, masking_array, maskname, affine_array, vertex_array, face_array, surfname, adjacency_array, tmi_history, subjectids = read_tm_filetype('%s' % opts.tmifile[0], verbose=False)
 
@@ -371,12 +462,7 @@ def run(opts):
 			num_contrasts = int(image_array[0].shape[1] / 3)
 
 		# get surface coordinates in data array
-		pointer = 0
-		position_array = [0]
-		for i in range(len(masking_array)):
-			pointer += len(masking_array[i][masking_array[i]==True])
-			position_array.append(pointer)
-		del pointer
+		position_array = create_position_array(masking_array)
 
 		if num_contrasts == 1:
 			# get lists for positive and negative contrasts
@@ -414,17 +500,73 @@ def run(opts):
 
 		# write out files
 		if opts.concatestats: 
-			write_tm_filetype(opts.tmifile[0], image_array = positive_data, masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, adjacency_array=adjacency_array, checkname=False, tmi_history=tmi_history)
+			write_tm_filetype(opts.tmifile[0],
+				image_array = positive_data,
+				masking_array = masking_array,
+				maskname = maskname,
+				affine_array = affine_array,
+				vertex_array = vertex_array,
+				face_array = face_array,
+				surfname = surfname,
+				adjacency_array = adjacency_array,
+				checkname = False,
+				tmi_history = tmi_history)
 			_, image_array, masking_array, maskname, affine_array, vertex_array, face_array, surfname, adjacency_array, tmi_history, subjectids = read_tm_filetype(opts.tmifile[0], verbose=False)
-			write_tm_filetype(opts.tmifile[0], image_array = np.column_stack((image_array[0],negative_data)), masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, adjacency_array=adjacency_array, checkname=False, tmi_history=tmi_history)
+			write_tm_filetype(opts.tmifile[0],
+				image_array = np.column_stack((image_array[0],negative_data)),
+				masking_array = masking_array,
+				maskname = maskname,
+				affine_array = affine_array,
+				vertex_array = vertex_array,
+				face_array = face_array,
+				surfname = surfname,
+				adjacency_array = adjacency_array,
+				checkname = False,
+				tmi_history = tmi_history)
 		else:
 			for i in range(len(opts.outtype)):
 				if opts.outtype[i] == 'tmi':
-					write_tm_filetype("tstats_pFWER_%s" % opts.tmifile[0], image_array = positive_data, masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
-					write_tm_filetype("negtstats_pFWER_%s" % opts.tmifile[0], image_array = negative_data, masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
+					write_tm_filetype("tstats_pFWER_%s" % opts.tmifile[0],
+						image_array = positive_data,
+						masking_array = masking_array,
+						maskname = maskname,
+						affine_array = affine_array,
+						vertex_array = vertex_array,
+						face_array = face_array,
+						surfname = surfname,
+						checkname = False,
+						tmi_history = tmi_history)
+					write_tm_filetype("negtstats_pFWER_%s" % opts.tmifile[0],
+						image_array = negative_data,
+						masking_array = masking_array,
+						maskname = maskname,
+						affine_array = affine_array,
+						vertex_array = vertex_array,
+						face_array = face_array,
+						surfname = surfname,
+						checkname = False,
+						tmi_history = tmi_history)
 					if opts.neglog:
-						write_tm_filetype("tstats_negLog_pFWER_%s" % opts.tmifile[0], image_array = -np.log10(1-positive_data), masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
-						write_tm_filetype("negtstats_negLog_pFWER_%s" % opts.tmifile[0], image_array = -np.log10(1-negative_data), masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
+						write_tm_filetype("tstats_negLog_pFWER_%s" % opts.tmifile[0],
+							image_array = -np.log10(1-positive_data),
+							masking_array = masking_array,
+							maskname = maskname,
+							affine_array = affine_array,
+							vertex_array = vertex_array,
+							face_array = face_array,
+							surfname = surfname,
+							checkname = False,
+							tmi_history = tmi_history)
+						write_tm_filetype("negtstats_negLog_pFWER_%s" % opts.tmifile[0],
+							image_array = -np.log10(1-negative_data),
+							masking_array=masking_array,
+							maskname=maskname,
+							affine_array=affine_array,
+							vertex_array=vertex_array,
+							face_array=face_array,
+							surfname=surfname,
+							checkname=False,
+							tmi_history=tmi_history)
 				else:
 					if opts.outtype[i] == 'mgh':
 						savefunc = savemgh_v2
@@ -492,6 +634,10 @@ def run(opts):
 						save_ply(vertex_array[surf_count],face_array[surf_count], "output_ply/%d_%s_pFWE_tcon%d.ply" % (surf_count, basename, contrast+1), out_color_array)
 						colorbar = False
 	else:
+
+##################################
+###### STATISTICAL ANALYSIS ######
+##################################
 		# read tmi file
 		if opts.randomise:
 			_, image_array, masking_array, _, _, _, _, _, adjacency_array, _, _  = read_tm_filetype(opts.tmifile[0])
@@ -499,34 +645,29 @@ def run(opts):
 		else: 
 			element, image_array, masking_array, maskname, affine_array, vertex_array, face_array, surfname, adjacency_array, tmi_history, _  = read_tm_filetype(opts.tmifile[0])
 		# get surface coordinates in data array
-		pointer = 0
-		position_array = [0]
-		for i in range(len(masking_array)):
-			pointer += len(masking_array[i][masking_array[i]==True])
-			position_array.append(pointer)
-		del pointer
+		position_array = create_position_array(masking_array)
 
 		if opts.setadjacencyobjs:
 			if len(opts.setadjacencyobjs) == len(masking_array):
-				adjacent_range = opts.setadjacencyobjs
+				adjacent_range = np.array(opts.setadjacencyobjs, dtype = np.int)
 			else:
-				print "Error: # of masking arrays %d must and list of matching adjacency %d must be equal." % (len(masking_array), len(opts.setadjacencyobjs))
+				print "Error: # of masking arrays (%d) must and list of matching adjacency (%d) must be equal." % (len(masking_array), len(opts.setadjacencyobjs))
 				quit()
 		else: 
 			adjacent_range = range(len(adjacency_array))
 		calcTFCE = []
-		if opts.setfcesettings:
-			if len(opts.setfcesettings) == len(masking_array):
-				print "Error: # of masking arrays %d must and list of matching tfce setting %d must be equal." % (len(masking_array), len(opts.setfcesettings))
+		if opts.assigntfcesettings:
+			if not len(opts.assigntfcesettings) == len(masking_array):
+				print "Error: # of masking arrays (%d) must and list of matching tfce setting (%d) must be equal." % (len(masking_array), len(opts.assigntfcesettings))
 				quit()
-			if len(opts.tfce) % 2 != 0:
+			if not len(opts.tfce) % 2 == 0:
 				print "Error. The must be an even number of input for --tfce"
 				quit()
 			tfce_settings_mask = []
-			for i in range(len(opts.tfce)/2):
-				tfce_settings_mask.append((opts.setfcesettings == int(i)))
+			for i in np.unique(opts.assigntfcesettings):
+				tfce_settings_mask.append((np.array(opts.assigntfcesettings) == int(i)))
 				pointer = int(i*2)
-				adjacency = merge_adjacency_array(adjacent_range[tfce_settings_mask[i]], adjacency_array[tfce_settings_mask[i]])
+				adjacency = merge_adjacency_array(np.array(adjacent_range)[tfce_settings_mask[int(i)]], np.array(adjacency_array)[tfce_settings_mask[int(i)]])
 				calcTFCE.append((CreateAdjSet(float(opts.tfce[pointer]), float(opts.tfce[pointer+1]), adjacency)))
 				del adjacency
 		else:
@@ -534,12 +675,7 @@ def run(opts):
 			calcTFCE.append((CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjacency)))
 
 		# make mega mask
-		fullmask = []
-		for i in range(len(masking_array)):
-			if masking_array[i].shape[2] == 1: # check if vertex or voxel image
-				fullmask = np.hstack((fullmask, masking_array[i][:,0,0]))
-			else:
-				fullmask = np.hstack((fullmask, masking_array[i][masking_array[i]==True]))
+		fullmask = create_full_mask(masking_array)
 
 		if not opts.noweight:
 			# correction for vertex density
@@ -554,7 +690,7 @@ def run(opts):
 				vdensity = np.hstack((vdensity, np.array((1 - (temp_vdensity/temp_vdensity.max())+(temp_vdensity.mean()/temp_vdensity.max())), dtype=np.float32)))
 			del temp_vdensity
 		else:
-			vdensity =1
+			vdensity = 1
 
 		#load regressors
 		if opts.input: 
@@ -594,12 +730,33 @@ def run(opts):
 				os.mkdir("output_%s" % (outname))
 			os.chdir("output_%s" % (outname))
 			for i in range(opts.randomise[0],(opts.randomise[1]+1)):
-				calculate_tfce(mapped_y, masking_array,  pred_x, calcTFCE[0], vdensity, position_array, fullmask, perm_number=i, randomise = True)
+				if opts.assigntfcesettings:
+					calc_mixed_tfce(opts.assigntfcesettings, 
+						mapped_y,
+						masking_array,
+						position_array,
+						vdensity,
+						pred_x,
+						calcTFCE,
+						perm_number=i,
+						randomise = True)
+				else:
+					calculate_tfce(mapped_y, 
+						masking_array,
+						pred_x, calcTFCE[0],
+						vdensity,
+						position_array,
+						fullmask,
+						perm_number=i,
+						randomise = True)
 			print("Total time took %.1f seconds" % (time() - currentTime))
 			print("Randomization took %.1f seconds" % (time() - randTime))
 		else:
 			# Run TFCE
-			tvals, tfce_tvals, neg_tfce_tvals = calculate_tfce(merge_y, masking_array, pred_x, calcTFCE[0], vdensity, position_array, fullmask)
+			if opts.assigntfcesettings:
+				tvals, tfce_tvals, neg_tfce_tvals = calc_mixed_tfce(opts.assigntfcesettings, merge_y, masking_array, position_array, vdensity, pred_x, calcTFCE)
+			else:
+				tvals, tfce_tvals, neg_tfce_tvals = calculate_tfce(merge_y, masking_array, pred_x, calcTFCE[0], vdensity, position_array, fullmask)
 			if opts.outtype[0] == 'tmi':
 				if not outname.endswith('tmi'):
 					outname += '.tmi'

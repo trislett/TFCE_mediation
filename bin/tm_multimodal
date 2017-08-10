@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #    Wrapper for tm_multimodal
-#    Copyright (C) 2016 Lea Waller, Tristram Lett
+#    Copyright (C) 2016 Tristram Lett
 
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by

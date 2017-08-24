@@ -24,8 +24,8 @@ import nibabel as nib
 import argparse as ap
 from time import gmtime, strftime
 
-from tfce_mediation.pyfunc import convert_mni_object, convert_fs, convert_gifti, convert_ply
 from tfce_mediation.tm_io import write_tm_filetype, read_tm_filetype
+from tfce_mediation.tm_func import replacemask, replacesurface
 
 def maskdata(data):
 	if data.ndim==4:
@@ -50,43 +50,6 @@ def maskdata(data):
 		print "Error: %d dimensions are not supported." % data.ndim
 		exit()
 	return (data, mask)
-
-def replacemask(orig_mask, orig_maskname, maskfile):
-	mask = nib.load(maskfile)
-	mask_data = mask.get_data()
-	_, mask_index = maskdata(mask_data)
-	if not orig_mask.shape == mask_index.shape:
-		print "Error. Replacement mask dimensions %s does not match the original mask dimensions %s" % (mask_index.shape, orig_mask.shape)
-		sys.exit()
-	newname = raw_input("Enter a new mask name or press enter to keep the exist replacement name: %s\n" % orig_maskname)
-	if newname:
-		mask_name = newname
-	else:
-		mask_name = orig_maskname
-	return (mask_index, mask_name)
-
-def replacesurface(orig_v, orig_f, surf_filename):
-	surf_ext = os.path.splitext(surf_filename)[1]
-	surfname = os.path.basename(surf_filename)
-	if surf_ext == '.ply':
-		v, f = convert_ply(surf_filename)
-	elif surf_ext == '.gii':
-		v, f = convert_gifti(surf_filename)
-	elif surf_ext == '.obj':
-		print "Reading surface as MNI object"
-		v, f = convert_mni_object(surf_filename)
-	elif surf_ext == '.srf':
-		v, f = convert_fs(surf_filename)
-	else:
-		v, f = convert_fs(surf_filename) # place holder
-	if not orig_v.shape == v.shape:
-		print "Error. Vertices shape mismatch."
-		sys.exit()
-	if not orig_f.shape == f.shape:
-		print "Error. Faces shape mismatch."
-		sys.exit()
-	return  v, f, surfname
-
 
 DESCRIPTION = "Edit tmi file."
 
@@ -272,9 +235,39 @@ def run(opts):
 
 	# masks
 	if opts.replacemask:
-		original_mask = masking_array[int(opts.replacemask[0])]
+		# first, index data array
+		pointer = 0
+		position_array = [0]
+		for i in range(len(masking_array)):
+			pointer += len(masking_array[i][masking_array[i]==True])
+			position_array.append(pointer)
+		del pointer
+
+		original_mask = np.copy(masking_array[int(opts.replacemask[0])])
 		print "Replacing mask %s" % maskname_array[int(opts.replacemask[0])]
 		masking_array[int(opts.replacemask[0])], maskname_array[int(opts.replacemask[0])] = replacemask(original_mask, maskname_array[int(opts.replacemask[0])], opts.replacemask[1])
+
+		size_oldmask = original_mask[original_mask==True].shape[0]
+		size_newmask = masking_array[int(opts.replacemask[0])][masking_array[int(opts.replacemask[0])]==True].shape[0]
+		diff_masks = size_oldmask - size_newmask
+		new_data_array = np.zeros((int(image_array[0].shape[0] - diff_masks), image_array[0].shape[1]))
+
+		pointer = 0
+		for surface in range(len(masking_array)):
+			start = position_array[surface]
+			end = position_array[surface+1]
+			size = end - start + pointer # CHECK THIS !
+			if int(surface) == int(opts.replacemask[0]):
+				size = size_newmask + pointer
+				tempdata = np.zeros((original_mask.shape[0], original_mask.shape[1], original_mask.shape[2],image_array[0].shape[1]))
+				tempdata[original_mask] = image_array[0][start:end,:]
+				new_data_array[pointer:size,:] = tempdata[masking_array[surface]]
+			else:
+				new_data_array[pointer:size,:] = image_array[0][start:end,:]
+			pointer += size # CHECK THIS !
+		image_array[0] = new_data_array
+		del new_data_array
+
 		tmi_history.append("history mode_replace %s 1 1 0 0 0" % currentTime)
 		append_history = False
 	if opts.reordermasks:
@@ -299,8 +292,9 @@ def run(opts):
 		for surface in opts.reordermasks:
 			start = position_array[surface]
 			end = position_array[surface+1]
-			size = end - start
+			size = end - start + pointer # CHECK THIS !
 			new_data_array[pointer:size,:] = image_array[0][start:end,:]
+			pointer += size # CHECK THIS !
 		image_array[0] = new_data_array
 		del new_data_array
 

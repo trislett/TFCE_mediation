@@ -41,11 +41,21 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=1,
 		metavar=('*.tmi'),
 		required=True)
+	ap.add_argument("--tfce", 
+		help="TFCE settings. H (i.e., height raised to power H), E (i.e., extent raised to power E). Default: %(default)s). H=2, E=2/3. Multiple sets of H and E values can be entered with using the -st option.", 
+		nargs='+', 
+		type=str,
+		metavar=('H', 'E'))
 	ap.add_argument("-sa", "--setadjacencyobjs",
 		help="Specify the adjaceny object to use for each mask. The number of inputs must match the number of masks in the tmi file. Note, the objects start at zero. e.g., -sa 0 1 0 1",
 		nargs='+',
 		type=str,
 		metavar=('int'))
+	ap.add_argument("-st", "--assigntfcesettings",
+		help="Specify the tfce H and E settings for each mask. -st is useful for combined analysis do voxel and vertex data. More than one set of values must inputted with --tfce. The number of inputs must match the number of masks in the tmi file. The input corresponds to each pair of --tfce setting starting at zero. e.g., -st 0 0 0 0 1 1",
+		nargs='+',
+		type=str,
+		metavar=('INT'))
 	ap.add_argument("-n", "--numperm", 
 		nargs=1, 
 		type=int, 
@@ -73,37 +83,38 @@ def run(opts):
 
 	currentTime=int(time())
 
-	#load the proper script
-
-#	whichScript="python %s/tm_multimodality_multisurface_regression.py" % get_script_path()
-	whichScript="tm_multimodal mmr"
+	#assign command options
+	mmr_cmd = "echo tm_multimodal mmr -i_tmi %s" % opts.tmifile[0]
+	if opts.input:
+		mmr_cmd += " -i %s %s" % (opts.input[0], opts.input[1])
+	else:
+		mmr_cmd += " -r %s" % (opts.regressors[0])
+	if opts.tfce:
+		mmr_cmd += " --tfce %s" % ' '.join(opts.tfce)
+	if opts.setadjacencyobjs:
+		mmr_cmd += " -sa %s" % ' '.join(opts.setadjacencyobjs)
+	if opts.assigntfcesettings:
+		if not opts.tfce:
+			print "Error: --tfce must be used with -st option."
+			quit()
+		mmr_cmd += " -st %s" % ' '.join(opts.assigntfcesettings)
 
 	#round number of permutations to the nearest 200
 	roundperm=int(np.round(opts.numperm[0]/200.0)*100.0)
 	forperm=(roundperm/100)-1
 	print "Evaluating %d permuations" % (roundperm*2)
 
-	if opts.input:
-		for i in xrange(forperm+1):
-			if opts.setadjacencyobjs:
-				os.system("echo %s -i %s %s -i_tmi %s -p %i %i -sa %s >> cmd_MStmi_randomise_%d" % (whichScript,opts.input[0], opts.input[1], opts.tmifile[0], (i*100+1), (i*100+100), ' '.join(opts.setadjacencyobjs), currentTime))
-			else:
-				os.system("echo %s -i %s %s -i_tmi %s -p %i %i >> cmd_MStmi_randomise_%d" % (whichScript,opts.input[0], opts.input[1], opts.tmifile[0], (i*100+1), (i*100+100), currentTime))
-	else:
-		for i in xrange(forperm+1):
-			if opts.setadjacencyobjs:
-				os.system("echo %s -r %s -i_tmi %s -p %i %i -sa %s >> cmd_MStmi_randomise_%d" % (whichScript, opts.regressors[0], opts.tmifile[0], (i*100+1), (i*100+100), ' '.join(opts.setadjacencyobjs), currentTime))
-			else:
-				os.system("echo %s -r %s -i_tmi %s -p %i %i >> cmd_MStmi_randomise_%d" % (whichScript, opts.regressors[0], opts.tmifile[0], (i*100+1), (i*100+100),currentTime) )
 	#build command text file
+	for i in xrange(forperm+1):
+		os.system("%s -p %i %i >> cmd_MStmi_randomise_%d" % (mmr_cmd, (i*100+1), (i*100+100), currentTime))
 
 	#submit text file for parallel processing; submit_condor_jobs_file is supplied with TFCE_mediation
 	if opts.gnuparallel:
-		os.system("cat cmd_MStmi_randomise_%d | parallel -j %d --delay 20" % (currentTime,int(opts.gnuparallel[0])) )
+		os.system("cat cmd_MStmi_randomise_%d | parallel -j %d --delay 20" % (currentTime, int(opts.gnuparallel[0])))
 	elif opts.condor:
-		os.system("submit_condor_jobs_file cmd_MStmi_randomise_%d" % (currentTime) )
+		os.system("submit_condor_jobs_file cmd_MStmi_randomise_%d" % (currentTime))
 	elif opts.fslsub:
-		os.system("${FSLDIR}/bin/fsl_sub -t cmd_MStmi_randomise_%d" % (currentTime) )
+		os.system("${FSLDIR}/bin/fsl_sub -t cmd_MStmi_randomise_%d" % (currentTime))
 	elif opts.cmdtext:
 		pass
 	else:

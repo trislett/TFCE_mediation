@@ -556,4 +556,66 @@ def maskdata(data):
 		exit()
 	return (data, mask)
 
+# Prints history and basic info from a tmi file
+#
+# Input:
+#
+# tmi_history = history from tmi file
+# maskname_array = mask names from tmi file
+# surfname = surface names from tmi file
+# (optional) num_con = the number of contrasts (i.e., image_array[0].shape[1])
+#
+# Output:
+# None
+def print_tmi_history(tmi_history, maskname_array, surfname, num_con = None):
+	num_masks = 0
+	num_affines = 0
+	num_surfaces = 0
+	num_adjac = 0
+	print "--- History ---"
+	for i in range(len(tmi_history)):
+		print "Time-point %d" % i
+		line = tmi_history[i].split(' ')
+		print ("Date: %s-%s-%s %s:%s:%s" % (line[2][6:8],line[2][4:6],line[2][0:4], line[2][8:10], line[2][10:12], line[2][12:14]) )
+		if line[1]=='mode_add':
+			print "Elements added"
+			num_masks += int(line[4])
+			num_affines += int(line[5])
+			num_surfaces += int(line[6])
+			num_adjac += int(line[7])
+		elif line[1]=='mode_sub':
+			print "Elements removed"
+			num_masks -= int(line[4])
+			num_affines -= int(line[5])
+			num_surfaces -= int(line[6])
+			num_adjac -= int(line[7])
+		elif line[1] == 'mode_replace':
+			print "Element replaced"
+		elif line[1] == 'mode_reorder':
+			print "Element reordered"
+		else:
+			print "Error: mode is not understood"
+		print "# masks: %s" % line[4]
+		print "# affines: %s" % line[5]
+		print "# surfaces: %s" % line[6]
+		print "# adjacency sets: %s\n" % line[7]
+
+	print "--- Mask names ---"
+	for i in range(len(maskname_array)):
+		print "Mask %d : %s" % (i,maskname_array[i])
+	print ""
+	print "--- Surface names ---"
+	for i in range(len(surfname)):
+		print "Surface %d : %s" % (i,surfname[i])
+	print ""
+	if num_con:
+		print "--- Contrasts ---"
+		print range(num_con)
+		print ""
+	print "--- Total ---"
+	print "# masks: %d ([0 -> %d])" % (num_masks, num_masks-1)
+	print "# affines: %d ([0 -> %d])" % (num_affines, num_affines-1)
+	print "# surfaces: %d ([0 -> %d])" % (num_surfaces, num_surfaces-1)
+	print "# adjacency sets: %d ([0 -> %d])\n" % (num_adjac, num_adjac-1)
+
 

@@ -31,9 +31,11 @@ from sklearn.decomposition import FastICA, PCA, MiniBatchSparsePCA, NMF
 from tfce_mediation import cynumstats
 from tfce_mediation.pyfunc import converter_try, loadnifti, loadmgh, savenifti, savemgh, zscaler, minmaxscaler, find_nearest, loadtwomgh
 
-DESCRIPTION = "Basic functions on Nifti or MGH."
+DESCRIPTION = "Basic math/stats functions on Nifti or MGH images."
 
-def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION)):
+formatter_class=lambda prog: ap.HelpFormatter(prog, max_help_position=40)
+
+def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION, formatter_class=formatter_class)):
 #input
 	datatype = parser.add_mutually_exclusive_group(required=True)
 	datatype.add_argument("--voxel", 

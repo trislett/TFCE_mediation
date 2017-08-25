@@ -23,11 +23,12 @@ import argparse as ap
 from time import time
 
 DESCRIPTION = "Different parallelization methods for TFCE_mediation permutation testing. If no parallelization method is specified, only a text file of commands will be outputed (i.e., cmd_TFCE_randomise_{timestamp})"
+formatter_class=lambda prog: ap.HelpFormatter(prog, max_help_position=100, width=200)
 
 def get_script_path():
 	return os.path.dirname(os.path.realpath(sys.argv[0]))
 
-def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
+def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatter_class=formatter_class)):
 	group = ap.add_mutually_exclusive_group(required=True)
 	group.add_argument("-i", "--input", 
 		nargs=2, 

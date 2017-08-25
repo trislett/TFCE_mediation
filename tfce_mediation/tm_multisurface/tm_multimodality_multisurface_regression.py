@@ -30,8 +30,9 @@ from tfce_mediation.tm_func import calculate_tfce, calculate_mediation_tfce, cal
 
 
 DESCRIPTION = "MMR: Multimodality Multisurface Regression with TFCE and *.tmi formated neuroimaging files."
+formatter_class=lambda prog: ap.HelpFormatter(prog, max_help_position=100, width=200)
 
-def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
+def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatter_class=formatter_class)):
 
 	ap.add_argument("-i_tmi", "--tmifile",
 		help="Input the *.tmi file for analysis.", 

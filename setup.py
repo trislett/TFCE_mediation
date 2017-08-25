@@ -5,7 +5,7 @@ from distutils.command.sdist import sdist
 from setuptools import setup
 
 PACKAGE_NAME = "tfce_mediation"
-BUILD_REQUIRES = ["numpy", "scipy", "matplotlib", "nibabel", "cython", "scikit-learn", "joblib", "h5py"]
+BUILD_REQUIRES = ["numpy", "scipy", "matplotlib", "nibabel", "cython", "scikit-learn", "joblib", "h5py", "mayavi"]
 
 CLASSIFIERS = ["Development Status :: 4 - Beta",
   "Environment :: Console",

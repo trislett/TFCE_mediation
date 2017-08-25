@@ -21,7 +21,6 @@ import argparse as ap
 
 import tfce_mediation
 
-
 class _HelpAction(ap._HelpAction):
 
 	def __call__(self, parser, namespace, values, option_string=None):
@@ -44,6 +43,7 @@ class _Usage(ap._HelpAction):
 		splist.append(read_tmi_header)
 		splist.append(create_tmi)
 		splist.append(tmi_edit)
+		splist.append(tmi_view)
 		splist.append(tm_mulitmodality_adjacency)
 
 		helps = []
@@ -55,7 +55,9 @@ class _Usage(ap._HelpAction):
 
 DESCRIPTION = "TFCE_mediation: Multimodal Multisurface Analysis. ALPHA 0.1"
 
-parser = ap.ArgumentParser(description = DESCRIPTION)
+formatter_class=lambda prog: ap.HelpFormatter(prog, max_help_position=40)
+
+parser = ap.ArgumentParser(description = DESCRIPTION, formatter_class=formatter_class)
 
 subparsers = parser.add_subparsers(help = "Sub-command help: tfce_multimodal {subcommand} -h")
 
@@ -64,34 +66,36 @@ subparsers = parser.add_subparsers(help = "Sub-command help: tfce_multimodal {su
 #{funcName}.set_defaults(func = tfce_mediation.{scriptName}.run)
 #tfce_mediation.{scriptName}.getArgumentParser({funcName})
 
-tm_multimodality_multisurface_regression = subparsers.add_parser("mmr", help="mmr")
+tm_multimodality_multisurface_regression = subparsers.add_parser("mmr", help="mmr", formatter_class=formatter_class)
 tm_multimodality_multisurface_regression.set_defaults(func = tfce_mediation.tm_multisurface.tm_multimodality_multisurface_regression.run)
 tfce_mediation.tm_multisurface.tm_multimodality_multisurface_regression.getArgumentParser(tm_multimodality_multisurface_regression)
 
-tm_mmr_randomise_parallel = subparsers.add_parser("mmr-parallel", help="mmr-parallel")
+tm_mmr_randomise_parallel = subparsers.add_parser("mmr-parallel", help="mmr-parallel", formatter_class=formatter_class)
 tm_mmr_randomise_parallel.set_defaults(func = tfce_mediation.tm_multisurface.tm_mmr_randomise_parallel.run)
 tfce_mediation.tm_multisurface.tm_mmr_randomise_parallel.getArgumentParser(tm_mmr_randomise_parallel)
 
-read_tmi_header = subparsers.add_parser("read-tmi-header", help="read-tmi-header")
+read_tmi_header = subparsers.add_parser("read-tmi-header", help="read-tmi-header", formatter_class=formatter_class)
 read_tmi_header.set_defaults(func = tfce_mediation.tools.read_tmi_header.run)
 tfce_mediation.tools.read_tmi_header.getArgumentParser(read_tmi_header)
 
-create_tmi = subparsers.add_parser("create-tmi", help="create-tmi")
+create_tmi = subparsers.add_parser("create-tmi", help="create-tmi", formatter_class=formatter_class)
 create_tmi.set_defaults(func = tfce_mediation.tools.create_tmi.run)
 tfce_mediation.tools.create_tmi.getArgumentParser(create_tmi)
 
-tmi_edit = subparsers.add_parser("edit-tmi", help="edit-tmi")
+tmi_edit = subparsers.add_parser("edit-tmi", help="edit-tmi", formatter_class=formatter_class)
 tmi_edit.set_defaults(func = tfce_mediation.tools.tmi_edit.run)
 tfce_mediation.tools.tmi_edit.getArgumentParser(tmi_edit)
 
-tm_mulitmodality_adjacency = subparsers.add_parser("multimodal-adjacency", help="multimodal-adjacency")
+tmi_view = subparsers.add_parser("view-tmi", help="view-tmi", formatter_class=formatter_class)
+tmi_view.set_defaults(func = tfce_mediation.tools.tmi_view.run)
+tfce_mediation.tools.tmi_view.getArgumentParser(tmi_view)
+
+tm_mulitmodality_adjacency = subparsers.add_parser("multimodal-adjacency", help="multimodal-adjacency", formatter_class=formatter_class)
 tm_mulitmodality_adjacency.set_defaults(func = tfce_mediation.tools.tm_mulitmodality_adjacency.run)
 tfce_mediation.tools.tm_mulitmodality_adjacency.getArgumentParser(tm_mulitmodality_adjacency)
 
-
-
-parser.add_argument('--verbosehelp', action=_HelpAction, help='Display help for each sub-command.')  # add custom help
-parser.add_argument('--usage', action=_Usage, help='Display usage for sub-command.')  # add printout usage
+parser.add_argument('--verbosehelp', action=_HelpAction, help='Display help for each sub-command.')  # custom help
+parser.add_argument('--usage', action=_Usage, help='Display usage for sub-command.')  # printout usage
 
 args = parser.parse_args()
 args.func(args)

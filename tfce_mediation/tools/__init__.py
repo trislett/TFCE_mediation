@@ -22,3 +22,4 @@ from . import create_tmi
 from . import read_tmi_header
 from . import tm_mulitmodality_adjacency
 from . import tmi_edit
+from . import tmi_view

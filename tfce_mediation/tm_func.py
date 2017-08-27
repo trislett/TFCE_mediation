@@ -567,7 +567,7 @@ def maskdata(data):
 #
 # Output:
 # None
-def print_tmi_history(tmi_history, maskname_array, surfname, num_con = None):
+def print_tmi_history(tmi_history, maskname_array, surfname, num_con = None, contrast_names = []):
 	num_masks = 0
 	num_affines = 0
 	num_surfaces = 0
@@ -608,8 +608,16 @@ def print_tmi_history(tmi_history, maskname_array, surfname, num_con = None):
 	for i in range(len(surfname)):
 		print "Surface %d : %s" % (i,surfname[i])
 	print ""
+	if contrast_names is not []:
+		print "--- Contrasts/Subjects ---"
+		count = 0
+		for contrast in contrast_names[0]:
+			print "Contrast %d : %s" % (count,contrast)
+			count += 1
+		print ""
+		num_con = None
 	if num_con:
-		print "--- Contrasts ---"
+		print "--- Contrasts/Subjects ---"
 		print range(num_con)
 		print ""
 	print "--- Total ---"

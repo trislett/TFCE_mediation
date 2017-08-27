@@ -69,7 +69,7 @@ def savenifti_v2(image_array, index, imagename, affine=None):
 #  WRITE TMI  #
 ###############
 
-def write_tm_filetype(outname, subjectids = [], imgtype = [], checkname = True, output_binary = True, image_array = [], masking_array = [], maskname = [],  affine_array = [], vertex_array = [], face_array = [], surfname = [], adjacency_array = [], tmi_history = [], append_history = True): # NOTE: add ability to store subjectids and imgtypes
+def write_tm_filetype(outname, columnids = [], imgtype = [], checkname = True, output_binary = True, image_array = [], masking_array = [], maskname = [],  affine_array = [], vertex_array = [], face_array = [], surfname = [], adjacency_array = [], tmi_history = [], append_history = True): # NOTE: add ability to store subjectids and imgtypes
 	# timestamp
 	currentTime=int(strftime("%Y%m%d%H%M%S",gmtime()))
 	# counters
@@ -138,7 +138,7 @@ def write_tm_filetype(outname, subjectids = [], imgtype = [], checkname = True, 
 			print "Error shape of adjacency objects are not understood."
 
 	# write array shape
-	if not image_array==[]:
+	if not image_array == []:
 		num_data = 1
 		if image_array.ndim == 1:
 			nvert=len(image_array)
@@ -210,11 +210,11 @@ def write_tm_filetype(outname, subjectids = [], imgtype = [], checkname = True, 
 				o.write("nbytes %d\n" % len(pickle.dumps(adjacency_array[i], -1)) )
 				o.write("adjlength %d\n" % len(adjacency_array[i]) )
 
-		if not subjectids==[]:
-				o.write("element subject_id\n")
-				o.write("dtype %s\n" % subjectids[0].dtype)
-				o.write("nbytes %d\n" % subjectids[0].nbytes)
-				o.write("listlength %d\n" % len(subjectids[0]))
+		if columnids is not []:
+				o.write("element column_id\n")
+				o.write("dtype %s\n" % columnids.dtype)
+				o.write("nbytes %d\n" % columnids.nbytes)
+				o.write("listlength %d\n" % len(columnids))
 
 		# create a recorded of what was added to the file. 'mode_add' denotes these items were added. tmi_history is expandable.
 		if append_history:
@@ -241,13 +241,13 @@ def write_tm_filetype(outname, subjectids = [], imgtype = [], checkname = True, 
 					outv.tofile(o)
 					outf = np.array(face_array[j].T, dtype='uint32')
 					outf.tofile(o)
-			if not subjectids==[]:
-				subjectids[0].tofile(o)
+			if columnids is not []:
+				columnids.tofile(o)
 			if num_adjacency>0:
 				for j in range(num_adjacency):
 					pickle.dump(adjacency_array[j],o, protocol=pickle.HIGHEST_PROTOCOL)
 		else:
-			if not image_array==[]:
+			if not image_array == []:
 				np.savetxt(o,image_array.astype(np.float32))
 			if num_mask>0:
 				for j in range(num_mask):
@@ -260,8 +260,8 @@ def write_tm_filetype(outname, subjectids = [], imgtype = [], checkname = True, 
 				for j in range(num_affine):
 					outaffine = np.array(affine_array[j])
 					np.savetxt(o,outaffine.astype(np.float32))
-			if not subjectids==[]:
-				subjectids[0].tofile(o, sep='\n', format="%s")
+			if columnids is not []:
+				columnids.tofile(o, sep='\n', format="%s")
 			if num_object>0:
 				for k in range(num_object):
 					for i in xrange(len(vertex_array[k])):
@@ -300,7 +300,7 @@ def read_tm_filetype(tm_file, verbose=True):
 	o_face = []
 	o_affine = []
 	o_adjacency = []
-	o_subjectids = []
+	o_columnids = []
 	maskcounter = 0
 	vertexcounter = 0
 	facecounter = 0
@@ -388,8 +388,8 @@ def read_tm_filetype(tm_file, verbose=True):
 			if str(element[e]) == 'face':
 				o_face.append(np.array(array_read[e][:faceshape[facecounter][1]*faceshape[facecounter][0]]).reshape(faceshape[facecounter][1],faceshape[facecounter][0]).T)
 				facecounter += 1
-			if str(element[e]) == 'subject_id':
-				o_subjectids.append((np.fromfile(array_read[e][:listlength], dtype=element_dtype[e])))
+			if str(element[e]) == 'column_id':
+				o_columnids.append(np.array(array_read[e][:listlength]))
 			if str(element[e]) == 'adjacency_object':
 				o_adjacency.append(np.array(object_read[adjacencycounter][:adjlength[adjacencycounter]]))
 				adjacencycounter += 1
@@ -427,17 +427,17 @@ def read_tm_filetype(tm_file, verbose=True):
 					temparray.append((np.array(obj.readline().strip().split()).astype('int32')))
 				o_face.append(( np.array(temparray, dtype='int32') ))
 				facecounter += 1
-			if str(element[e]) == 'subject_id':
+			if str(element[e]) == 'column_id':
 				temparray = []
 				for k in range(listlength):
 					temparray.append(obj.readline().strip() )
-				o_subjectids.append(( np.array(temparray, dtype=element_dtype[e]) ))
+				o_columnids.append(( np.array(temparray, dtype=element_dtype[e]) ))
 
 	else:
 		print "Error unknown filetype: %s" % tm_filetype
-	return(element, o_imgarray, o_masking_array, maskname, o_affine, o_vertex, o_face, surfname, o_adjacency, tmi_history, o_subjectids) # add o_subjectids
+	return(element, o_imgarray, o_masking_array, maskname, o_affine, o_vertex, o_face, surfname, o_adjacency, tmi_history, o_columnids)
 
-
+# Depreciated
 ###############
 # CONVERT TMI #
 ###############

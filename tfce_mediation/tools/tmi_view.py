@@ -24,18 +24,17 @@ import argparse as ap
 from tfce_mediation.tm_io import read_tm_filetype
 from tfce_mediation.tm_func import print_tmi_history
 from tfce_mediation.pyfunc import convert_voxel
-
-if 'QT_API' not in os.environ and 'ETS_TOOLKIT' not in os.environ: 
-	os.environ['QT_API'] = 'pyqt'
-	os.environ['ETS_TOOLKIT'] = 'qt4'
+# hopefully safer loafing of mayavi
 try:
 	from mayavi import mlab
 except:
-	print """
-	Error mayavi is required (http://docs.enthought.com/mayavi/mayavi/installation.html).
-	Try: sudo pip install -U mayavi
-	"""
-	quit()
+	if 'QT_API' not in os.environ: 
+		os.environ['QT_API'] = 'pyside'
+	try: 
+		from mayavi import mlab
+	except:
+		os.environ['QT_API'] = 'pyqt'
+		from mayavi import mlab
 
 DESCRIPTION = """
 Display surface statistics from a tmi file.
@@ -89,9 +88,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 
 def run(opts):
 	# load tmi
-	_, image_array, masking_array, maskname_array, affine_array, vertex_array, face_array, surfname, _, tmi_history, _ = read_tm_filetype(opts.inputtmi[0], verbose=False)
+	_, image_array, masking_array, maskname_array, affine_array, vertex_array, face_array, surfname, _, tmi_history, columnids = read_tm_filetype(opts.inputtmi[0], verbose=False)
 	if opts.history:
-		print_tmi_history(tmi_history, maskname_array, surfname, num_con = image_array[0].shape[1])
+		print_tmi_history(tmi_history, maskname_array, surfname, num_con = image_array[0].shape[1], contrast_names = columnids)
 		quit()
 
 	# get the positions of masked data in image_array
@@ -134,9 +133,13 @@ def run(opts):
 			surf.module_manager.scalar_lut_manager.lut.table = cmap_array
 
 	if opts.displayvoxelmask:
+
+		cmap_array[0] = [227,218,201,0]
+
 		if len(opts.displayvoxelmask) % 2 != 0:
 			print "Error"
 			quit()
+
 		for j in range(int(len(opts.displayvoxelmask)/2)):
 			c_mask = opts.displayvoxelmask[0 + int(j*2)]
 			c_contrast = opts.displayvoxelmask[1 + int(j*2)]
@@ -148,9 +151,8 @@ def run(opts):
 			scalar_data = np.zeros((mask.shape[0],mask.shape[1],mask.shape[2]))
 			scalar_data[mask] = image_array[0][start:end,c_contrast]
 			v, f, values = convert_voxel(scalar_data, affine = affine_array[c_mask], absthreshold = opts.thresholds[0])
-			surf = mlab.triangular_mesh(v[:,0],v[:,1],v[:,2],f, scalars=values, vmin=opts.thresholds[0], vmax=opts.thresholds[1], name = maskname_array[c_mask])
+			surf = mlab.triangular_mesh(v[:,0],v[:,1],v[:,2],f, scalars=values, scale_factor=0, vmin=opts.thresholds[0], vmax=opts.thresholds[1], name = maskname_array[c_mask], transparent=True)
 			surf.module_manager.scalar_lut_manager.lut.table = cmap_array
-
 
 	mlab.show()
 

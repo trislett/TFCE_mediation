@@ -116,7 +116,7 @@ def run(opts):
 		#############################
 		###### FWER CORRECTION ######
 		#############################
-		_, image_array, masking_array, maskname, affine_array, vertex_array, face_array, surfname, adjacency_array, tmi_history, subjectids = read_tm_filetype('%s' % opts.tmifile[0], verbose=False)
+		_, image_array, masking_array, maskname, affine_array, vertex_array, face_array, surfname, adjacency_array, tmi_history, columnids = read_tm_filetype('%s' % opts.tmifile[0], verbose=False)
 
 		# check file dimensions
 		if not image_array[0].shape[1] % 3 == 0:
@@ -163,7 +163,7 @@ def run(opts):
 		positive_data, negative_data = apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, opts.tmifile[0], position_array, pos_range, neg_range, weight='logmasksize')
 
 		# write out files
-		if opts.concatestats: 
+		if opts.concatestats:
 			write_tm_filetype(opts.tmifile[0],
 				image_array = positive_data,
 				masking_array = masking_array,
@@ -175,7 +175,7 @@ def run(opts):
 				adjacency_array = adjacency_array,
 				checkname = False,
 				tmi_history = tmi_history)
-			_, image_array, masking_array, maskname, affine_array, vertex_array, face_array, surfname, adjacency_array, tmi_history, subjectids = read_tm_filetype(opts.tmifile[0], verbose=False)
+			_, image_array, masking_array, maskname, affine_array, vertex_array, face_array, surfname, adjacency_array, tmi_history, columnids = read_tm_filetype(opts.tmifile[0], verbose=False)
 			write_tm_filetype(opts.tmifile[0],
 				image_array = np.column_stack((image_array[0],negative_data)),
 				masking_array = masking_array,
@@ -190,47 +190,36 @@ def run(opts):
 		else:
 			for i in range(len(opts.outtype)):
 				if opts.outtype[i] == 'tmi':
-					write_tm_filetype("tstats_pFWER_%s" % opts.tmifile[0],
-						image_array = positive_data,
-						masking_array = masking_array,
-						maskname = maskname,
-						affine_array = affine_array,
-						vertex_array = vertex_array,
-						face_array = face_array,
-						surfname = surfname,
-						checkname = False,
-						tmi_history = tmi_history)
-					write_tm_filetype("negtstats_pFWER_%s" % opts.tmifile[0],
-						image_array = negative_data,
-						masking_array = masking_array,
-						maskname = maskname,
-						affine_array = affine_array,
-						vertex_array = vertex_array,
-						face_array = face_array,
-						surfname = surfname,
-						checkname = False,
-						tmi_history = tmi_history)
+					contrast_names = []
+
+					for j in range(num_contrasts):
+						contrast_names.append(("tstat_pFWER_con%d" % (j+1)))
+					for k in range(num_contrasts):
+						contrast_names.append(("negtstat_pFWER_con%d" % (k+1)))
+
+					outdata = np.column_stack((positive_data,negative_data))
+
 					if opts.neglog:
-						write_tm_filetype("tstats_negLog_pFWER_%s" % opts.tmifile[0],
-							image_array = -np.log10(1-positive_data),
-							masking_array = masking_array,
-							maskname = maskname,
-							affine_array = affine_array,
-							vertex_array = vertex_array,
-							face_array = face_array,
-							surfname = surfname,
-							checkname = False,
-							tmi_history = tmi_history)
-						write_tm_filetype("negtstats_negLog_pFWER_%s" % opts.tmifile[0],
-							image_array = -np.log10(1-negative_data),
-							masking_array=masking_array,
-							maskname=maskname,
-							affine_array=affine_array,
-							vertex_array=vertex_array,
-							face_array=face_array,
-							surfname=surfname,
-							checkname=False,
-							tmi_history=tmi_history)
+						for j in range(num_contrasts):
+							contrast_names.append(("tstat_negLog_pFWER_con%d" % (j+1)))
+						for k in range(num_contrasts):
+							contrast_names.append(("negtstat_negLog_pFWER_con%d" % (k+1)))
+
+					outdata = np.column_stack((outdata,-np.log10(1-positive_data)))
+					outdata = np.column_stack((outdata,-np.log10(1-negative_data)))
+
+					write_tm_filetype("pFWER_%s" % opts.tmifile[0],
+						image_array = outdata,
+						masking_array = masking_array,
+						maskname = maskname,
+						affine_array = affine_array,
+						vertex_array = vertex_array,
+						face_array = face_array,
+						surfname = surfname,
+						checkname = False,
+						columnids = np.array(contrast_names),
+						tmi_history = tmi_history)
+
 				else:
 					if opts.outtype[i] == 'mgh':
 						savefunc = savemgh_v2
@@ -249,18 +238,27 @@ def run(opts):
 						for contrast in range(num_contrasts):
 							out_image[temp_image[:, contrast] != 0,contrast] = temp_image[temp_image[:, contrast] != 0,contrast] * -1
 						if affine_array == []:
-							savefunc(out_image,masking_array[surf_count], "output_stats/%d_%s_pFWER" % (surf_count, basename))
+							savefunc(out_image,masking_array[surf_count],
+								"output_stats/%d_%s_pFWER" % (surf_count, 
+								basename))
 						else:
-							savefunc(out_image,masking_array[surf_count], "output_stats/%d_%s_pFWER" % (surf_count, basename), affine_array[surf_count])
+							savefunc(out_image,masking_array[surf_count],
+								"output_stats/%d_%s_pFWER" % (surf_count, basename),
+								affine_array[surf_count])
 						if opts.neglog:
 							out_image = -np.log10(1-positive_data[start:end,contrast])
 							temp_image = np.log10(1-negative_data[start:end,contrast])
 							for contrast in range(num_contrasts):
 								out_image[temp_image[:, contrast] != 0,contrast] = temp_image[temp_image[:, contrast] != 0,contrast]
 							if affine_array == []:
-								savefunc(out_image,masking_array[surf_count], "output_stats/%d_%s_negLog_pFWER" % (surf_count, basename))
+								savefunc(out_image,
+									masking_array[surf_count],
+									"output_stats/%d_%s_negLog_pFWER" % (surf_count, basename))
 							else:
-								savefunc(out_image,masking_array[surf_count], "output_stats/%d_%s_negLog_pFWER" % (surf_count, basename), affine_array[surf_count])
+								savefunc(out_image,
+									masking_array[surf_count],
+									"output_stats/%d_%s_negLog_pFWER" % (surf_count, basename),
+									affine_array[surf_count])
 		if opts.outputply:
 			colorbar = True
 			if not os.path.exists("output_ply"):
@@ -278,10 +276,18 @@ def run(opts):
 						img_data[masking_array[surf_count]] = combined_data
 						v, f, values = convert_voxel(img_data, affine = affine_array[surf_count], absthreshold = float(opts.outputply[0]))
 						if not v == []:
-							out_color_array = paint_surface(opts.outputply[0], opts.outputply[1], opts.outputply[2], values, save_colorbar=colorbar)
+							out_color_array = paint_surface(opts.outputply[0],
+								opts.outputply[1],
+								opts.outputply[2],
+								values,
+								save_colorbar=colorbar)
 							negvalues = values * -1
 							index = negvalues > float(opts.outputply[0])
-							out_color_array2 = paint_surface(opts.outputply[0], opts.outputply[1], opts.outputply[3], negvalues, save_colorbar=colorbar)
+							out_color_array2 = paint_surface(opts.outputply[0],
+								opts.outputply[1],
+								opts.outputply[3],
+								negvalues,
+								save_colorbar=colorbar)
 							out_color_array[index,:] = out_color_array2[index,:]
 							save_ply(v,f, "output_ply/%d_%s_pFWE_tcon%d.ply" % (surf_count, basename, contrast+1), out_color_array)
 							colorbar = False
@@ -290,12 +296,23 @@ def run(opts):
 					else:
 						img_data = np.zeros((masking_array[surf_count].shape[0]))
 						img_data[masking_array[surf_count][:,0,0]==True] = positive_data[start:end,contrast]
-						out_color_array = paint_surface(opts.outputply[0], opts.outputply[1], opts.outputply[2], img_data, save_colorbar=colorbar)
+						out_color_array = paint_surface(opts.outputply[0],
+							opts.outputply[1],
+							opts.outputply[2],
+							img_data,
+							save_colorbar=colorbar)
 						img_data[masking_array[surf_count][:,0,0]==True] = negative_data[start:end,contrast]
 						index = img_data > float(opts.outputply[0])
-						out_color_array2 = paint_surface(opts.outputply[0], opts.outputply[1], opts.outputply[3], img_data, save_colorbar=colorbar)
+						out_color_array2 = paint_surface(opts.outputply[0], 
+							opts.outputply[1],
+							opts.outputply[3],
+							img_data,
+							save_colorbar=colorbar)
 						out_color_array[index,:] = out_color_array2[index,:]
-						save_ply(vertex_array[surf_count],face_array[surf_count], "output_ply/%d_%s_pFWE_tcon%d.ply" % (surf_count, basename, contrast+1), out_color_array)
+						save_ply(vertex_array[surf_count],
+							face_array[surf_count],
+							"output_ply/%d_%s_pFWE_tcon%d.ply" % (surf_count, basename, contrast+1),
+							out_color_array)
 						colorbar = False
 	else:
 
@@ -407,7 +424,8 @@ def run(opts):
 				else:
 					calculate_tfce(mapped_y, 
 						masking_array,
-						pred_x, calcTFCE[0],
+						pred_x,
+						calcTFCE[0],
 						vdensity,
 						position_array,
 						fullmask,
@@ -418,20 +436,53 @@ def run(opts):
 		else:
 			# Run TFCE
 			if opts.assigntfcesettings:
-				tvals, tfce_tvals, neg_tfce_tvals = calc_mixed_tfce(opts.assigntfcesettings, merge_y, masking_array, position_array, vdensity, pred_x, calcTFCE)
+				tvals, tfce_tvals, neg_tfce_tvals = calc_mixed_tfce(opts.assigntfcesettings,
+					merge_y,
+					masking_array,
+					position_array,
+					vdensity,
+					pred_x,
+					calcTFCE)
 			else:
-				tvals, tfce_tvals, neg_tfce_tvals = calculate_tfce(merge_y, masking_array, pred_x, calcTFCE[0], vdensity, position_array, fullmask)
+				tvals, tfce_tvals, neg_tfce_tvals = calculate_tfce(merge_y,
+					masking_array,
+					pred_x, calcTFCE[0],
+					vdensity,
+					position_array,
+					fullmask)
 			if opts.outtype[0] == 'tmi':
 				if not outname.endswith('tmi'):
 					outname += '.tmi'
 				outname = 'stats_' + outname
+
+				if tvals.ndim == 1:
+					num_contrasts = 1
+				else:
+					num_contrasts = tvals.shape[0]
+
+				contrast_names = []
+				for i in range(num_contrasts):
+					contrast_names.append(("tstat_con%d" % (i+1)))
+				for j in range(num_contrasts):
+					contrast_names.append(("tstat_tfce_con%d" % (j+1)))
+				for k in range(num_contrasts):
+					contrast_names.append(("negtstat_tfce_con%d" % (k+1)))
+				outdata = np.column_stack((tvals.T, tfce_tvals.T))
+				outdata = np.column_stack((outdata, neg_tfce_tvals.T))
+
 				# write tstat
-				write_tm_filetype(outname, image_array = tvals.T, masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=[])
-				# read the tmi back in.
-				_, image_array, masking_array, maskname, affine_array, vertex_array, face_array, surfname, _, tmi_history, subjectids = read_tm_filetype(outname, verbose=False)
-				write_tm_filetype(outname, image_array = np.column_stack((image_array[0],tfce_tvals.T)), masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
-				_, image_array, masking_array, maskname, affine_array, vertex_array, face_array, surfname, adjacency_array, tmi_history, subjectids = read_tm_filetype(outname, verbose=False)
-				write_tm_filetype(outname, image_array = np.column_stack((image_array[0],neg_tfce_tvals.T)), masking_array=masking_array, maskname=maskname, affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, checkname=False, tmi_history=tmi_history)
+				write_tm_filetype(outname, 
+					image_array = outdata, 
+					masking_array = masking_array, 
+					maskname = maskname, 
+					affine_array = affine_array, 
+					vertex_array = vertex_array, 
+					face_array = face_array, 
+					surfname = surfname, 
+					checkname = False, 
+					columnids = np.array(contrast_names),
+					tmi_history=[])
+
 			else:
 				print "not implemented yet"
 

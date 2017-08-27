@@ -5,7 +5,7 @@ from distutils.command.sdist import sdist
 from setuptools import setup
 
 PACKAGE_NAME = "tfce_mediation"
-BUILD_REQUIRES = ["numpy", "scipy", "matplotlib", "nibabel", "cython", "scikit-learn", "joblib", "h5py", "mayavi"]
+BUILD_REQUIRES = ["numpy", "scipy", "matplotlib", "nibabel", "cython", "scikit-learn", "scikit-image", "joblib", "h5py", "mayavi"]
 
 CLASSIFIERS = ["Development Status :: 4 - Beta",
   "Environment :: Console",
@@ -66,6 +66,7 @@ setup(name = PACKAGE_NAME, version = __version__,
   license = "GNU General Public License v3 or later (GPLv3+)",
   classifiers = CLASSIFIERS,
   install_requires = BUILD_REQUIRES,
+  zip_safe=True,
   cmdclass = cmdclass,
   configuration = configuration
 )

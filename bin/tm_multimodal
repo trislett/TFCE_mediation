@@ -43,7 +43,6 @@ class _Usage(ap._HelpAction):
 		splist.append(read_tmi_header)
 		splist.append(create_tmi)
 		splist.append(tmi_edit)
-		splist.append(tmi_view)
 		splist.append(tm_mulitmodality_adjacency)
 
 		helps = []
@@ -85,10 +84,6 @@ tfce_mediation.tools.create_tmi.getArgumentParser(create_tmi)
 tmi_edit = subparsers.add_parser("edit-tmi", help="edit-tmi", formatter_class=formatter_class)
 tmi_edit.set_defaults(func = tfce_mediation.tools.tmi_edit.run)
 tfce_mediation.tools.tmi_edit.getArgumentParser(tmi_edit)
-
-tmi_view = subparsers.add_parser("view-tmi", help="view-tmi", formatter_class=formatter_class)
-tmi_view.set_defaults(func = tfce_mediation.tools.tmi_view.run)
-tfce_mediation.tools.tmi_view.getArgumentParser(tmi_view)
 
 tm_mulitmodality_adjacency = subparsers.add_parser("multimodal-adjacency", help="multimodal-adjacency", formatter_class=formatter_class)
 tm_mulitmodality_adjacency.set_defaults(func = tfce_mediation.tools.tm_mulitmodality_adjacency.run)

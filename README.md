@@ -15,6 +15,7 @@ See wiki [Install TFCE_mediation](https://github.com/trislett/TFCE_mediation/wik
 ### Tutorials ###
 
 See wikis:
+
 [Work-flow example: Vertex-wise regression analyses](https://github.com/trislett/TFCE_mediation/wiki/Work-flow-example-for-vertex-wise-regression-analyses)
 
 [Work-flow example: Voxel-wise mediation analyses](https://github.com/trislett/TFCE_mediation/wiki/Work-flow-example-for-voxel-wise-mediation-analyses)

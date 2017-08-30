@@ -608,7 +608,7 @@ def print_tmi_history(tmi_history, maskname_array, surfname, num_con = None, con
 	for i in range(len(surfname)):
 		print "Surface %d : %s" % (i,surfname[i])
 	print ""
-	if contrast_names is not []:
+	if contrast_names != []:
 		print "--- Contrasts/Subjects ---"
 		count = 0
 		for contrast in contrast_names[0]:

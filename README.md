@@ -26,7 +26,7 @@ Additional help:
 
 ### What's new / updates ###
 
-20-8-2017
+30-8-2017
 
 * version 1.3.3 is now available on [pypipe (PIP)](https://pypi.org/project/tfce-mediation/).
 * tm_multimodality is now available which includes: 

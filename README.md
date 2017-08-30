@@ -34,7 +34,7 @@ Additional help:
 	* mmr-parallel (parallel mmr for permutation testing)
 	* read-tmi-header (convenient reader for the TMI ascii header)
 	* create-tmi (create tmi files using almost any neuroimaging filetype and surface file)
-	* edit-tmi (manipulate TMI file using their history, reorder tmi elements, and much more)
+	* edit-tmi (manipulate TMI file using its history, reorder tmi elements, and much more)
 	* multimodal-adjacency (create adjacency for any type of neuroimaging data)
 * The most unique feature of tm_multimodality is the ability to perform FWER correaction across all image modalities with mixed TFCE setting etc. Although this feature has been validated (email me for the details), tm_multimodality is currently an alpha build.
 * Added a wiki for the [TMI file format](https://github.com/trislett/TFCE_mediation/wiki/TMI-Neuroimaging-File-Format)

@@ -210,7 +210,7 @@ def write_tm_filetype(outname, columnids = [], imgtype = [], checkname = True, o
 				o.write("nbytes %d\n" % len(pickle.dumps(adjacency_array[i], -1)) )
 				o.write("adjlength %d\n" % len(adjacency_array[i]) )
 
-		if columnids is not []:
+		if not np.array_equal(columnids, []):
 				o.write("element column_id\n")
 				o.write("dtype %s\n" % columnids.dtype)
 				o.write("nbytes %d\n" % columnids.nbytes)
@@ -241,7 +241,7 @@ def write_tm_filetype(outname, columnids = [], imgtype = [], checkname = True, o
 					outv.tofile(o)
 					outf = np.array(face_array[j].T, dtype='uint32')
 					outf.tofile(o)
-			if columnids is not []:
+			if not np.array_equal(columnids, []):
 				columnids.tofile(o)
 			if num_adjacency>0:
 				for j in range(num_adjacency):

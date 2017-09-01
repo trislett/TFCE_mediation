@@ -72,7 +72,11 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		nargs='+', 
 		metavar=('MGH or NIFTI or MNC'))
 	ap.add_argument("-c_i", "--concatenateimages",
-		help="Input a set of neuroimages that are then concatenated. The images should be in the same space. Only one set of concatenated can be added at a time. To add multiple modalities (or surfaces) used the rerun %(prog)s --append (the number of subjects has to be the same). (e.g. -c_i FAtoStd/Subject*_FAtoStd.nii.gz",
+		help="""
+			Input a set of neuroimages that are then concatenated. The images should be in the same space. 
+			Only one set of concatenated can be added at a time. To add multiple modalities (or surfaces) used 
+			the rerun %(prog)s --append (the number of subjects has to be the same). e.g., -c_i FAtoStd/Subject*_FAtoStd.nii.gz
+			""",
 		nargs='+', 
 		metavar=('MGH or NIFTI or MNC'))
 	ap.add_argument("-s", "--scale",
@@ -87,16 +91,24 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		nargs='+', 
 		metavar=('*.txt or *.csv'))
 	ap.add_argument("-c_text", "--concatenatetext",
-		help="Input text files with a single column that will be concatenated. The text should be in the same space (i.e., same length). Only one set of concatenated can be added at a time. To add multiple modalities used the rerun %(prog)s --append (the number of subjects has to be the same).",
+		help="""
+			Input text files with a single column that will be concatenated. The text should be in the same space (i.e., 
+			same length). Only one set of concatenated can be added at a time. To add multiple modalities used the rerun 
+			%(prog)s --append (the number of subjects has to be the same).""",
 		nargs='+', 
 		metavar=('*.txt or *.csv'))
 	ap.add_argument("-c_bin", "--concatenatebinary",
-		help="Input a set of binary images that encoded <f (float) that are then concatenated. The input should be check afterwards. Each image should be of the same length. To add multiple modalities (or surfaces) used the rerun %(prog)s --append. (e.g. [for ENIGMA-shape output], -c_bin Subject*/LogJacs_10.raw)",
+		help="""Input a set of binary images that encoded <f (float) that are then concatenated. The input should be check 
+				afterwards. Each image should be of the same length. To add multiple modalities (or surfaces) used the 
+				rerun %(prog)s --append. (e.g. [for ENIGMA-shape output], -c_bin Subject*/LogJacs_10.raw)""",
 		nargs='+', 
 		metavar=('*.bin or *.raw'))
 
 	ap.add_argument("-i_masks", "--inputmasks",
-		help="Input masks (recommended). There should be same number of input images as masks. The file formats do not have to match, but the masks should be in binary format. If masks are not entered, they will be created using non-zero data.",
+		help="""
+			Input masks (recommended). There should be same number of input images as masks. The file formats do not 
+			have to match, but the masks should be in binary format. If masks are not entered, they will be created 
+			using non-zero data.""",
 		nargs='+', 
 		metavar=('MGH or NIFTI or MNC'))
 
@@ -121,6 +133,14 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		help="Input adjacency objects for each surface. There should be same number of input images as masks.",
 		nargs='+', 
 		metavar=('*.npy'))
+	ap.add_argument("-i_col", "--inputcolumnnames",
+		help="""
+			Input single column text file with subject ID (make sure to anonymise if necessary) or contrast names. 
+			The number inputs must match the subject/contrasts in the data file.
+			e.g., -i_colnames subjects.txt""",
+		nargs=1,
+		type=str,
+		metavar=('*.txt or *.csv'))
 
 	ap.add_argument("--outputtype",
 		default='binary',
@@ -136,11 +156,12 @@ def run(opts):
 	affine_array = []
 	masking_array = []
 	maskname = []
-	vertex_array=[]
-	face_array=[]
+	vertex_array = []
+	face_array = []
 	surfname = []
-	adjacency_array=[]
-	tmi_history=[]
+	adjacency_array = []
+	tmi_history = []
+	columnids = []
 
 	if opts.outputname:
 		outname = opts.outputname[0]
@@ -296,11 +317,43 @@ def run(opts):
 				print "Error number of adjacency objects is not divisable by the number of masking arrays."
 				exit()
 
+	if opts.inputcolumnnames:
+		columnids = np.genfromtxt(opts.inputcolumnnames[0], delimiter=',', dtype=str)
+		if columnids.ndim != 1:
+			print "Error: column names must be a one dimensional array"
+			quit()
+		if columnids.shape[0] != image_array[0].shape[1]:
+			print "Column name length %d does not match data array length %d" % (columnids.shape[0],image_array[0].shape[1])
+			quit()
+
 	# Write tmi file
 	if not image_array==[]:
-		write_tm_filetype(outname, output_binary = opts.outputtype=='binary', image_array=np.vstack(image_array), masking_array=masking_array, maskname=maskname,  affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, adjacency_array=adjacency_array, checkname=False, tmi_history=tmi_history)
+		write_tm_filetype(outname, 
+			output_binary = opts.outputtype=='binary',
+			image_array = np.vstack(image_array),
+			masking_array = masking_array,
+			maskname = maskname,
+			affine_array = affine_array,
+			vertex_array = vertex_array,
+			face_array = face_array,
+			surfname = surfname,
+			adjacency_array = adjacency_array,
+			columnids = columnids,
+			checkname = False,
+			tmi_history=tmi_history)
 	else:
-		write_tm_filetype(outname, output_binary = opts.outputtype=='binary', masking_array=masking_array, maskname=maskname,  affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, adjacency_array=adjacency_array, checkname=False, tmi_history=tmi_history)
+		write_tm_filetype(outname,
+			output_binary = opts.outputtype=='binary',
+			masking_array = masking_array,
+			maskname = maskname,
+			affine_array = affine_array,
+			vertex_array = vertex_array,
+			face_array = face_array,
+			surfname = surfname,
+			adjacency_array = adjacency_array,
+			columnids = columnids,
+			checkname = False,
+			tmi_history = tmi_history)
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

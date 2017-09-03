@@ -681,6 +681,7 @@ def write_colorbar(threshold, input_cmap, name_cmap, outtype = 'png'):
 	plt.savefig("%s_colorbar.%s" % (os.path.basename(name_cmap), outtype),bbox_inches='tight')
 	plt.clf()
 
+
 # Converts a voxel image to a surface including outputs voxel values to paint vertex surface.
 #
 # Input:
@@ -722,4 +723,126 @@ def convert_voxel(img_data, affine = None, threshold = None, data_mask = None, a
 		print "No voxels above threshold"
 		v = f = values = []
 	return v, f, values
+
+
+# Applies laplacian smoothing with option to smooth single volume
+#
+# Herrmann, Leonard R. (1976), "Laplacian-isoparametric grid generation scheme", Journal of the Engineering Mechanics Division, 102 (5): 749–756.
+#
+# Input:
+# v = vertices array
+# f = face array
+#
+# Optional:
+# scalar = scalar values
+#
+# Output:
+# lapace_v = smoothed vertices array
+# f = face array (unchanged)
+# values = smoothed scalar array
+def basic_laplacian_smoothing(v, f, scalar = None):
+	adjacency = create_adjac_vertex(v,f)
+	n = v.shape[0]
+	laplace_v = np.empty((n,3))
+	if scalar is not None:
+		values = np.empty((n))
+	for i in range(n):
+		neighbors = list(adjacency[i])
+		laplace_v[i] = np.mean([v[j] for j in neighbors], axis = 0)
+		if scalar is not None:
+			values[i] = np.mean([scalar[j] for j in neighbors])
+	if scalar is not None:
+		return (laplace_v, f, values)
+	else:
+		return (laplace_v, f)
+
+
+# Applies Taubin smoothing with option to smooth single volume
+#
+# Taubin, Gabriel. "A signal processing approach to fair surface design." Proceedings of the 22nd annual conference on Computer graphics and interactive techniques. ACM, 1995.
+#
+# Input:
+# v = vertices array
+# f = face array
+#
+# Optional:
+# scalar = scalar values
+# lambda_w = postive factor
+# mu_w = negative factor (note, mu_w = 0 is laplacian smoothing)
+#
+# Output:
+# v_taubin = smoothed vertices array
+# f = face array (unchanged)
+# values = smoothed scalar array
+def taubin_smoothing(v, f, scalar = None, lambda_w = 1.0, mu_w = -1.1):
+	adjacency = create_adjac_vertex(v,f)
+	n = v.shape[0]
+	vt = np.empty((n,3))
+	v_taubin = np.empty((n,3))
+	if scalar is not None:
+		values = np.empty((n))
+
+	for i in range(n): # positive factor
+		neighbors = list(adjacency[i])
+		vt[i] = v[i] + (lambda_w * (np.mean([v[j] for j in neighbors], axis = 0) - v[i]))
+		if scalar is not None:
+			values[i] = np.mean([scalar[j] for j in neighbors])
+
+	for k in range(n): # negative factor
+		neighbors = list(adjacency[k])
+		v_taubin[k] = vt[k] + (mu_w * (np.mean([v[l] for l in neighbors], axis = 0) - vt[k]))
+		if scalar is not None:
+			values[k] = np.mean([scalar[l] for l in neighbors])
+	if scalar is not None:
+		return (v_taubin, f, values)
+	else:
+		return (v_taubin, f)
+
+# Applies Laplacian or Taubin smoothing with option to smooth single volume
+#
+# Herrmann, Leonard R. (1976), "Laplacian-isoparametric grid generation scheme", Journal of the Engineering Mechanics Division, 102 (5): 749–756.
+# Taubin, Gabriel. "A signal processing approach to fair surface design." Proceedings of the 22nd annual conference on Computer graphics and interactive techniques. ACM, 1995.
+#
+# Input:
+# v = vertices array
+# f = face array
+# adjacency = adjacency set (probably best to use the mesh)
+#
+# Optional:
+# scalar = scalar values
+# lambda_w = postive factor
+# mu_w = negative factor (note, mu_w = 0 is laplacian smoothing)
+# mode = taubin or laplacian
+#
+# Output:
+# v_taubin = smoothed vertices array
+# f = face array (unchanged)
+# values = smoothed scalar array
+def surface_smooth(v, f, adjacency, iter_num = 0, scalar = None, lambda_w = 1.0, mu_w = -1.1, mode = 'taubin'):
+
+	n = v.shape[0]
+	v_smooth = np.empty((n,3))
+	if scalar is not None:
+		values = np.empty((n))
+
+	for i in range(n):
+		neighbors = list(adjacency[i])
+
+		if scalar is not None:
+			values[i] = np.mean([scalar[j] for j in neighbors])
+
+		if iter_num % 2 == 0:
+			v_smooth[i] = v[i] + (lambda_w * (np.mean([v[j] for j in neighbors], axis = 0) - v[i]))
+		else:
+			if mode == 'taubin':
+				v_smooth[i] = v[i] + (mu_w * (np.mean([v[j] for j in neighbors], axis = 0) - v[i]))
+			elif mode == 'laplacian':
+				v_smooth[i] = v[i] + (lambda_w * (np.mean([v[j] for j in neighbors], axis = 0) - v[i]))
+			else:
+				print "Error: smoothing type not understood"
+
+	if scalar is not None:
+		return (v_smooth, f, values)
+	else:
+		return (v_smooth, f)
 

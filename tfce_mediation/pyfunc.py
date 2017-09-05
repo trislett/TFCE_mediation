@@ -28,6 +28,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.patches as mpatches
 
+
 from tfce_mediation.cynumstats import calc_beta_se
 
 # Creation of adjacencty sets for TFCE connectivity
@@ -740,22 +741,26 @@ def convert_voxel(img_data, affine = None, threshold = None, data_mask = None, a
 # lapace_v = smoothed vertices array
 # f = face array (unchanged)
 # values = smoothed scalar array
-def basic_laplacian_smoothing(v, f, scalar = None):
-	adjacency = create_adjac_vertex(v,f)
+def basic_laplacian_smoothing(v, f, adjacency = None, scalar = None):
+
 	n = v.shape[0]
 	laplace_v = np.empty((n,3))
+
+	if adjacency is None:
+		adjacency = create_adjac_vertex(v,f)
 	if scalar is not None:
 		values = np.empty((n))
+
 	for i in range(n):
 		neighbors = list(adjacency[i])
-		laplace_v[i] = np.mean([v[j] for j in neighbors], axis = 0)
-		if scalar is not None:
-			values[i] = np.mean([scalar[j] for j in neighbors])
+		if len(neighbors) > 0:
+			laplace_v[i] = np.mean([v[j] for j in neighbors], axis = 0)
+			if scalar is not None:
+				values[i] = np.mean([scalar[j] for j in neighbors])
 	if scalar is not None:
 		return (laplace_v, f, values)
 	else:
 		return (laplace_v, f)
-
 
 # Applies Taubin smoothing with option to smooth single volume
 #
@@ -774,8 +779,9 @@ def basic_laplacian_smoothing(v, f, scalar = None):
 # v_taubin = smoothed vertices array
 # f = face array (unchanged)
 # values = smoothed scalar array
-def taubin_smoothing(v, f, scalar = None, lambda_w = 1.0, mu_w = -1.1):
-	adjacency = create_adjac_vertex(v,f)
+def taubin_smoothing(v, f, scalar = None, lambda_w = 1.0, mu_w = -1.1, adjacency = None):
+	if adjacency is None:
+		adjacency = create_adjac_vertex(v,f)
 	n = v.shape[0]
 	vt = np.empty((n,3))
 	v_taubin = np.empty((n,3))
@@ -790,7 +796,7 @@ def taubin_smoothing(v, f, scalar = None, lambda_w = 1.0, mu_w = -1.1):
 
 	for k in range(n): # negative factor
 		neighbors = list(adjacency[k])
-		v_taubin[k] = vt[k] + (mu_w * (np.mean([v[l] for l in neighbors], axis = 0) - vt[k]))
+		v_taubin[k] = vt[k] + (mu_w * (np.mean([vt[l] for l in neighbors], axis = 0) - vt[k]))
 		if scalar is not None:
 			values[k] = np.mean([scalar[l] for l in neighbors])
 	if scalar is not None:
@@ -818,31 +824,128 @@ def taubin_smoothing(v, f, scalar = None, lambda_w = 1.0, mu_w = -1.1):
 # v_taubin = smoothed vertices array
 # f = face array (unchanged)
 # values = smoothed scalar array
-def surface_smooth(v, f, adjacency, iter_num = 0, scalar = None, lambda_w = 1.0, mu_w = -1.1, mode = 'taubin'):
+def surface_smooth(v, f, adjacency, iter_num = 0, scalar = None, lambda_w = 1.0, mode = 'laplacian', v_weighted = True):
 
+	k = 0.1
+	mu_w = -lambda_w/(1-k*lambda_w)
 	n = v.shape[0]
 	v_smooth = np.empty((n,3))
+
 	if scalar is not None:
 		values = np.empty((n))
 
+	def v_new(v, vneighbors, v_factor, sneighbors = None):
+		if len(vneighbors) > 0:
+			weights = np.power(np.linalg.norm((vneighbors - v), axis = 1)[:,None], -1)
+			vectors = weights * vneighbors
+			w_vertex = v + (v_factor * ((np.sum(vectors, axis = 0)/np.sum(weights)) - v))
+			if sneighbors is not None:
+				w_scalar = np.mean(np.sum(weights * sneighbors,axis = 0) / np.sum(weights))
+				return w_vertex, w_scalar
+			return w_vertex
+
+	def v_new_unweighted(v, vneighbors, v_factor = None, sneighbors = None):
+		if sneighbors is not None:
+			return np.mean(vneighbors, axis = 0), np.mean(sneighbors)
+		else:
+			return np.mean(vneighbors, axis = 0)
+
+	if v_weighted:
+		calc_Vnew = v_new
+	else:
+		calc_Vnew = v_new_unweighted
+
+
 	for i in range(n):
 		neighbors = list(adjacency[i])
+		if len(neighbors) > 0:
 
-		if scalar is not None:
-			values[i] = np.mean([scalar[j] for j in neighbors])
-
-		if iter_num % 2 == 0:
-			v_smooth[i] = v[i] + (lambda_w * (np.mean([v[j] for j in neighbors], axis = 0) - v[i]))
-		else:
-			if mode == 'taubin':
-				v_smooth[i] = v[i] + (mu_w * (np.mean([v[j] for j in neighbors], axis = 0) - v[i]))
-			elif mode == 'laplacian':
-				v_smooth[i] = v[i] + (lambda_w * (np.mean([v[j] for j in neighbors], axis = 0) - v[i]))
+			if iter_num % 2 == 0:
+				if i == 1:
+					print "Smoothing iteration (positive factor): %d" % (iter_num+1)
+				if scalar is not None:
+					v_smooth[i], values[i] = calc_Vnew(v[i], v[neighbors], lambda_w, scalar[neighbors])
+				else:
+					v_smooth[i] = calc_Vnew(v[i], v[neighbors], lambda_w)
 			else:
-				print "Error: smoothing type not understood"
+				if mode == 'taubin':
+					if i == 1:
+						print "Smoothing iteration (negative factor): %d" % (iter_num+1)
+
+					if scalar is not None:
+						v_smooth[i], values[i] = calc_Vnew(v[i], v[neighbors], mu_w, scalar[neighbors])
+					else:
+						v_smooth[i] = calc_Vnew(v[i], v[neighbors], mu_w)
+
+
+				elif mode == 'laplacian':
+					if i == 1:
+						print "Smoothing iteration (positive factor): %d" % (iter_num+1)
+
+					if scalar is not None:
+						v_smooth[i], values[i] = calc_Vnew(v[i], v[neighbors], lambda_w, scalar[neighbors])
+					else:
+						v_smooth[i] = calc_Vnew(v[i], v[neighbors], lambda_w)
+
+				else:
+					print "Error: smoothing type not understood"
 
 	if scalar is not None:
 		return (v_smooth, f, values)
 	else:
 		return (v_smooth, f)
+
+# Applies Laplacian or Taubin smoothing with option to smooth single volume
+#
+# Herrmann, Leonard R. (1976), "Laplacian-isoparametric grid generation scheme", Journal of the Engineering Mechanics Division, 102 (5): 749–756.
+# Taubin, Gabriel. "A signal processing approach to fair surface design." Proceedings of the 22nd annual conference on Computer graphics and interactive techniques. ACM, 1995.
+#
+# Input:
+# v = vertices array
+# f = face array
+# adjacency = adjacency set (probably best to use the mesh)
+#
+# Optional:
+# scalar = scalar values
+# lambda_w = postive factor
+# mode = taubin or laplacian
+#
+# Output:
+# v_taubin = smoothed vertices array
+# f = face array (unchanged)
+# values = smoothed scalar array
+def vectorized_surface_smooth(v, f, adjacency, number_of_iter = 5, scalar = None, lambda_w = 1.0, mode = 'laplacian'):
+
+	k = 0.1
+	mu_w = -lambda_w/(1-k*lambda_w)
+
+	lengths = np.array([len(a) for a in adjacency])
+	maxlen = max(lengths)
+	padded = [list(a) + [-1] * (maxlen - len(a)) for a in adjacency]
+	adj = np.array(padded)
+	w = np.ones(adj.shape, dtype=float)
+	w[adj<0] = 0.
+	val = (adj>=0).sum(-1).reshape(-1, 1)
+	w /= val
+	w = w.reshape(adj.shape[0], adj.shape[1],1)
+
+# 	weights = np.power(np.linalg.norm(np.swapaxes(v[adj], 0, 1)-v, axis=2) * np.swapaxes(v[adj],0,2),-1)
+
+	for iter_num in range(number_of_iter):
+		if scalar is not None:
+			sadj = scalar[adj]
+			sadj[adj==-1] = 0
+			scalar = np.divide(np.sum(sadj, axis = 1),lengths)
+		if iter_num % 2 == 0:
+			v += np.array(lambda_w*np.swapaxes(w,0,1)*(np.swapaxes(v[adj], 0, 1)-v)).sum(0)
+		elif mode == 'taubin':
+			v += np.array(mu_w*np.swapaxes(w,0,1)*(np.swapaxes(v[adj], 0, 1)-v)).sum(0)
+		elif mode == 'laplacian':
+			v += np.array(lambda_w*np.swapaxes(w,0,1)*(np.swapaxes(v[adj], 0, 1)-v)).sum(0)
+
+	if scalar is not None:
+		return (v, f, scalar)
+	else:
+		return (v, f)
+
 

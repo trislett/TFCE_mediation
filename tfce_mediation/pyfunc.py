@@ -923,8 +923,7 @@ def vectorized_surface_smooth(v, f, adjacency, number_of_iter = 5, scalar = None
 			else:
 				print "Error: mode %s not understood" % mode
 				quit()
-			# hacky vertex nan fix
-			v[np.isnan(v)] = vorig[np.isnan(v)]
+			v[np.isnan(v)] = vorig[np.isnan(v)] # hacky vertex nan fix
 		else:
 			if scalar is not None:
 				sadj = scalar[adj]

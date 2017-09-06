@@ -762,48 +762,6 @@ def basic_laplacian_smoothing(v, f, adjacency = None, scalar = None):
 	else:
 		return (laplace_v, f)
 
-# Applies Taubin smoothing with option to smooth single volume
-#
-# Taubin, Gabriel. "A signal processing approach to fair surface design." Proceedings of the 22nd annual conference on Computer graphics and interactive techniques. ACM, 1995.
-#
-# Input:
-# v = vertices array
-# f = face array
-#
-# Optional:
-# scalar = scalar values
-# lambda_w = postive factor
-# mu_w = negative factor (note, mu_w = 0 is laplacian smoothing)
-#
-# Output:
-# v_taubin = smoothed vertices array
-# f = face array (unchanged)
-# values = smoothed scalar array
-def taubin_smoothing(v, f, scalar = None, lambda_w = 1.0, mu_w = -1.1, adjacency = None):
-	if adjacency is None:
-		adjacency = create_adjac_vertex(v,f)
-	n = v.shape[0]
-	vt = np.empty((n,3))
-	v_taubin = np.empty((n,3))
-	if scalar is not None:
-		values = np.empty((n))
-
-	for i in range(n): # positive factor
-		neighbors = list(adjacency[i])
-		vt[i] = v[i] + (lambda_w * (np.mean([v[j] for j in neighbors], axis = 0) - v[i]))
-		if scalar is not None:
-			values[i] = np.mean([scalar[j] for j in neighbors])
-
-	for k in range(n): # negative factor
-		neighbors = list(adjacency[k])
-		v_taubin[k] = vt[k] + (mu_w * (np.mean([vt[l] for l in neighbors], axis = 0) - vt[k]))
-		if scalar is not None:
-			values[k] = np.mean([scalar[l] for l in neighbors])
-	if scalar is not None:
-		return (v_taubin, f, values)
-	else:
-		return (v_taubin, f)
-
 # Applies Laplacian or Taubin smoothing with option to smooth single volume
 #
 # Herrmann, Leonard R. (1976), "Laplacian-isoparametric grid generation scheme", Journal of the Engineering Mechanics Division, 102 (5): 749–756.
@@ -914,7 +872,7 @@ def surface_smooth(v, f, adjacency, iter_num = 0, scalar = None, lambda_w = 1.0,
 # v_taubin = smoothed vertices array
 # f = face array (unchanged)
 # values = smoothed scalar array
-def vectorized_surface_smooth(v, f, adjacency, number_of_iter = 5, scalar = None, lambda_w = 1.0, mode = 'laplacian'):
+def vectorized_surface_smooth(v, f, adjacency, number_of_iter = 5, scalar = None, lambda_w = 0.5, mode = 'laplacian', weighted = True):
 
 	k = 0.1
 	mu_w = -lambda_w/(1-k*lambda_w)
@@ -929,23 +887,64 @@ def vectorized_surface_smooth(v, f, adjacency, number_of_iter = 5, scalar = None
 	w /= val
 	w = w.reshape(adj.shape[0], adj.shape[1],1)
 
-# 	weights = np.power(np.linalg.norm(np.swapaxes(v[adj], 0, 1)-v, axis=2) * np.swapaxes(v[adj],0,2),-1)
+	vorig = np.zeros_like(v)
+	vorig[:] = v
+	if scalar is not None:
+		scalar[np.isnan(scalar)] = 0
+		sorig = np.zeros_like(scalar)
+		sorig[:] = scalar
 
 	for iter_num in range(number_of_iter):
-		if scalar is not None:
-			sadj = scalar[adj]
-			sadj[adj==-1] = 0
-			scalar = np.divide(np.sum(sadj, axis = 1),lengths)
-		if iter_num % 2 == 0:
-			v += np.array(lambda_w*np.swapaxes(w,0,1)*(np.swapaxes(v[adj], 0, 1)-v)).sum(0)
-		elif mode == 'taubin':
-			v += np.array(mu_w*np.swapaxes(w,0,1)*(np.swapaxes(v[adj], 0, 1)-v)).sum(0)
-		elif mode == 'laplacian':
-			v += np.array(lambda_w*np.swapaxes(w,0,1)*(np.swapaxes(v[adj], 0, 1)-v)).sum(0)
+		if weighted:
+			vadj = v[adj]
+			vadj = np.swapaxes(v[adj],1,2)
+			weights = np.zeros((v.shape[0], maxlen))
+			for col in range(maxlen):
+				weights[:,col] = np.power(np.linalg.norm(vadj[:,:,col] - v, axis=1),-1)
+			weights[adj==-1] = 0
+			vectors = np.einsum('abc,adc->acd', weights[:,None], vadj)
+
+			if scalar is not None:
+				scalar[np.isnan(scalar)] = 0
+
+				sadj = scalar[adj]
+				sadj[adj==-1] = 0
+				if lambda_w < 1:
+					scalar = (scalar*(1-lambda_w)) + lambda_w*(np.sum(np.multiply(weights, sadj),axis=1) / np.sum(weights, axis = 1))
+				else:
+					scalar = np.sum(np.multiply(weights, sadj),axis=1) / np.sum(weights, axis = 1)
+				scalar[np.isnan(scalar)] = sorig[np.isnan(scalar)] # hacky scalar nan fix
+			if iter_num % 2 == 0:
+				v += lambda_w*(np.divide(np.sum(vectors, axis = 1), np.sum(weights[:,None], axis = 2)) - v)
+			elif mode == 'taubin':
+				v += mu_w*(np.divide(np.sum(vectors, axis = 1), np.sum(weights[:,None], axis = 2)) - v)
+			elif mode == 'laplacian':
+				v += lambda_w*(np.divide(np.sum(vectors, axis = 1), np.sum(weights[:,None], axis = 2)) - v)
+			else:
+				print "Error: mode %s not understood" % mode
+				quit()
+			# hacky vertex nan fix
+			v[np.isnan(v)] = vorig[np.isnan(v)]
+		else:
+			if scalar is not None:
+				sadj = scalar[adj]
+				sadj[adj==-1] = 0
+
+				if lambda_w < 1:
+					scalar = (scalar*(1-lambda_w)) + (lambda_w*np.divide(np.sum(sadj, axis = 1),lengths))
+				else:
+					scalar = np.divide(np.sum(sadj, axis = 1),lengths)
+			if iter_num % 2 == 0:
+				v += np.array(lambda_w*np.swapaxes(w,0,1)*(np.swapaxes(v[adj], 0, 1)-v)).sum(0)
+			elif mode == 'taubin':
+				v += np.array(mu_w*np.swapaxes(w,0,1)*(np.swapaxes(v[adj], 0, 1)-v)).sum(0)
+			elif mode == 'laplacian':
+				v += np.array(lambda_w*np.swapaxes(w,0,1)*(np.swapaxes(v[adj], 0, 1)-v)).sum(0)
+			else:
+				print "Error: mode %s not understood" % mode
+				quit()
 
 	if scalar is not None:
 		return (v, f, scalar)
 	else:
 		return (v, f)
-
-

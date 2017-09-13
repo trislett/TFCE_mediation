@@ -36,7 +36,7 @@ Additional help:
 	* create-tmi (create TMI files using almost any neuroimaging filetype and surface file)
 	* edit-tmi (manipulate TMI file using its history, reorder tmi elements, and much more)
 	* multimodal-adjacency (create adjacency set for almost any type of neuroimaging data)
-* The most unique feature of tm_multimodality is the ability to perform FWER correaction across all image modalities with mixed TFCE settings. Although this feature has been validated (email me for the details), tm_multimodality is currently an alpha build.
+* The most unique feature of tm_multimodality is the ability to perform FWER correction across all image modalities with mixed TFCE settings. Although this feature has been validated (email me for the details), tm_multimodality is currently an alpha build.
 * Added a wiki for the [TMI file format](https://github.com/trislett/TFCE_mediation/wiki/TMI-Neuroimaging-File-Format)
 * Integrated tfce_mediation with the, just released, [TMI_viewer](https://github.com/trislett/tmi_viewer)! TMI_viewer is a standalone viewer for TMI files. TFCE_mediation tm_multimodality could already export to PLY, MGH, or NIFTI files. However, tmi_viewer directly renders any voxel- or vertex-based image contained in a TMI file. [Example: TBSS voxel skeleton and Midthickness SA](https://github.com/trislett/TFCE_mediation/blob/master/tfce_mediation/doc/tmi_viewer_multimodal.png)
 

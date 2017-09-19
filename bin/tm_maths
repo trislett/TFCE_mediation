@@ -22,7 +22,7 @@ import sys
 import numpy as np
 import argparse as ap
 import pickle
-from scipy import stats, signal
+from scipy import stats, signal, ndimage
 import matplotlib.pyplot as plt
 from sklearn import mixture
 from sklearn.cluster import KMeans
@@ -284,30 +284,69 @@ def run(opts):
 	if opts.outmask:
 		outmask = np.ones((img_data_trunc.shape[0]))
 		if opts.voxel:
-			savenifti(outmask, img, mask_index, 'mask.%s' % outname)
+			savenifti(outmask,
+				img,
+				mask_index,
+				'mask.%s' % outname)
 		if opts.vertex:
-			savemgh(outmask, img, mask_index, 'mask.%s' % outname)
+			savemgh(outmask,
+				img,
+				mask_index,
+				'mask.%s' % outname)
 		if opts.bothhemi:
-			savemgh(outmask[:midpoint], lh_img, lh_mask_index, 'mask.lh.%s' % outname)
-			savemgh(outmask[midpoint:], rh_img, rh_mask_index, 'mask.rh.%s' % outname)
+			savemgh(outmask[:midpoint],
+				lh_img,
+				lh_mask_index,
+				'mask.lh.%s' % outname)
+			savemgh(outmask[midpoint:],
+				rh_img,
+				rh_mask_index,
+				'mask.rh.%s' % outname)
 
 
 # Initiating convoluted solution to doing multiple math functions in python
-	argcount=0
-	argdone=0
-	headflag=0
-	argcmd=np.array([])
-	functionlist= ["-ai", "--addimage","-si", "--subtractimage","-mi", "--multiplyimage","-di", "--divideimage", "-c", "--concatenate", "--fwep" ,"--fwegamma", "--fwejohnsonsb", "--resids", "--gmm", "--timeplot"] # options that input stings
+	argcount = 0
+	argdone = 0
+	headflag = 0
+	argcmd = np.array([])
+	functionlist = ["-ai", "--addimage", "-si", "--subtractimage", "-mi",
+		"--multiplyimage", "-di", "--divideimage", "-c", "--concatenate",
+		"--fwep" ,"--fwegamma", "--fwejohnsonsb", "--resids", "--gmm",
+		"--timeplot"] # options that input stings
 	if sys.argv[5]=='--mask':
-		headcmd="%s %s %s %s %s %s" % (sys.argv[1],sys.argv[2],sys.argv[3],tempname,sys.argv[5],sys.argv[6])
-		midcmd="%s %s %s %s %s %s" % (sys.argv[1],tempname,sys.argv[3],tempname, sys.argv[5],tempmaskname)
-		tailcmd="%s %s %s %s %s %s" % (sys.argv[1],tempname,sys.argv[3],outname,sys.argv[5],tempmaskname)
+		headcmd = "%s %s %s %s %s %s" % (sys.argv[1], 
+			sys.argv[2],
+			sys.argv[3],
+			tempname,
+			sys.argv[5],
+			sys.argv[6])
+		midcmd = "%s %s %s %s %s %s" % (sys.argv[1],
+			tempname,
+			sys.argv[3],
+			tempname,
+			sys.argv[5],
+			tempmaskname)
+		tailcmd = "%s %s %s %s %s %s" % (sys.argv[1],
+			tempname,
+			sys.argv[3],
+			outname,
+			sys.argv[5],
+			tempmaskname)
 		argcount=7
 	else:
-		headcmd="%s %s %s %s" % (sys.argv[1],sys.argv[2],sys.argv[3],tempname)
-		midcmd="%s %s %s %s" % (sys.argv[1],tempname,sys.argv[3],tempname)
-		tailcmd="%s %s %s %s" % (sys.argv[1],tempname,sys.argv[3],outname)
-		argcount=5
+		headcmd = "%s %s %s %s" % (sys.argv[1],
+			sys.argv[2],
+			sys.argv[3],
+			tempname)
+		midcmd = "%s %s %s %s" % (sys.argv[1],
+			tempname,
+			sys.argv[3],
+			tempname)
+		tailcmd = "%s %s %s %s" % (sys.argv[1],
+			tempname,
+			sys.argv[3],
+			outname)
+		argcount = 5
 	while argdone==0:
 		if not( (argcount+1) == len(sys.argv) or (argcount+2) == len(sys.argv)):
 			if (converter_try(sys.argv[(argcount+1)])==1) or (sys.argv[argcount] in functionlist):
@@ -344,13 +383,13 @@ def run(opts):
 
 		if subopts.voxel:
 			if subopts.voxel[0] != 'temp_img.nii':
-				tempname='temp_img.nii'
+				tempname = 'temp_img.nii'
 		if subopts.vertex:
 			if subopts.vertex[0] != 'temp_img.mgh':
-				tempname='temp_img.mgh'
+				tempname = 'temp_img.mgh'
 		if subopts.bothhemi:
 			if subopts.bothhemi[0] != 'temp_img.mgh':
-				tempname='temp_img.mgh'
+				tempname = 'temp_img.mgh'
 		if subopts.add:
 				img_data_trunc += np.array(subopts.add[0]).astype(np.float)
 		if subopts.subtract:
@@ -375,55 +414,58 @@ def run(opts):
 			# get sigmas for voxel size
 			sigma = fwhm / (fwhm_sigma_ratio * voxelSize)
 			# convert to image_space (find better tfce based solution later)
-			if imgdata.ndim == 2:
-				temp_imgspace = np.zeros((img.shape[0],img.shape[1],img.shape[2],outdata.shape[1]))
-			elif imgdata.ndim == 1:
-				temp_imgspace = np.zeros((img.shape[0],img.shape[1],img.shape[2]))
+			if img_data_trunc.ndim == 2:
+				temp_imgspace = np.zeros((mask_index.shape[0], mask_index.shape[1], mask_index.shape[2], img_data_trunc.shape[1]))
+			elif img_data_trunc.ndim == 1:
+				temp_imgspace = np.zeros((mask_index.shape[0], mask_index.shape[1], mask_index.shape[2]))
 			else:
 				print 'Error: image dimension'
-			temp_imgspace[mask_index]=img_data_trunc
+			temp_imgspace[mask_index] = img_data_trunc
 			for temp_axis, sigmas in enumerate(sigma):
-				ndimage.gaussian_filter1d(temp_imgspace, sigmas, output=temp_imgspace, axis=temp_axis)
-			img_data_trunc=temp_imgspace[mask_index]
+				ndimage.gaussian_filter1d(temp_imgspace,
+					sigmas,
+					output = temp_imgspace,
+					axis = temp_axis)
+			img_data_trunc = temp_imgspace[mask_index]
 		if subopts.addimage:
 			if subopts.voxel:
 				_, tempimgdata = loadnifti(subopts.addimage[0])
-				tempimgdata=tempimgdata[mask_index]
+				tempimgdata = tempimgdata[mask_index]
 			if subopts.vertex:
 				_, tempimgdata = loadnifti(subopts.addimage[0])
-				tempimgdata=tempimgdata[mask_index]
-			img_data_trunc+=tempimgdata
+				tempimgdata = tempimgdata[mask_index]
+			img_data_trunc += tempimgdata
 		if subopts.subtractimage:
 			if subopts.voxel:
 				_, tempimgdata = loadnifti(subopts.subtractimage[0])
-				tempimgdata=tempimgdata[mask_index]
+				tempimgdata = tempimgdata[mask_index]
 			if subopts.vertex:
 				_, tempimgdata = loadnifti(subopts.subtractimage[0])
-				tempimgdata=tempimgdata[mask_index]
-			img_data_trunc-=tempimgdata
+				tempimgdata = tempimgdata[mask_index]
+			img_data_trunc -= tempimgdata
 		if subopts.multiplyimage:
 			if subopts.voxel:
 				_, tempimgdata = loadnifti(subopts.multiplyimage[0])
 				tempimgdata=tempimgdata[mask_index]
 			if subopts.vertex:
 				_, tempimgdata = loadnifti(subopts.multiplyimage[0])
-				tempimgdata=tempimgdata[mask_index]
-			img_data_trunc*=tempimgdata
+				tempimgdata = tempimgdata[mask_index]
+			img_data_trunc *= tempimgdata
 		if subopts.divideimage:
 			if subopts.voxel:
 				_, tempimgdata = loadnifti(subopts.divideimage[0])
-				tempimgdata=tempimgdata[mask_index]
+				tempimgdata = tempimgdata[mask_index]
 			if subopts.vertex:
 				_, tempimgdata = loadnifti(subopts.divideimage[0])
-				tempimgdata=tempimgdata[mask_index]
-			img_data_trunc/=tempimgdata
+				tempimgdata = tempimgdata[mask_index]
+			img_data_trunc /= tempimgdata
 		if subopts.concatenate:
 			if subopts.voxel:
 				_, tempimgdata = loadnifti(subopts.concatenate[0])
 				tempimgdata=tempimgdata[mask_index]
 			if subopts.vertex:
 				_, tempimgdata = loadnifti(subopts.concatenate[0])
-				tempimgdata=tempimgdata[mask_index]
+				tempimgdata = tempimgdata[mask_index]
 			img_data_trunc = np.column_stack((img_data_trunc,tempimgdata))
 		if subopts.split:
 			if img_data_trunc.ndim == 1:
@@ -431,9 +473,15 @@ def run(opts):
 			else:
 				for i in range(img_data_trunc.shape[1]):
 					if opts.voxel:
-						savenifti(img_data_trunc[:,i], img, mask_index, ('img%05d_%s' % (i,outname)))
+						savenifti(img_data_trunc[:,i],
+							img,
+							mask_index,
+							('img%05d_%s' % (i,outname)))
 					if opts.vertex:
-						savemgh(img_data_trunc[:,i], img, mask_index, ('img%05d_%s' % (i,outname)))
+						savemgh(img_data_trunc[:,i],
+							img,
+							mask_index,
+							('img%05d_%s' % (i,outname)))
 		# Functions
 		if subopts.binarize:
 			img_data_trunc[img_data_trunc != 0] = 1
@@ -443,7 +491,7 @@ def run(opts):
 			img_data_trunc[img_data_trunc > np.array(subopts.upperthreshold[0]).astype(np.float)] = 0
 		# Transformations
 		if subopts.ptoz:
-			img_data_trunc[img_data_trunc<=0.5] = 0.5 # only positive direction
+			img_data_trunc[img_data_trunc <= 0.5] = 0.5 # only positive direction
 			img_data_trunc = stats.norm.ppf(img_data_trunc)
 		if subopts.ztop:
 			img_data_trunc = 1 - stats.norm.cdf(img_data_trunc)
@@ -483,22 +531,22 @@ def run(opts):
 		if subopts.fwegamma:
 			arg_maxTFCE = str(opts.fwegamma[0])
 			y = np.genfromtxt(arg_maxTFCE, delimiter=',')
-			x = np.linspace(0, y.max(), 100)
+			x_axis = np.linspace(0, y.max(), 100)
 			param = stats.gamma.fit(y)
 			img_data_trunc = stats.gamma.cdf(img_data_trunc, *param)
-			pdf_fitted = stats.gamma.pdf(x, *param)
-			plt.plot(x, pdf_fitted, color='r')
+			pdf_fitted = stats.gamma.pdf(x_axis, *param)
+			plt.plot(x_axis, pdf_fitted, color='r')
 			# plot the histogram
 			plt.hist(y, normed=True, bins=100)
 			plt.show()
 		if subopts.fwejohnsonsb:
 			arg_maxTFCE = str(opts.fwejohnsonsb[0])
 			y = np.genfromtxt(arg_maxTFCE, delimiter=',')
-			x = np.linspace(0, y.max(), 100)
+			x_axis = np.linspace(0, y.max(), 100)
 			param = stats.johnsonsb.fit(y)
 			img_data_trunc = stats.johnsonsb.cdf(img_data_trunc, *param)
-			pdf_fitted = stats.johnsonsb.pdf(x, *param)
-			plt.plot(x, pdf_fitted, color='r')
+			pdf_fitted = stats.johnsonsb.pdf(x_axis, *param)
+			plt.plot(x_axis, pdf_fitted, color='r')
 			# plot the histogram
 			plt.hist(y, normed=True, bins=100)
 			plt.show()
@@ -531,24 +579,61 @@ def run(opts):
 			fitcomps = np.copy(S_).T
 			fitcomps = zscaler(fitcomps)
 			img_data_trunc =  np.copy(fitcomps.T)
-			np.savetxt("%s.PCA_fit.csv" % sys.argv[4],zscaler(components, w_mean=False), fmt='%10.8f', delimiter=',')
-			np.savetxt("%s.PCA_var_explained_ratio.csv" % sys.argv[4], pca.explained_variance_ratio_, fmt='%10.8f', delimiter=',')
-#			xaxis = np.arange(fitcomps.shape[1]) + 1
-#			plt.plot(xaxis, pca.explained_variance_ratio_, 'ro-', linewidth=2)
-#			plt.title('Scree Plot')
-#			plt.xlabel('Principal Component')
-#			plt.ylabel('Explained Variance Ratio')
-#			plt.show()
+			np.savetxt("%s.PCA_fit.csv" % sys.argv[4],
+				zscaler(components, w_mean=False), 
+				fmt='%10.8f',
+				delimiter=',')
+			np.savetxt("%s.PCA_var_explained_ratio.csv" % sys.argv[4],
+				pca.explained_variance_ratio_,
+				fmt='%10.8f',
+				delimiter=',')
 
 		if subopts.fastica:
-			ica = FastICA(n_components=int(subopts.fastica[0]),max_iter=5000,  tol=0.0001)
+			ica = FastICA(n_components=int(subopts.fastica[0]),
+				max_iter=5000,
+				tol=0.0001)
+			num_comp=int(subopts.fastica[0])
 			S_ = ica.fit_transform(img_data_trunc).T
 			components = ica.components_.T
 			#scaling
 			fitcomps = np.copy(S_)
 			fitcomps = zscaler(fitcomps)
-			img_data_trunc =  np.copy(fitcomps.T) # ram shouldn't be an issue here...
-			np.savetxt("%s.ICA_fit.csv" % sys.argv[4],zscaler(components), fmt='%10.8f', delimiter=',')
+			img_data_trunc[:] =  np.copy(fitcomps.T) # ram shouldn't be an issue here...
+			np.savetxt("%s.ICA_fit.csv" % sys.argv[4],
+				zscaler(components),
+				fmt='%10.8f',
+				delimiter=',')
+
+
+			# variance explained.
+			explained_total_var = np.zeros((int(num_comp)))
+			explained_var_ratio = np.zeros((int(num_comp)))
+			# total variance
+			back_projection = ica.inverse_transform(S_.T)
+			total_var = back_projection.var()
+			for i in range(int(num_comp)):
+				tempcomps = np.copy(S_)
+				tempcomps[i,:] = 0
+				temp_back_proj = ica.inverse_transform(tempcomps.T)
+				temp_var = temp_back_proj.var()
+				explained_var_ratio[i] = total_var - temp_var
+				explained_total_var[i] = (total_var - temp_var) / total_var
+				print "ICA # %d; Percent of Total Variance %1.3f" % ((i+1), explained_total_var[i]*100)
+			explained_var_ratio = explained_var_ratio / explained_var_ratio.sum()
+
+			sum_total_variance_explained = explained_total_var.sum()
+			print "Total variance explained by all components = %1.3f" % sum_total_variance_explained
+			print "Re-ordering components"
+			sort_mask = (-1*explained_total_var).argsort()
+			np.savetxt("ICA_total_var.csv",
+				explained_total_var[sort_mask],
+				fmt='%1.5f',
+				delimiter=',')
+			np.savetxt("ICA_explained_var_ratio.csv",
+				explained_var_ratio[sort_mask],
+				fmt='%1.5f',
+				delimiter=',')
+			img_data_trunc = img_data_trunc[:,sort_mask]
 
 			#save outputs and ica functions for potential ica removal
 			if os.path.exists('ICA_temp'):
@@ -556,13 +641,19 @@ def run(opts):
 				exit()
 			else:
 				os.makedirs('ICA_temp')
-			np.save('ICA_temp/signals.npy',S_)
+			np.save('ICA_temp/signals.npy', S_[sort_mask,:])
 			pickle.dump( ica, open( "ICA_temp/icasave.p", "wb" ) )
 			if opts.bothhemi:
-				lh_tempmask=lh_mask_index*1
-				rh_tempmask=rh_mask_index*1
-				savemgh(lh_tempmask[lh_tempmask==1], lh_img, lh_mask_index, 'ICA_temp/lh_mask.mgh')
-				savemgh(rh_tempmask[rh_tempmask==1], rh_img, rh_mask_index, 'ICA_temp/rh_mask.mgh')
+				lh_tempmask = lh_mask_index*1
+				rh_tempmask = rh_mask_index*1
+				savemgh(lh_tempmask[lh_tempmask==1],
+					lh_img, 
+					lh_mask_index, 
+					'ICA_temp/lh_mask.mgh')
+				savemgh(rh_tempmask[rh_tempmask==1],
+					rh_img,
+					rh_mask_index,
+					'ICA_temp/rh_mask.mgh')
 			else:
 				tempmask=mask_index*1
 				if opts.voxel:
@@ -571,14 +662,19 @@ def run(opts):
 					savemgh(tempmask[tempmask==1], img, mask_index, 'ICA_temp/mask.mgh')
 
 		if subopts.mbspca:
-			spca = MiniBatchSparsePCA(n_components=int(subopts.mbspca[0]), alpha=0.01, n_jobs=-1)
+			spca = MiniBatchSparsePCA(n_components=int(subopts.mbspca[0]),
+				alpha = 0.01,
+				n_jobs = -1)
 			S_ = spca.fit_transform(img_data_trunc).T
 			components = spca.components_.T
 			fitcomps = np.copy(S_)
 			fitcomps = zscaler(fitcomps)
 			fitcomps = zscaler(fitcomps.T, w_std=False).T # centre data
 			img_data_trunc =  np.copy(fitcomps.T)
-			np.savetxt("%s.mbSPCA_fit.csv" % sys.argv[4],zscaler(components), fmt='%10.8f', delimiter=',')
+			np.savetxt("%s.mbSPCA_fit.csv" % sys.argv[4],
+				zscaler(components),
+				fmt = '%10.8f',
+				delimiter = ',')
 
 		if subopts.nmf:
 			nnmf = NMF(n_components=int(subopts.nmf[0]), init='nndsvda')
@@ -587,7 +683,10 @@ def run(opts):
 			fitcomps = np.copy(S_)
 			fitcomps = zscaler(fitcomps, w_mean=False)
 			img_data_trunc =  np.copy(fitcomps.T)
-			np.savetxt("%s.nmf_fit.csv" % sys.argv[4],zscaler(components, w_mean=False), fmt='%10.8f', delimiter=',')
+			np.savetxt("%s.nmf_fit.csv" % sys.argv[4],
+				zscaler(components, w_mean=False),
+				fmt = '%10.8f',
+				delimiter = ',')
 
 		if subopts.gmm:
 			numComponents = img_data_trunc.shape[1]
@@ -597,7 +696,7 @@ def run(opts):
 			for i in range(numComponents):
 
 				tempIC = np.copy(img_data_trunc[:,i])
-				X= np.array([[x] for x in tempIC])
+				X = np.array([[x] for x in tempIC])
 
 				m = gmm.fit(X)
 				pred_props = m.predict_proba(X)
@@ -608,9 +707,9 @@ def run(opts):
 				print 'Comp %d posterior means: Lower  %1.2f +/- %1.2f, Upper = %1.2f +/- %1.2f' % (int(i+1),m.means_[neg_mean_flag],m.covariances_[neg_mean_flag],m.means_[pos_mean_flag],m.covariances_[pos_mean_flag])
 
 				posteriormask = np.zeros((pred_props.shape[0]))
-				posteriormask[pred_props[:,neg_mean_flag]>posterior_prob_threshold]=1
-				posteriormask[pred_props[:,pos_mean_flag]>posterior_prob_threshold]=1
-				img_data_trunc[:,i]*=posteriormask
+				posteriormask[pred_props[:,neg_mean_flag] > posterior_prob_threshold] = 1
+				posteriormask[pred_props[:,pos_mean_flag] > posterior_prob_threshold] = 1
+				img_data_trunc[:,i] *= posteriormask
 
 
 		if subopts.timeplot:
@@ -637,7 +736,7 @@ def run(opts):
 				plt.plot(subs, components[:,i], 'ro-', linewidth=2)
 				plt.title('Component %d Plot' % (i+1))
 				plt.xlabel('Time or Subject (units)')
-				plt.savefig('%s/%s_timeplot_comp%d.jpg' % (analysis_name,analysis_name,(i+1)))
+				plt.savefig('%s/%s_timeplot_comp%d.jpg' % (analysis_name, analysis_name,(i+1)))
 				plt.clf()
 
 				ps = np.abs(np.fft.fft(components[:,i]))**2
@@ -647,18 +746,29 @@ def run(opts):
 
 				plt.title('Component %d Powerspectrum' % (i+1))
 				plt.xlabel('Unit Frequency (Hz / 100)')
-				plt.savefig('%s/%s_power_comp%d.jpg' % (analysis_name,analysis_name,(i+1)))
+				plt.savefig('%s/%s_power_comp%d.jpg' % (analysis_name, analysis_name,(i+1)))
 				plt.clf()
-
 
 #write out
 	if opts.voxel:
-		savenifti(img_data_trunc, img, mask_index, outname)
+		savenifti(img_data_trunc, 
+			img,
+			mask_index,
+			outname)
 	if opts.vertex:
-		savemgh(img_data_trunc, img, mask_index, outname)
+		savemgh(img_data_trunc,
+			img,
+			mask_index,
+			outname)
 	if opts.bothhemi:
-		savemgh(img_data_trunc[:midpoint], lh_img, lh_mask_index, 'lh.%s' % outname)
-		savemgh(img_data_trunc[midpoint:], rh_img, rh_mask_index, 'rh.%s' % outname)
+		savemgh(img_data_trunc[:midpoint],
+			lh_img,
+			lh_mask_index,
+			'lh.%s' % outname)
+		savemgh(img_data_trunc[midpoint:],
+			rh_img,
+			rh_mask_index,
+			'rh.%s' % outname)
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

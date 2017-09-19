@@ -73,7 +73,7 @@ def run(opts):
 	rmcomps = np.genfromtxt(opts.input[0],delimiter=",",dtype='int')
 	dump_ica = pickle.load( open( "ICA_temp/icasave.p", "rb" ) )
 	fitcomps = np.load('ICA_temp/signals.npy').T
-	selected=rmcomps-1
+	selected = rmcomps-1
 #zero out unwanted components
 	fitcomps[:,selected] = 0
 #rebuild image

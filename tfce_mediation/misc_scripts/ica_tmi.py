@@ -37,7 +37,8 @@ def tmi_run_ica(img_data_trunc, num_comp, masking_array, affine_array, variance_
 	S_ = ica.fit_transform(img_data_trunc).T
 	components = ica.components_.T
 	#scaling
-	fitcomps = np.copy(S_)
+	fitcomps = np.zeros_like(S_)
+	fitcomps[:] = np.copy(S_)
 	fitcomps = zscaler(fitcomps)
 	img_data_trunc =  np.copy(fitcomps.T) # ram shouldn't be an issue here...
 	np.savetxt("ICA_fit.csv", zscaler(components), fmt='%10.8f', delimiter=',')
@@ -92,7 +93,7 @@ def tmi_run_ica(img_data_trunc, num_comp, masking_array, affine_array, variance_
 		pickle.dump( ica, open( "ICA_temp/icasave.p", "wb" ) )
 
 
-	return ica, sort_mask,  sum_total_variance_explained
+	return ica, sort_mask, sum_total_variance_explained
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	ap.add_argument("-i_tmi", "--tmifile",

@@ -134,6 +134,7 @@ def getArgumentParser(parser = ap.ArgumentParser(description = DESCRIPTION, form
 	parser.add_argument("--voxelfwhm", 
 		help="Full width half maximum smoothing for voxel images. Input the desired FWHM",
 		nargs=1,
+		type=float,
 		metavar=('FLOAT'))
 
 #thresholding
@@ -407,7 +408,7 @@ def run(opts):
 		if subopts.abs:
 				img_data_trunc = np.abs(img_data_trunc)
 		if subopts.voxelfwhm:
-			fwhm = subopts.voxelfwhm[0]
+			fwhm = float(subopts.voxelfwhm[0])
 			# convert fwhm to sigma
 			fwhm_sigma_ratio = np.sqrt(8 * np.log(2))
 			voxelSize = np.sqrt(np.sum(img.affine[:3, :3] ** 2, axis=0))
@@ -598,7 +599,7 @@ def run(opts):
 			#scaling
 			fitcomps = np.copy(S_)
 			fitcomps = zscaler(fitcomps)
-			img_data_trunc[:] =  np.copy(fitcomps.T) # ram shouldn't be an issue here...
+			img_data_trunc =  np.copy(fitcomps.T) # ram shouldn't be an issue here...
 			np.savetxt("%s.ICA_fit.csv" % sys.argv[4],
 				zscaler(components),
 				fmt='%10.8f',

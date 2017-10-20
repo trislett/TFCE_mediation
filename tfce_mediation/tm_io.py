@@ -174,7 +174,7 @@ def write_tm_filetype(outname, columnids = [], imgtype = [], checkname = True, o
 				o.write("nbytes %d\n" % masking_array[i].nbytes)
 				o.write("nmasked %d\n" % len(masking_array[i][masking_array[i]==True]))
 				o.write("maskshape %d %d %d\n" % (masking_array[i].shape[0],masking_array[i].shape[1],masking_array[i].shape[2]))
-				if not maskname==[]:
+				if not maskname == []:
 					o.write("maskname %s\n" % maskname[i])
 				else:
 					o.write("maskname unknown\n")

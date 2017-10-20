@@ -29,7 +29,7 @@ import matplotlib.colors as colors
 import matplotlib.patches as mpatches
 
 
-from tfce_mediation.cynumstats import calc_beta_se
+from tfce_mediation.cynumstats import calc_beta_se, resid_covars, cy_lin_lstsqr_mat
 
 # Creation of adjacencty sets for TFCE connectivity
 def create_adjac_vertex(vertices,faces): # basic version
@@ -320,6 +320,34 @@ def normalize_v3(arr):
 	arr[:,1] /= lens
 	arr[:,2] /= lens
 	return arr
+
+# Y = Categorical Dependent variable
+# X = Neuroimage
+# covars = covariates
+# scale = minmaxscaling
+# X_output = output the (scaled) neuroimage residuals
+#def chi_sqr_test(Y, X, covars = None, scale = True, X_output = False):
+#	from sklearn.feature_selection import chi2
+#	from scipy.stats import norm
+#	from sklearn import preprocessing
+
+#	if not all(np.equal(item, int(item)) for item in Y):
+#		print "Y must contain interger categorical variables"
+#		quit()
+#	if covars is not None:
+#		X = resid_covars(np.column_stack([np.ones(len(covars)),covars]), X)
+#	else:
+#		if len(Y) == X.shape[1]:
+#			X = X.T
+#	if scale:
+#		min_max_scaler = preprocessing.MinMaxScaler(feature_range=(0,1))
+#		X = min_max_scaler.fit_transform(X)
+#	Chi, P = chi2(X, Y)
+#	Z = norm.ppf(1-P)
+#	if X_output:
+#		return Chi, Z, P, X
+#	else:
+#		return Chi, Z, P
 
 # input functions
 def convert_mni_object(obj_file):
@@ -947,3 +975,37 @@ def vectorized_surface_smooth(v, f, adjacency, number_of_iter = 5, scalar = None
 		return (v, f, scalar)
 	else:
 		return (v, f)
+
+# Applies regression using a voxel/vertex wise regressor
+#
+# Input
+#
+# y = masked image data (V x Subjects)
+# image_x = image regressor
+# pred_x = predictors
+# covars = covariates
+#
+# Output
+# arr = t-value image
+def image_regression(y, image_x, pred_x, covars):
+   nv = y.shape[0]
+   n = y.shape[1]
+   if np.all(covars != 0):
+      regressors = np.column_stack((pred_x, covars))
+   else:
+      regressors = pred_x
+   regressors = np.column_stack([np.ones(len(regressors)),regressors])
+   arr = np.zeros((nv,len(regressors.T)+1))
+   for i in range(nv):
+      X = np.column_stack((regressors, image_x[i,:]))
+      k = len(X.T)
+      invXX = np.linalg.inv(np.dot(X.T, X))
+      a = cy_lin_lstsqr_mat(X, y[i,:])
+      beta = a[1]
+      sigma2 = np.sum((y[i,:] - np.dot(X,a))**2,axis=0) / (n - k)
+      se = np.sqrt(np.diag(sigma2 * invXX))
+      arr[i] = a / se
+   if pred_x.ndim == 1:
+      return arr[:,1]
+   else:
+      return arr[:,1:len(pred_x.T)]

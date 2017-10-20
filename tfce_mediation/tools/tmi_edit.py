@@ -368,7 +368,7 @@ def run(opts):
 	# delete element
 	if opts.delete:
 		if len(opts.delete) == 2:
-			delete_range = int(opts.delete[1])
+			delete_range = np.array([int(opts.delete[1])])
 		elif len(opts.delete) == 3:
 			delete_range = range(int(opts.delete[1]), (int(opts.delete[2])+1))
 		else:
@@ -398,6 +398,7 @@ def run(opts):
 
 			mask_mask[delete_range] = False
 			masking_array = np.array(masking_array)[mask_mask]
+			maskname_array = np.array(maskname_array)[mask_mask]
 
 			tmi_history.append("history mode_sub %d 1 %d 0 0 0" % (currentTime,int(len(delete_range))))
 			append_history = False

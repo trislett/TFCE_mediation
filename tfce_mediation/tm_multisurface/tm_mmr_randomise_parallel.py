@@ -57,6 +57,12 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		nargs='+',
 		type=str,
 		metavar=('INT'))
+	ap.add_argument("--noweight", 
+		help="Do not weight each vertex for density of vertices within the specified geodesic distance (not recommended).", 
+		action="store_true")
+	ap.add_argument("--subset",
+		help="Analyze a subset of subjects based on a single column text file. Subset will be performed based on whether each input is finite (keep) or text (remove).", 
+		nargs=1)
 	ap.add_argument("-n", "--numperm", 
 		nargs=1, 
 		type=int, 
@@ -99,6 +105,11 @@ def run(opts):
 			print "Error: --tfce must be used with -st option."
 			quit()
 		mmr_cmd += " -st %s" % ' '.join(opts.assigntfcesettings)
+	if opts.noweight:
+		mmr_cmd += " --noweight"
+	if opts.subset:
+		mmr_cmd += " --subset %s" % (opts.subset[0])
+
 
 	#round number of permutations to the nearest 200
 	roundperm=int(np.round(opts.numperm[0]/200.0)*100.0)

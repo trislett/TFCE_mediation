@@ -18,6 +18,7 @@
 
 import os
 import numpy as np
+import nibabel as nib
 
 from scipy import stats
 import argparse as ap
@@ -54,6 +55,10 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=3, 
 		default=[2,1,26], 
 		metavar=('H', 'E', '[6 or 26]'))
+	ap.add_argument("-v", "--voxelregressor", 
+		nargs=1,
+		help="Added a voxel regressor", 
+		metavar=('*.nii.gz'))
 	return ap
 
 def run(opts):
@@ -129,9 +134,15 @@ def run(opts):
 		exit()
 
 	if ancova==0:
-		#multiple regression
-		invXX = np.linalg.inv(np.dot(X.T, X))
-		tvalues=tval_int(X, invXX, y, n, k, num_voxel)
+
+		if opts.voxelregressor:
+			img = nib.load(opts.voxelregressor[0])
+			image_x = img.get_data()
+			tvalues = image_regression(y, image_x[data_index], pred_x, covars)
+		else:
+			#multiple regression
+			invXX = np.linalg.inv(np.dot(X.T, X))
+			tvalues=tval_int(X, invXX, y, n, k, num_voxel)
 		tvalues[np.isnan(tvalues)]=0 #only necessary for ANTS skeleton
 		#write TFCE images
 		for j in xrange(k-1):

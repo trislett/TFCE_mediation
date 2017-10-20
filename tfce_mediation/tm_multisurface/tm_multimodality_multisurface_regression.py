@@ -81,6 +81,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 	ap.add_argument("--noweight", 
 		help="Do not weight each vertex for density of vertices within the specified geodesic distance (not recommended).", 
 		action="store_true")
+	ap.add_argument("--subset",
+		help="Analyze a subset of subjects based on a single column text file. Subset will be performed based on whether each input is finite (keep) or text (remove).", 
+		nargs=1)
 	ap.add_argument("--outtype", 
 		help="Specify the output file type", 
 		nargs='+', 
@@ -238,7 +241,8 @@ def run(opts):
 						for contrast in range(num_contrasts):
 							out_image[temp_image[:, contrast] != 0,contrast] = temp_image[temp_image[:, contrast] != 0,contrast] * -1
 						if affine_array == []:
-							savefunc(out_image,masking_array[surf_count],
+							savefunc(out_image,
+								masking_array[surf_count],
 								"output_stats/%d_%s_pFWER" % (surf_count, 
 								basename))
 						else:
@@ -246,8 +250,8 @@ def run(opts):
 								"output_stats/%d_%s_pFWER" % (surf_count, basename),
 								affine_array[surf_count])
 						if opts.neglog:
-							out_image = -np.log10(1-positive_data[start:end,contrast])
-							temp_image = np.log10(1-negative_data[start:end,contrast])
+							out_image = -np.log10(1 - positive_data[start:end,contrast])
+							temp_image = np.log10(1 - negative_data[start:end,contrast])
 							for contrast in range(num_contrasts):
 								out_image[temp_image[:, contrast] != 0,contrast] = temp_image[temp_image[:, contrast] != 0,contrast]
 							if affine_array == []:
@@ -380,11 +384,20 @@ def run(opts):
 			pred_x = np.genfromtxt(arg_predictor, delimiter=',')
 			covars = np.genfromtxt(arg_covars, delimiter=',')
 			x_covars = np.column_stack([np.ones(len(covars)),covars])
-			merge_y = resid_covars(x_covars,image_array[0])
+			if opts.subset:
+				masking_variable = np.isfinite(np.genfromtxt(str(opts.subset[0]), delimiter=','))
+				merge_y = resid_covars(x_covars,image_array[0][:,masking_variable])
+			else:
+				merge_y = resid_covars(x_covars,image_array[0])
 		if opts.regressors:
 			arg_predictor = opts.regressors[0]
 			pred_x = np.genfromtxt(arg_predictor, delimiter=',')
-			merge_y=image_array[0].T
+
+			if opts.subset:
+				masking_variable = np.isfinite(np.genfromtxt(str(opts.subset[0]), delimiter=','))
+				merge_y=image_array[0][:,masking_variable].T
+			else:
+				merge_y=image_array[0].T
 
 		# cleanup 
 		image_array = None

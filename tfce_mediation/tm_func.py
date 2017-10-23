@@ -595,10 +595,10 @@ def print_tmi_history(tmi_history, maskname_array, surfname, num_con = None, con
 			print "Element reordered"
 		else:
 			print "Error: mode is not understood"
-		print "# masks: %s" % line[4]
-		print "# affines: %s" % line[5]
-		print "# surfaces: %s" % line[6]
-		print "# adjacency sets: %s\n" % line[7]
+		print "# masks: \t %s" % line[4]
+		print "# affines: \t %s" % line[5]
+		print "# surfaces: \t %s" % line[6]
+		print "# adjacency sets: \t %s\n" % line[7]
 
 	print "--- Mask names ---"
 	for i in range(len(maskname_array)):
@@ -621,9 +621,9 @@ def print_tmi_history(tmi_history, maskname_array, surfname, num_con = None, con
 		print range(num_con)
 		print ""
 	print "--- Total ---"
-	print "# masks: %d ([0 -> %d])" % (num_masks, num_masks-1)
-	print "# affines: %d ([0 -> %d])" % (num_affines, num_affines-1)
-	print "# surfaces: %d ([0 -> %d])" % (num_surfaces, num_surfaces-1)
-	print "# adjacency sets: %d ([0 -> %d])\n" % (num_adjac, num_adjac-1)
+	print "# masks: \t %d \t ([0 -> %d])" % (num_masks, num_masks-1)
+	print "# affines: \t %d \t ([0 -> %d])" % (num_affines, num_affines-1)
+	print "# surfaces: \t %d \t ([0 -> %d])" % (num_surfaces, num_surfaces-1)
+	print "# adjacency sets: \t %d \t ([0 -> %d])\n" % (num_adjac, num_adjac-1)
 
 

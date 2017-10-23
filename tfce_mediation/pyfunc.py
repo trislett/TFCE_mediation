@@ -1006,6 +1006,6 @@ def image_regression(y, image_x, pred_x, covars):
       se = np.sqrt(np.diag(sigma2 * invXX))
       arr[i] = a / se
    if pred_x.ndim == 1:
-      return arr[:,1]
+      return np.array_split(arr, 2, 1)
    else:
-      return arr[:,1:len(pred_x.T)]
+      return np.array_split(arr,len(pred_x.T)+1,1)

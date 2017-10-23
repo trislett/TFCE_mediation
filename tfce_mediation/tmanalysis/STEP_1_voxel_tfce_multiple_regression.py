@@ -25,7 +25,7 @@ import argparse as ap
 
 from tfce_mediation.cynumstats import resid_covars, tval_int, calcF
 from tfce_mediation.tfce import CreateAdjSet
-from tfce_mediation.pyfunc import write_voxelStat_img, create_adjac_voxel
+from tfce_mediation.pyfunc import write_voxelStat_img, create_adjac_voxel, image_regression
 
 DESCRIPTION = "Voxel-wise multiple regression with TFCE. "
 
@@ -136,13 +136,16 @@ def run(opts):
 	if ancova==0:
 
 		if opts.voxelregressor:
-			img = nib.load(opts.voxelregressor[0])
+			img = nib.load('../%s' % opts.voxelregressor[0])
 			image_x = img.get_data()
-			tvalues = image_regression(y, image_x[data_index], pred_x, covars)
+			tvalues, timage = image_regression(raw_nonzero, image_x[data_index], pred_x, covars)
+			write_voxelStat_img('tstat_imgcovar', timage[:,0], data_mask, data_index, affine_mask, calcTFCE, imgext)
+			write_voxelStat_img('negtstat_imgcovar', -timage[:,0], data_mask, data_index, affine_mask, calcTFCE, imgext)
+			tvalues = tvalues.T
 		else:
 			#multiple regression
 			invXX = np.linalg.inv(np.dot(X.T, X))
-			tvalues=tval_int(X, invXX, y, n, k, num_voxel)
+			tvalues = tval_int(X, invXX, y, n, k, num_voxel)
 		tvalues[np.isnan(tvalues)]=0 #only necessary for ANTS skeleton
 		#write TFCE images
 		for j in xrange(k-1):

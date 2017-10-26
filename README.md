@@ -25,6 +25,11 @@ Additional help:
 * Ask in the [Issues](https://github.com/trislett/TFCE_mediation/issues) section, even if it is just a question.
 
 ### What's new / updates ###
+26-10-2016
+
+* version 1.3.4-1.3.5: small bug fixes, and various alpha features for tm_multimodality.
+* version 1.3.6 is now available on [pypipe (PIP)](https://pypi.org/project/tfce-mediation/).
+* Added an option to include vertex or voxel 4D images as covariates to multiple-regression analysis. Variance Inflation Factor (VIF) images are automatically outputted to check for multicollinearity among independent variables (only an issue if the approximately VIF > 5). 
 
 30-8-2017
 

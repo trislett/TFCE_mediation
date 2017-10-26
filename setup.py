@@ -66,7 +66,7 @@ setup(name = PACKAGE_NAME, version = __version__,
   license = "GNU General Public License v3 or later (GPLv3+)",
   classifiers = CLASSIFIERS,
   install_requires = BUILD_REQUIRES,
-  zip_safe=True,
+  zip_safe=False,
   cmdclass = cmdclass,
   configuration = configuration
 )

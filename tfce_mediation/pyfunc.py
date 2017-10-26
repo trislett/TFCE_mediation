@@ -27,6 +27,7 @@ from scipy.stats import linregress
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.patches as mpatches
+from time import time
 
 
 from tfce_mediation.cynumstats import calc_beta_se, resid_covars, cy_lin_lstsqr_mat
@@ -72,26 +73,28 @@ def create_adjac_voxel (data_index,data_mask,num_voxel, dirtype=26): # default i
 
 #writing statistics images
 
-def write_vertStat_img(statname, vertStat, outdata_mask, affine_mask, surf, hemi, bin_mask, TFCEfunc, all_vertex, density_corr = 1):
+def write_vertStat_img(statname, vertStat, outdata_mask, affine_mask, surf, hemi, bin_mask, TFCEfunc, all_vertex, density_corr = 1, TFCE = True):
 	vertStat_out=np.zeros(all_vertex).astype(np.float32, order = "C")
 	vertStat_out[bin_mask] = vertStat
-	vertStat_TFCE = np.zeros_like(vertStat_out).astype(np.float32, order = "C")
-	TFCEfunc.run(vertStat_out, vertStat_TFCE)
-	outdata_mask[:,0,0] = vertStat_TFCE * (vertStat[np.isfinite(vertStat)].max()/100) * density_corr
-	fsurfname = "%s_%s_%s_TFCE.mgh" % (statname,surf,hemi)
-	os.system("echo %s_%s_%s,%f >> max_TFCE_contrast_values.csv" % (statname,surf,hemi, outdata_mask[np.isfinite(outdata_mask[:,0,0])].max()))
-	nib.save(nib.freesurfer.mghformat.MGHImage(outdata_mask,affine_mask),fsurfname)
+	if TFCE:
+		vertStat_TFCE = np.zeros_like(vertStat_out).astype(np.float32, order = "C")
+		TFCEfunc.run(vertStat_out, vertStat_TFCE)
+		outdata_mask[:,0,0] = vertStat_TFCE * (vertStat[np.isfinite(vertStat)].max()/100) * density_corr
+		fsurfname = "%s_%s_%s_TFCE.mgh" % (statname,surf,hemi)
+		os.system("echo %s_%s_%s,%f >> max_TFCE_contrast_values.csv" % (statname,surf,hemi, outdata_mask[np.isfinite(outdata_mask[:,0,0])].max()))
+		nib.save(nib.freesurfer.mghformat.MGHImage(outdata_mask,affine_mask),fsurfname)
 	outdata_mask[:,0,0] = vertStat_out
 	fsurfname = "%s_%s_%s.mgh" % (statname,surf,hemi)
 	nib.save(nib.freesurfer.mghformat.MGHImage(outdata_mask,affine_mask),fsurfname)
 
-def write_voxelStat_img(statname, voxelStat, out_path, data_index, affine, TFCEfunc, imgext = '.nii.gz'):
-	voxelStat_out = voxelStat.astype(np.float32, order = "C")
-	voxelStat_TFCE = np.zeros_like(voxelStat_out).astype(np.float32, order = "C")
-	TFCEfunc.run(voxelStat_out, voxelStat_TFCE)
-	out_path[data_index] = voxelStat_TFCE * (voxelStat_out.max()/100)
-	nib.save(nib.Nifti1Image(out_path,affine),"%s_TFCE%s" % (statname, imgext))
-	os.system("echo %s,%f >> max_TFCE_contrast_values.csv" % (statname,out_path.max()))
+def write_voxelStat_img(statname, voxelStat, out_path, data_index, affine, TFCEfunc, imgext = '.nii.gz', TFCE = True):
+	if TFCE:
+		voxelStat_out = voxelStat.astype(np.float32, order = "C")
+		voxelStat_TFCE = np.zeros_like(voxelStat_out).astype(np.float32, order = "C")
+		TFCEfunc.run(voxelStat_out, voxelStat_TFCE)
+		out_path[data_index] = voxelStat_TFCE * (voxelStat_out.max()/100)
+		nib.save(nib.Nifti1Image(out_path,affine),"%s_TFCE%s" % (statname, imgext))
+		os.system("echo %s,%f >> max_TFCE_contrast_values.csv" % (statname,out_path.max()))
 	out_path[data_index] = voxelStat
 	nib.save(nib.Nifti1Image(out_path,affine),"%s%s" % (statname, imgext))
 
@@ -986,26 +989,49 @@ def vectorized_surface_smooth(v, f, adjacency, number_of_iter = 5, scalar = None
 # covars = covariates
 #
 # Output
-# arr = t-value image
-def image_regression(y, image_x, pred_x, covars):
-   nv = y.shape[0]
-   n = y.shape[1]
-   if np.all(covars != 0):
-      regressors = np.column_stack((pred_x, covars))
-   else:
-      regressors = pred_x
-   regressors = np.column_stack([np.ones(len(regressors)),regressors])
-   arr = np.zeros((nv,len(regressors.T)+1))
-   for i in range(nv):
-      X = np.column_stack((regressors, image_x[i,:]))
-      k = len(X.T)
-      invXX = np.linalg.inv(np.dot(X.T, X))
-      a = cy_lin_lstsqr_mat(X, y[i,:])
-      beta = a[1]
-      sigma2 = np.sum((y[i,:] - np.dot(X,a))**2,axis=0) / (n - k)
-      se = np.sqrt(np.diag(sigma2 * invXX))
-      arr[i] = a / se
-   if pred_x.ndim == 1:
-      return np.array_split(arr, 2, 1)
-   else:
-      return np.array_split(arr,len(pred_x.T)+1,1)
+# arr = t-value image, image_covariate image
+def image_regression(y, image_x, pred_x, covars = None, normalize = False, verbose = True):
+	start_time = time()
+	nv = y.shape[0]
+	n = y.shape[1]
+	if np.all(covars != None):
+		regressors = np.column_stack((pred_x, covars))
+	else:
+		regressors = pred_x
+	regressors = np.column_stack([np.ones(len(regressors)),regressors])
+	arr = np.zeros((nv,len(regressors.T)+1))
+
+	if normalize:
+		image_x = zscaler(image_x, axis=0, w_mean=True, w_std=True)
+
+	for i in range(nv):
+		if i % 5000 == 0:
+			print i
+		if (image_x[i,:].std() < 0.01) or (np.any(np.isnan(image_x[i,:]))):
+			arr[i,:] = 0
+		else:
+			temp_data = image_x[i,:]
+			X = np.column_stack((regressors, temp_data))
+			k = len(X.T)
+			invXX = np.linalg.inv(np.dot(X.T, X))
+			a = cy_lin_lstsqr_mat(X, y[i,:])
+			beta = a[1]
+			sigma2 = np.sum((y[i,:] - np.dot(X,a))**2,axis=0) / (n - k)
+			se = np.sqrt(np.diag(sigma2 * invXX))
+			arr[i] = a / se
+	print("Finished. Image-wise independent variable regression took %.1f seconds" % (time() - start_time))
+	return np.array(arr[:,:len(pred_x.T)+1], dtype=np.float32), np.array(np.squeeze(arr[:,-1:]), dtype=np.float32)
+
+def image_reg_VIF(y, regressors):
+	X = np.column_stack([np.ones(len(regressors)),regressors])
+	a = cy_lin_lstsqr_mat(X, y)
+	resids = y - np.dot(X,a)
+	RSS = np.sum(resids**2,axis=0)
+	TSS = np.sum((y - np.mean(y, axis =0))**2, axis = 0)
+	R2 = 1 - (RSS/TSS)
+	VIF = 1/(1-R2)
+	VIF[np.isnan(VIF)] = 0
+	return VIF
+
+
+

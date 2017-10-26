@@ -23,7 +23,7 @@ import argparse as ap
 
 from tfce_mediation.cynumstats import resid_covars, tval_int
 from tfce_mediation.tfce import CreateAdjSet
-from tfce_mediation.pyfunc import write_vertStat_img, create_adjac_vertex, convert_fslabel
+from tfce_mediation.pyfunc import write_vertStat_img, create_adjac_vertex, convert_fslabel, image_regression, image_reg_VIF
 
 DESCRIPTION = "Vertex-wise multiple regression with TFCE."
 
@@ -92,6 +92,10 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	ap.add_argument("--noweight", 
 		help="Do not weight each vertex for density of vertices within the specified geodesic distance.", 
 		action="store_true")
+	ap.add_argument("-v", "--vertexregressor", 
+		nargs=2,
+		help="Add a vertex-wise independent regressor (beta feature). A variance inflation factor (VIF) image will also be produced to check for multicollinearity (generally, VIF > 5 suggest problematic collinearity.)", 
+		metavar=('mgh', 'mgh'))
 
 	return ap
 
@@ -213,8 +217,8 @@ def run(opts):
 		bin_mask_lh = binmgh_lh>.99
 		bin_mask_rh = binmgh_rh>.99
 	else:
-		bin_mask_lh = mean_lh>0
-		bin_mask_rh = mean_rh>0
+		bin_mask_lh = mean_lh != 0
+		bin_mask_rh = mean_rh != 0
 	data_lh = data_lh[bin_mask_lh]
 	num_vertex_lh = data_lh.shape[0]
 	data_rh = data_rh[bin_mask_rh]
@@ -261,23 +265,137 @@ def run(opts):
 	np.save('python_temp_%s/vdensity_lh'% (surface), vdensity_lh)
 	np.save('python_temp_%s/vdensity_rh'% (surface), vdensity_rh)
 
-	#step2
-	X = np.column_stack([np.ones(n),pred_x])
-	k = len(X.T)
-	invXX = np.linalg.inv(np.dot(X.T, X))
-	tvals = tval_int(X, invXX, merge_y, n, k, num_vertex)
-
 	#write TFCE images
 	if not os.path.exists("output_%s" % (surface)):
 		os.mkdir("output_%s" % (surface))
 	os.chdir("output_%s" % (surface))
 
+	#step2
+	X = np.column_stack([np.ones(n),pred_x])
+	k = len(X.T)
+	if opts.vertexregressor:
+		img_x_lh = np.squeeze(nib.freesurfer.mghformat.load("../%s" % opts.vertexregressor[0]).get_data())
+		img_x_rh = np.squeeze(nib.freesurfer.mghformat.load("../%s" % opts.vertexregressor[1]).get_data())
+		img_x_lh = img_x_lh[bin_mask_lh]
+		img_x_rh = img_x_rh[bin_mask_rh]
+		img_x = np.hstack((img_x_lh.T,img_x_rh.T))
+		img_x_lh = img_x_rh = None
+		merge_y = np.hstack((data_lh.T,data_rh.T))
+		tvals, timage = image_regression(merge_y.T.astype(np.float32),
+			img_x.T.astype(np.float32),
+			pred_x,
+			covars)
+		VIF = image_reg_VIF(merge_y, np.column_stack((pred_x, covars)))
+
+		tvals = tvals.T
+		timage = timage.T
+		write_vertStat_img('tstat_imgcovar', 
+			timage[:num_vertex_lh],
+			outdata_mask_lh,
+			affine_mask_lh,
+			surface, 'lh',
+			bin_mask_lh,
+			calcTFCE_lh,
+			bin_mask_lh.shape[0],
+			vdensity_lh)
+		write_vertStat_img('tstat_imgcovar', 
+			timage[num_vertex_lh:],
+			outdata_mask_rh,
+			affine_mask_rh,
+			surface,
+			'rh',
+			bin_mask_rh,
+			calcTFCE_rh,
+			bin_mask_rh.shape[0],
+			vdensity_rh)
+		write_vertStat_img('negtstat_imgcovar', 
+			-timage[:num_vertex_lh],
+			outdata_mask_lh,
+			affine_mask_lh,
+			surface, 'lh',
+			bin_mask_lh,
+			calcTFCE_lh,
+			bin_mask_lh.shape[0],
+			vdensity_lh)
+		write_vertStat_img('negtstat_imgcovar', 
+			-timage[num_vertex_lh:],
+			outdata_mask_rh,
+			affine_mask_rh,
+			surface,
+			'rh',
+			bin_mask_rh,
+			calcTFCE_rh,
+			bin_mask_rh.shape[0],
+			vdensity_rh)
+		write_vertStat_img('VIF_imgcovar', 
+			VIF[:num_vertex_lh],
+			outdata_mask_lh,
+			affine_mask_lh,
+			surface, 'lh',
+			bin_mask_lh,
+			calcTFCE_lh,
+			bin_mask_lh.shape[0],
+			vdensity_lh, 
+			TFCE = False)
+		write_vertStat_img('VIF_imgcovar', 
+			VIF[num_vertex_lh:],
+			outdata_mask_rh,
+			affine_mask_rh,
+			surface,
+			'rh',
+			bin_mask_rh,
+			calcTFCE_rh,
+			bin_mask_rh.shape[0],
+			vdensity_rh,
+			TFCE =False)
+
+
+	else:
+		invXX = np.linalg.inv(np.dot(X.T, X))
+		tvals = tval_int(X, invXX, merge_y, n, k, num_vertex)
+
 	for j in xrange(k-1):
 		tnum=j+1
-		write_vertStat_img('tstat_con%d' % tnum, tvals[tnum,:num_vertex_lh], outdata_mask_lh, affine_mask_lh, surface, 'lh', bin_mask_lh, calcTFCE_lh, bin_mask_lh.shape[0], vdensity_lh)
-		write_vertStat_img('tstat_con%d' % tnum, tvals[tnum,num_vertex_lh:], outdata_mask_rh, affine_mask_rh, surface, 'rh', bin_mask_rh, calcTFCE_rh, bin_mask_rh.shape[0], vdensity_rh)
-		write_vertStat_img('negtstat_con%d' % tnum, (tvals[tnum,:num_vertex_lh]*-1), outdata_mask_lh, affine_mask_lh, surface, 'lh', bin_mask_lh, calcTFCE_lh, bin_mask_lh.shape[0], vdensity_lh)
-		write_vertStat_img('negtstat_con%d' % tnum, (tvals[tnum,num_vertex_lh:]*-1), outdata_mask_rh, affine_mask_rh, surface, 'rh', bin_mask_rh, calcTFCE_rh, bin_mask_rh.shape[0], vdensity_rh)
+		write_vertStat_img('tstat_con%d' % tnum, 
+			tvals[tnum,:num_vertex_lh],
+			outdata_mask_lh,
+			affine_mask_lh,
+			surface,
+			'lh',
+			bin_mask_lh,
+			calcTFCE_lh,
+			bin_mask_lh.shape[0],
+			vdensity_lh)
+		write_vertStat_img('tstat_con%d' % tnum,
+			tvals[tnum,num_vertex_lh:],
+			outdata_mask_rh,
+			affine_mask_rh,
+			surface,
+			'rh',
+			bin_mask_rh,
+			calcTFCE_rh,
+			bin_mask_rh.shape[0],
+			vdensity_rh)
+		write_vertStat_img('negtstat_con%d' % tnum,
+			(tvals[tnum,:num_vertex_lh]*-1),
+			outdata_mask_lh,
+			affine_mask_lh,
+			surface,
+			'lh',
+			bin_mask_lh,
+			calcTFCE_lh,
+			bin_mask_lh.shape[0],
+			vdensity_lh)
+		write_vertStat_img('negtstat_con%d' % tnum,
+			(tvals[tnum,num_vertex_lh:]*-1),
+			outdata_mask_rh,
+			affine_mask_rh,
+			surface,
+			'rh',
+			bin_mask_rh,
+			calcTFCE_rh,
+			bin_mask_rh.shape[0],
+			vdensity_rh)
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

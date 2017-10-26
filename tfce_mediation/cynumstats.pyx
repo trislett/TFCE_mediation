@@ -105,3 +105,4 @@ def calc_gd_fwhm(np.ndarray[int, ndim=2, mode="c"] indices,
       sumval[i] += weight * data[i]
       sum_weight[i] += weight
    return sumval / sum_weight
+

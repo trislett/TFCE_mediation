@@ -25,7 +25,7 @@ import argparse as ap
 
 from tfce_mediation.cynumstats import resid_covars, tval_int, calcF
 from tfce_mediation.tfce import CreateAdjSet
-from tfce_mediation.pyfunc import write_voxelStat_img, create_adjac_voxel, image_regression
+from tfce_mediation.pyfunc import write_voxelStat_img, create_adjac_voxel, image_regression, image_reg_VIF
 
 DESCRIPTION = "Voxel-wise multiple regression with TFCE. "
 
@@ -57,7 +57,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		metavar=('H', 'E', '[6 or 26]'))
 	ap.add_argument("-v", "--voxelregressor", 
 		nargs=1,
-		help="Added a voxel regressor", 
+		help="Add a voxel-wise independent regressor (beta feature). A variance inflation factor (VIF) image will also be produced to check for multicollinearity (generally, VIF > 5 suggest problematic collinearity.)", 
 		metavar=('*.nii.gz'))
 	return ap
 
@@ -118,30 +118,93 @@ def run(opts):
 	if not os.path.exists('output'):
 		os.mkdir('output')
 	os.chdir('output')
-	X =	np.column_stack([np.ones(n),pred_x])
+	X = np.column_stack([np.ones(n),pred_x])
 	k = len(X.T)
 
 	if opts.onesample:
 		if opts.onesample[0] == 'none':
 			tvalues, _ = stats.ttest_1samp(raw_nonzero,0,axis=1)
-			write_voxelStat_img('tstat_intercept', tvalues, data_mask, data_index, affine_mask, calcTFCE, imgext)
-			write_voxelStat_img('negtstat_intercept', (tvalues*-1), data_mask, data_index, affine_mask, calcTFCE, imgext)
+			write_voxelStat_img('tstat_intercept',
+				tvalues,
+				data_mask,
+				data_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
+			write_voxelStat_img('negtstat_intercept',
+				(tvalues*-1),
+				data_mask,
+				data_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
 		else:
 			tvalues=tval_int(x_covars, np.linalg.inv(np.dot(x_covars.T, x_covars)),raw_nonzero.T,n,len(x_covars.T),num_voxel)
 			tvalues = tvalues[0]
-			write_voxelStat_img('tstat_intercept', tvalues, data_mask, data_index, affine_mask, calcTFCE, imgext)
-			write_voxelStat_img('negtstat_intercept', (tvalues*-1), data_mask, data_index, affine_mask, calcTFCE, imgext)
+			write_voxelStat_img('tstat_intercept',
+				tvalues,
+				data_mask,
+				data_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
+			write_voxelStat_img('negtstat_intercept',
+				(tvalues*-1),
+				data_mask,
+				data_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
 		exit()
 
 	if ancova==0:
 
 		if opts.voxelregressor:
-			img = nib.load('../%s' % opts.voxelregressor[0])
-			image_x = img.get_data()
-			tvalues, timage = image_regression(raw_nonzero, image_x[data_index], pred_x, covars)
-			write_voxelStat_img('tstat_imgcovar', timage[:,0], data_mask, data_index, affine_mask, calcTFCE, imgext)
-			write_voxelStat_img('negtstat_imgcovar', -timage[:,0], data_mask, data_index, affine_mask, calcTFCE, imgext)
+
+			img_all_name = opts.voxelregressor[0]
+			_, file_ext = os.path.splitext(img_all_name)
+			if file_ext == '.gz':
+				_, file_ext = os.path.splitext(img_all_name)
+				if file_ext == '.mnc':
+					imgext = '.mnc'
+					image_x = nib.load('../%s' % img_all_name).get_data()[data_index].astype(np.float32)
+				else:
+					imgext = '.nii.gz'
+					os.system("zcat ../%s > temp_4d.nii" % img_all_name)
+					image_x = nib.load('temp_4d.nii').get_data()[data_index].astype(np.float32)
+					os.system("rm temp_4d.nii")
+			elif file_ext == '.nii':
+				imgext = '.nii.gz' # default to zipped images
+				image_x = nib.load('../%s' % img_all_name).get_data()[data_index].astype(np.float32)
+			else:
+				print 'Error filetype for %s is not supported' % img_all_name
+				quit()
+
+			tvalues, timage = image_regression(raw_nonzero.astype(np.float32), image_x, pred_x, covars)
+			write_voxelStat_img('tstat_imgcovar', 
+				timage,
+				data_mask,
+				data_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
+			write_voxelStat_img('negtstat_imgcovar',
+				-timage,
+				data_mask,
+				data_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
 			tvalues = tvalues.T
+			VIF = image_reg_VIF(image_x.T, np.column_stack((pred_x, covars)))
+			write_voxelStat_img('VIF_imgcovar',
+				VIF,
+				data_mask,
+				data_index,
+				affine_mask,
+				calcTFCE,
+				imgext,
+				TFCE = False)
 		else:
 			#multiple regression
 			invXX = np.linalg.inv(np.dot(X.T, X))
@@ -156,7 +219,13 @@ def run(opts):
 		#anova
 		fvals = calcF(X, y, n, k) # sqrt to approximate the t-distribution
 		fvals[fvals < 0] = 0
-		write_voxelStat_img('fstat', np.sqrt(fvals), data_mask, data_index, affine_mask, calcTFCE, imgext)
+		write_voxelStat_img('fstat',
+			np.sqrt(fvals),
+			data_mask,
+			data_index,
+			affine_mask,
+			calcTFCE,
+			imgext)
 	else:
 		print "Error"
 		exit()

@@ -25,14 +25,13 @@ from time import time
 from tfce_mediation.cynumstats import resid_covars
 from tfce_mediation.tfce import CreateAdjSet
 from tfce_mediation.tm_io import read_tm_filetype, write_tm_filetype, savemgh_v2, savenifti_v2
-from tfce_mediation.pyfunc import save_ply, convert_voxel
+from tfce_mediation.pyfunc import save_ply, convert_voxel, vectorized_surface_smooth
 from tfce_mediation.tm_func import calculate_tfce, calculate_mediation_tfce, calc_mixed_tfce, apply_mfwer, create_full_mask, merge_adjacency_array, lowest_length, create_position_array, paint_surface, strip_basename, saveauto
 
 
 DESCRIPTION = "MMR: Multimodality Multisurface Regression with TFCE and *.tmi formated neuroimaging files."
-formatter_class=lambda prog: ap.HelpFormatter(prog, max_help_position=100, width=200)
 
-def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatter_class=formatter_class)):
+def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 
 	ap.add_argument("-i_tmi", "--tmifile",
 		help="Input the *.tmi file for analysis.", 
@@ -42,18 +41,28 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 
 	group = ap.add_mutually_exclusive_group(required=True)
 	group.add_argument("-i", "--input", 
-		nargs=2, 
-		help="[Predictor(s)] [Covariate(s)]", 
-		metavar=('*.csv', '*.csv'))
+		nargs='+', 
+		help="[Predictor(s)]", 
+		metavar=('*.csv'))
+	group.add_argument("-im", "--inputmediation", 
+		nargs=3, 
+		help="[Mediation Type {I,M,Y}] [Predictor] [Dependent]", 
+		metavar=('{I,M,Y}','*.csv', '*.csv'))
+	ap.add_argument("-c", "--covariates", 
+		nargs=1, 
+		help="[Covariate(s)]", 
+		metavar=('*.csv'))
 	group.add_argument("-r", "--regressors", 
 		nargs=1, help="Single step regression", 
 		metavar=('*.csv'))
 	group.add_argument("-mfwe","--multisurfacefwecorrection", 
 		help="Input the stats tmi using -i_tmi *.tmi. The corrected files will be appended to the stats tmi. Note, the intercepts will be ignored.",
 		action='store_true')
-	ap.add_argument("-m", "--mediation",
-		nargs=2, help="Perform a mediation analysis. The type of mediation {I,M,Y} and dependent variable must be inputted.", 
-		metavar=('{I,M,Y}','*.csv'))
+	group.add_argument("-medfwe","--mediationmfwe",
+		nargs=1,
+		choices = ['I', 'M', 'Y'],
+		help="Input the stats tmi using -i_tmi *.tmi. Select the mediation type {I,M,Y}. The corrected files will be appended to the stats tmi.")
+
 	ap.add_argument("-p", "--randomise", 
 		help="Specify the range of permutations. e.g, -p 1 200", 
 		nargs=2,
@@ -89,7 +98,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		nargs='+', 
 		default=['tmi'], 
 		choices=('tmi', 'mgh', 'nii.gz', 'auto'))
-	ap.add_argument("-c","--concatestats", 
+	ap.add_argument("-cs","--concatestats", 
 		help="Concantenate FWE corrected p statistic images to the stats file. Must be used with -mfwe option", 
 		action="store_true")
 	ap.add_argument("-l","--neglog", 
@@ -99,6 +108,19 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		help="Projects pFWE corrected for negative and positive TFCE transformed t-statistics onto a ply mesh for visualization of results using a 3D viewer. Must be used with -mfwe option. The sigificance threshold (low and high), and either: red-yellow (r_y), blue-lightblue (b_lb) or any matplotlib colorschemes (https://matplotlib.org/examples/color/colormaps_reference.html). Note, thresholds must be postive. e.g., -op 0.95 1 r_y b_lb", 
 		nargs=4, 
 		metavar=('float','float', 'colormap', 'colormap'))
+
+#	ap.add_argument("--plysmoothing",
+#		help = "Apply Laplician or Taubin smoothing before visualization. Input the number of iterations (e.g., -ss 5).", 
+#		nargs = 1,
+#		type = int,
+#		metavar = 'int')
+#	ap.add_argument("--smoothingtype",
+#		help = "Set type of surface smoothing to use (choices are: %(choices)s). The default is laplacian. The Taubin (aka low-pass) filter smooths curves/surfaces without the shrinkage of the laplacian filter.", 
+#		nargs = 1,
+#		choices = ['laplacian','taubin'],
+#		default = ['laplacian'],
+#		metavar = 'str')
+
 	correctionoptions = ap.add_mutually_exclusive_group(required=False)
 	correctionoptions.add_argument("-ss","--setsurface", 
 		help="Must be used with -mfwe option. Input the set of surfaces to create pFWE corrected images using a range. Family-wise error rate correction will only applied to the specified surfaces. e.g., -ss 0 1 5 6", 
@@ -318,8 +340,70 @@ def run(opts):
 							"output_ply/%d_%s_pFWE_tcon%d.ply" % (surf_count, basename, contrast+1),
 							out_color_array)
 						colorbar = False
-	else:
 
+	elif opts.mediationmfwe: # temporary solution -> maybe a general function instead of bulky code
+
+		_, image_array, masking_array, maskname, affine_array, vertex_array, face_array, surfname, adjacency_array, tmi_history, columnids = read_tm_filetype('%s' % opts.tmifile[0], verbose=False)
+
+		# check file dimensions
+		if not image_array[0].shape[1] % 2 == 0:
+			print 'Print file format is not understood. Please make sure %s is statistics file.' % opts.tmifile[0]
+			quit()
+
+		# get surface coordinates in data array
+		position_array = create_position_array(masking_array)
+
+
+		# check that randomisation has been run
+		if not os.path.exists("%s/output_%s/perm_maxTFCE_surf0_%s_zstat.csv" % (os.getcwd(),opts.tmifile[0], opts.mediationmfwe[0])): # make this safer
+			print 'Permutation folder not found. Please run --randomise first.'
+			quit()
+
+
+		#check permutation file lengths
+		num_surf = len(masking_array)
+		surface_range = range(num_surf)
+		num_perm = lowest_length(1, surface_range, opts.tmifile[0], medtype = opts.mediationmfwe[0])
+
+		if opts.setsurfacerange:
+			surface_range = range(opts.setsurfacerange[0], opts.setsurfacerange[1]+1)
+		elif opts.setsurface:
+			surface_range = opts.setsurface
+		if np.array(surface_range).max() > len(masking_array):
+			print "Error: range does note fit the surfaces contained in the tmi file. %s contains the following surfaces" % opts.tmifile[0]
+			for i in range(len(surfname)):
+				print ("Surface %d : %s, %s" % (i,surfname[i], maskname[i]))
+			quit()
+		print "Reading %d contrast(s) from %d of %d surface(s)" % (1,len(surface_range), num_surf)
+		print "Reading %s permutations with an accuracy of p=0.05+/-%.4f" % (num_perm,(2*(np.sqrt(0.05*0.95/num_perm))))
+
+		# calculate the P(FWER) images from all surfaces
+		positive_data = apply_mfwer(image_array, 1, surface_range, num_perm, num_surf, opts.tmifile[0], position_array, [1], weight='logmasksize', mediation = True, medtype = opts.mediationmfwe[0])
+		if opts.outtype[0] == 'tmi':
+			contrast_names = []
+
+			contrast_names.append(("zstat_pFWER"))
+			outdata = positive_data
+
+			if opts.neglog:
+				contrast_names.append(("zstat_negLog_pFWER"))
+				outdata = np.column_stack((outdata,-np.log10(1-positive_data)))
+
+
+			write_tm_filetype("pFWER_%s_%s" % (opts.mediationmfwe[0], opts.tmifile[0]),
+				image_array = outdata,
+				masking_array = masking_array,
+				maskname = maskname,
+				affine_array = affine_array,
+				vertex_array = vertex_array,
+				face_array = face_array,
+				surfname = surfname,
+				checkname = False,
+				columnids = np.array(contrast_names),
+				tmi_history = tmi_history)
+
+
+	else:
 		##################################
 		###### STATISTICAL ANALYSIS ######
 		##################################
@@ -378,17 +462,40 @@ def run(opts):
 			vdensity = 1
 
 		#load regressors
-		if opts.input: 
-			arg_predictor = opts.input[0]
-			arg_covars = opts.input[1]
-			pred_x = np.genfromtxt(arg_predictor, delimiter=',')
-			covars = np.genfromtxt(arg_covars, delimiter=',')
-			x_covars = np.column_stack([np.ones(len(covars)),covars])
+		if opts.input:
+			for i, arg_pred in enumerate(opts.input):
+				if i == 0:
+					pred_x = np.genfromtxt(arg_pred, delimiter=',')
+				else:
+					pred_x = np.column_stack([pred_x, np.genfromtxt(arg_pred, delimiter=',')])
+
+			if opts.covariates:
+				covars = np.genfromtxt(opts.covariates[0], delimiter=',')
+				x_covars = np.column_stack([np.ones(len(covars)),covars])
 			if opts.subset:
 				masking_variable = np.isfinite(np.genfromtxt(str(opts.subset[0]), delimiter=','))
-				merge_y = resid_covars(x_covars,image_array[0][:,masking_variable])
+				if opts.covariates:
+					merge_y = resid_covars(x_covars,image_array[0][:,masking_variable])
+				else:
+					merge_y = image_array[0][:,masking_variable].T 
+					print "Check dimensions" # CHECK
+					print merge_y.shape
 			else:
-				merge_y = resid_covars(x_covars,image_array[0])
+				if opts.covariates:
+					merge_y = resid_covars(x_covars,image_array[0])
+				else:
+					merge_y = image_array[0].T
+		if opts.inputmediation:
+			medtype = opts.inputmediation[0]
+			pred_x =  np.genfromtxt(opts.inputmediation[1], delimiter=',')
+			depend_y =  np.genfromtxt(opts.inputmediation[2], delimiter=',')
+			if opts.covariates:
+				covars = np.genfromtxt(opts.covariates[0], delimiter=',')
+				x_covars = np.column_stack([np.ones(len(covars)), covars])
+				merge_y = resid_covars(x_covars, image_array[0])
+			else:
+				merge_y = image_array[0].T
+
 		if opts.regressors:
 			arg_predictor = opts.regressors[0]
 			pred_x = np.genfromtxt(arg_predictor, delimiter=',')
@@ -419,7 +526,12 @@ def run(opts):
 			merge_y = None
 			if not outname.endswith('tmi'):
 				outname += '.tmi'
-			outname = 'stats_' + outname
+
+			if opts.inputmediation:
+				outname = 'med_stats_' + outname
+			else:
+				outname = 'stats_' + outname
+
 			if not os.path.exists("output_%s" % (outname)):
 				os.mkdir("output_%s" % (outname))
 			os.chdir("output_%s" % (outname))
@@ -433,6 +545,18 @@ def run(opts):
 						pred_x,
 						calcTFCE,
 						perm_number=i,
+						randomise = True)
+				elif opts.inputmediation:
+					calculate_mediation_tfce(medtype,
+						mapped_y,
+						masking_array,
+						pred_x,
+						depend_y,
+						calcTFCE[0],
+						vdensity,
+						position_array,
+						fullmask,
+						perm_number = i,
 						randomise = True)
 				else:
 					calculate_tfce(mapped_y, 
@@ -456,6 +580,16 @@ def run(opts):
 					vdensity,
 					pred_x,
 					calcTFCE)
+			elif opts.inputmediation:
+				SobelZ, tfce_SobelZ = calculate_mediation_tfce(medtype,
+					merge_y,
+					masking_array,
+					pred_x,
+					depend_y,
+					calcTFCE[0],
+					vdensity,
+					position_array,
+					fullmask)
 			else:
 				tvals, tfce_tvals, neg_tfce_tvals = calculate_tfce(merge_y,
 					masking_array,
@@ -466,22 +600,31 @@ def run(opts):
 			if opts.outtype[0] == 'tmi':
 				if not outname.endswith('tmi'):
 					outname += '.tmi'
-				outname = 'stats_' + outname
-
-				if tvals.ndim == 1:
-					num_contrasts = 1
+				if opts.inputmediation:
+					outname = 'med_stats_' + outname
 				else:
-					num_contrasts = tvals.shape[0]
+					outname = 'stats_' + outname
 
-				contrast_names = []
-				for i in range(num_contrasts):
-					contrast_names.append(("tstat_con%d" % (i+1)))
-				for j in range(num_contrasts):
-					contrast_names.append(("tstat_tfce_con%d" % (j+1)))
-				for k in range(num_contrasts):
-					contrast_names.append(("negtstat_tfce_con%d" % (k+1)))
-				outdata = np.column_stack((tvals.T, tfce_tvals.T))
-				outdata = np.column_stack((outdata, neg_tfce_tvals.T))
+				if opts.inputmediation:
+					contrast_names = []
+					contrast_names.append(("SobelZ"))
+					contrast_names.append(("SobelZ_tfce"))
+					outdata = np.column_stack((SobelZ.T, tfce_SobelZ.T))
+				else:
+					if tvals.ndim == 1:
+						num_contrasts = 1
+					else:
+						num_contrasts = tvals.shape[0]
+
+					contrast_names = []
+					for i in range(num_contrasts):
+						contrast_names.append(("tstat_con%d" % (i+1)))
+					for j in range(num_contrasts):
+						contrast_names.append(("tstat_tfce_con%d" % (j+1)))
+					for k in range(num_contrasts):
+						contrast_names.append(("negtstat_tfce_con%d" % (k+1)))
+					outdata = np.column_stack((tvals.T, tfce_tvals.T))
+					outdata = np.column_stack((outdata, neg_tfce_tvals.T))
 
 				# write tstat
 				write_tm_filetype(outname, 

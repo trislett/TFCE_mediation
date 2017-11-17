@@ -143,7 +143,7 @@ def calculate_tfce(merge_y, masking_array, pred_x, calcTFCE, vdensity, position_
 # Output:
 # SobelZ = the indirect effect statistic
 # tfce_SobelZ = TFCE transformed indirect effect statistic
-def calculate_mediation_tfce(medtype, merge_y, masking_array, pred_x, depend_y, calcTFCE, vdensity, position_array, fullmask, perm_number = None, randomise = False, verbose = False, no_intercept = True):
+def calculate_mediation_tfce(medtype, merge_y, masking_array, pred_x, depend_y, calcTFCE, vdensity, position_array, fullmask, perm_number = None, randomise = False, verbose = False, no_intercept = True, print_interation = False):
 	if randomise:
 		np.random.seed(perm_number+int(float(str(time())[-6:])*100))
 		indices_perm = np.random.permutation(range(merge_y.shape[0]))
@@ -167,14 +167,18 @@ def calculate_mediation_tfce(medtype, merge_y, masking_array, pred_x, depend_y, 
 	for surf_count in range(len(masking_array)):
 		start = position_array[surf_count]
 		end = position_array[surf_count+1]
-		tfce_SobelZ[:,start:end] = (tfce_temp[start:end] * (zval_temp[start:end].max()/100) * vdensity[start:end])
+		if isinstance(vdensity, int): # check vdensity is a scalar
+			tfce_SobelZ[start:end] = (tfce_temp[start:end] * (zval_temp[start:end].max()/100) * vdensity)
+		else:
+			tfce_SobelZ[start:end] = (tfce_temp[start:end] * (zval_temp[start:end].max()/100) * vdensity[start:end])
 		if randomise:
-			os.system("echo %f >> perm_maxTFCE_surf%d_zstat.csv" % (np.nanmax(tfce_SobelZ[:,start:end]),surf_count))
+			os.system("echo %f >> perm_maxTFCE_surf%d_%s_zstat.csv" % (np.nanmax(tfce_SobelZ[start:end]), surf_count, medtype))
+		else:
+			print "Max Sobel Z tfce value for surface %s:\t %1.5f" % (surf_count, np.nanmax(tfce_SobelZ[start:end])) 
 	if verbose:
 		print "Max Zstat tfce from all surfaces = %f" % tfce_SobelZ.max()
 	if randomise:
 		print "Interation number: %d" % perm_number
-		os.system("echo %s >> perm_maxTFCE_allsurf_zstat.csv" % ( ','.join(["%0.2f" % i for i in tfce_SobelZ.max(axis=1)] )) )
 		SobelZ = None
 		tfce_SobelZ = None
 	zval_temp = None
@@ -279,13 +283,14 @@ def calc_mixed_tfce(assigntfcesettings, merge_y, masking_array, position_array, 
 # Output:
 # positive_data = corrected 1-p-value images from positive assocations
 # negative_data = corrected 1-p-value images from negative assocations
-def apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, tminame, position_array, pos_range, neg_range, method = 'scale', weight = None): 
+def apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, tminame, position_array, pos_range, neg_range = None, method = 'scale', weight = None, mediation = False, medtype = None): 
 	# weight = None is essentially Tippet without considering mask size
 
 	maxvalue_array = np.zeros((num_perm,num_contrasts))
 	temp_max = np.zeros((num_perm, num_surf))
 	positive_data = np.zeros((image_array[0].shape[0],num_contrasts))
-	negative_data = np.zeros((image_array[0].shape[0],num_contrasts))
+	if mediation == False:
+		negative_data = np.zeros((image_array[0].shape[0],num_contrasts))
 
 	if weight == 'logmasksize':
 		x = []
@@ -296,7 +301,10 @@ def apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, t
 
 	for contrast in range(num_contrasts):
 		for surface in surface_range: # the standardization is done within each surface
-			log_perm_results = np.log(np.genfromtxt('output_%s/perm_maxTFCE_surf%d_tcon%d.csv' % (tminame,surface,contrast+1))[:num_perm])
+			if mediation == False:
+				log_perm_results = np.log(np.genfromtxt('output_%s/perm_maxTFCE_surf%d_tcon%d.csv' % (tminame,surface,contrast+1))[:num_perm])
+			else:
+				log_perm_results = np.log(np.genfromtxt('output_%s/perm_maxTFCE_surf%d_%s_zstat.csv' % (tminame,surface,str(medtype)))[:num_perm])
 			# set log(0) back to zero (only happens with small masks and very large effect sizes)
 			log_perm_results[np.isinf(log_perm_results)] = 0
 			start = position_array[surface]
@@ -311,13 +319,14 @@ def apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, t
 			positive_data[start:end,contrast][posvmask] = temp_lt
 			del temp_lt, posvmask
 
-			posvmask = np.log(image_array[0][start:end,neg_range[contrast]]) > 0
-			temp_lt = np.log(image_array[0][start:end,neg_range[contrast]][posvmask]) # log and z transform the images by the permutation values (the max tfce values are left skewed)
-			temp_lt -= log_perm_results.mean()
-			temp_lt /= log_perm_results.std()
-			temp_lt += 10
-			negative_data[start:end,contrast][posvmask] = temp_lt
-			del temp_lt, posvmask
+			if mediation == False:
+				posvmask = np.log(image_array[0][start:end,neg_range[contrast]]) > 0
+				temp_lt = np.log(image_array[0][start:end,neg_range[contrast]][posvmask]) # log and z transform the images by the permutation values (the max tfce values are left skewed)
+				temp_lt -= log_perm_results.mean()
+				temp_lt /= log_perm_results.std()
+				temp_lt += 10
+				negative_data[start:end,contrast][posvmask] = temp_lt
+				del temp_lt, posvmask
 
 			log_perm_results -= log_perm_results.mean() # standardize the max TFCE values 
 			log_perm_results /= log_perm_results.std()
@@ -352,14 +361,17 @@ def apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, t
 			corrp_img[cV] = find_nearest(sorted_perm_tfce_max,k,p_array)
 			cV+=1
 		positive_data[:,contrast] = np.copy(corrp_img)
-		cV=0
-		corrp_img = np.zeros((negative_data.shape[0]))
-		for k in negative_data[:,contrast]:
-			corrp_img[cV] = find_nearest(sorted_perm_tfce_max,k,p_array)
-			cV+=1
-		negative_data[:,contrast] = np.copy(corrp_img)
-	return positive_data, negative_data
-
+		if mediation == False:
+			cV=0
+			corrp_img = np.zeros((negative_data.shape[0]))
+			for k in negative_data[:,contrast]:
+				corrp_img[cV] = find_nearest(sorted_perm_tfce_max,k,p_array)
+				cV+=1
+			negative_data[:,contrast] = np.copy(corrp_img)
+	if mediation == False:
+		return positive_data, negative_data
+	else:
+		return positive_data
 
 # Additional Functions
 
@@ -412,11 +424,14 @@ def merge_adjacency_array(adjacent_range, adjacency_array):
 
 
 # checks the permutation files and make sure that they are all the same length
-def lowest_length(num_contrasts, surface_range, tmifilename):
+def lowest_length(num_contrasts, surface_range, tmifilename, medtype = None):
 	lengths = []
 	for contrast in range(num_contrasts):
 		for surface in surface_range: # the standardization is done within each surface
-			lengths.append(np.array(np.genfromtxt('output_%s/perm_maxTFCE_surf%d_tcon%d.csv' % (tmifilename,surface,contrast+1)).shape[0]))
+			if medtype is not None:
+				lengths.append(np.array(np.genfromtxt('output_%s/perm_maxTFCE_surf%d_%s_zstat.csv' % (tmifilename,surface,medtype)).shape[0]))
+			else:
+				lengths.append(np.array(np.genfromtxt('output_%s/perm_maxTFCE_surf%d_tcon%d.csv' % (tmifilename,surface,contrast+1)).shape[0]))
 	return np.array(lengths).min()
 
 

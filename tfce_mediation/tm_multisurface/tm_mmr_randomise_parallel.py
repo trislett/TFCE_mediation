@@ -31,9 +31,17 @@ def get_script_path():
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatter_class=formatter_class)):
 	group = ap.add_mutually_exclusive_group(required=True)
 	group.add_argument("-i", "--input", 
-		nargs=2, 
-		help="[Predictor(s)] [Covariate(s)] (recommended)", 
-		metavar=('*.csv', '*.csv'))
+		nargs='+', 
+		help="[Predictor(s)]", 
+		metavar=('*.csv'))
+	group.add_argument("-im", "--inputmediation", 
+		nargs=3, 
+		help="[Mediation Type {I,M,Y}] [Predictor] [Dependent]", 
+		metavar=('{I,M,Y}','*.csv', '*.csv'))
+	ap.add_argument("-c", "--covariates", 
+		nargs=1, 
+		help="[Covariate(s)]", 
+		metavar=('*.csv'))
 	group.add_argument("-r", "--regressors", 
 		nargs=1, help="Single step regression", 
 		metavar=('*.csv'))
@@ -75,7 +83,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		type=int, 
 		help="Use GNU parallel. Specify number of cores", 
 		metavar=('INT'))
-	parallel.add_argument("-c","--condor", 
+	parallel.add_argument("-cd","--condor", 
 		help="Use HTCondor.", 
 		action="store_true")
 	parallel.add_argument("-f","--fslsub", 
@@ -93,9 +101,16 @@ def run(opts):
 	#assign command options
 	mmr_cmd = "echo tm_multimodal mmr -i_tmi %s" % opts.tmifile[0]
 	if opts.input:
-		mmr_cmd += " -i %s %s" % (opts.input[0], opts.input[1])
+		cmd_input = "-i"
+		for infiles in opts.input:
+			cmd_input += " %s" % infiles
+		mmr_cmd += cmd_input
+	elif opts.inputmediation:
+		mmr_cmd += " -im %s %s %s" % (opts.inputmediation[0], opts.inputmediation[1], opts.inputmediation[2])
 	else:
 		mmr_cmd += " -r %s" % (opts.regressors[0])
+	if opts.covariates:
+		mmr_cmd += " -c %s" % (opts.covariates[0])
 	if opts.tfce:
 		mmr_cmd += " --tfce %s" % ' '.join(opts.tfce)
 	if opts.setadjacencyobjs:

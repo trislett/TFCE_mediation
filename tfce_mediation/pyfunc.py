@@ -1011,12 +1011,12 @@ def image_regression(y, image_x, pred_x, covars = None, normalize = False, verbo
 			arr[i,:] = 0
 		else:
 			temp_data = image_x[i,:]
+			temp_y =  y[i,:]
 			X = np.column_stack((regressors, temp_data))
 			k = len(X.T)
 			invXX = np.linalg.inv(np.dot(X.T, X))
-			a = cy_lin_lstsqr_mat(X, y[i,:])
-			beta = a[1]
-			sigma2 = np.sum((y[i,:] - np.dot(X,a))**2,axis=0) / (n - k)
+			a = cy_lin_lstsqr_mat(X, temp_y)
+			sigma2 = np.sum((temp_y - np.dot(X,a))**2,axis=0) / (n - k)
 			se = np.sqrt(np.diag(sigma2 * invXX))
 			arr[i] = a / se
 	print("Finished. Image-wise independent variable regression took %.1f seconds" % (time() - start_time))

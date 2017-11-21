@@ -25,7 +25,7 @@ Additional help:
 * Ask in the [Issues](https://github.com/trislett/TFCE_mediation/issues) section, even if it is just a question.
 
 ### What's new / updates ###
-26-10-2016
+26-10-2017
 
 * version 1.3.4-1.3.5: small bug fixes, and various alpha features for tm_multimodality.
 * version 1.3.6 is now available on [pypipe (PIP)](https://pypi.org/project/tfce-mediation/).

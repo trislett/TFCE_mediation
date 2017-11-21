@@ -16,7 +16,7 @@ def configuration(parent_package = "", top_path = None):
 		parent_name = parent_package, 
 		top_path = top_path)
 
-  	CONFIG.add_data_dir("adjacency_sets")
+	CONFIG.add_data_dir("adjacency_sets")
 
 	CONFIG.add_subpackage("tmanalysis")
 	CONFIG.add_subpackage("tools")

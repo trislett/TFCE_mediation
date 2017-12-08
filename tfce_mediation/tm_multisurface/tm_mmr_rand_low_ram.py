@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-#    Wrapper for parallelizing multimodality_multisurfce_regression.
-#    Copyright (C) 2016  Tristram Lett
+#    TFCE_mediation TMI multimodality, multisurface multiple regression
+#    Copyright (C) 2017  Tristram Lett
 
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -16,19 +16,28 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
 import os
-import sys
 import numpy as np
 import argparse as ap
 from time import time
 
-DESCRIPTION = "Different parallelization methods for TFCE_mediation permutation testing. If no parallelization method is specified, only a text file of commands will be outputed (i.e., cmd_TFCE_randomise_{timestamp})"
-formatter_class=lambda prog: ap.HelpFormatter(prog, max_help_position=100, width=200)
+from tfce_mediation.cynumstats import resid_covars
+from tfce_mediation.tfce import CreateAdjSet
+from tfce_mediation.tm_io import read_tm_filetype, write_tm_filetype, savemgh_v2, savenifti_v2
+from tfce_mediation.pyfunc import save_ply, convert_voxel, vectorized_surface_smooth
+from tfce_mediation.tm_func import calculate_tfce, calculate_mediation_tfce, calc_mixed_tfce, apply_mfwer, create_full_mask, merge_adjacency_array, lowest_length, create_position_array, paint_surface, strip_basename, saveauto
 
-def get_script_path():
-	return os.path.dirname(os.path.realpath(sys.argv[0]))
+DESCRIPTION = "Description"
 
-def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatter_class=formatter_class)):
+def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
+
+	ap.add_argument("-i_tmi", "--tmifile",
+		help="Input the *.tmi file for analysis.", 
+		nargs=1,
+		metavar=('*.tmi'),
+		required=True)
+
 	group = ap.add_mutually_exclusive_group(required=True)
 	group.add_argument("-i", "--input", 
 		nargs='+', 
@@ -42,28 +51,22 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		nargs=1, 
 		help="[Covariate(s)]", 
 		metavar=('*.csv'))
-	group.add_argument("-r", "--regressors", 
-		nargs=1, help="Single step regression", 
-		metavar=('*.csv'))
-	ap.add_argument("-i_tmi", "--tmifile",
-		help="Vertex analysis. Input surface: e.g. --vertex [area or thickness]", 
-		nargs=1,
-		metavar=('*.tmi'),
-		required=True)
+
 	ap.add_argument("--tfce", 
 		help="TFCE settings. H (i.e., height raised to power H), E (i.e., extent raised to power E). Default: %(default)s). H=2, E=2/3. Multiple sets of H and E values can be entered with using the -st option.", 
 		nargs='+', 
-		type=str,
+		default=[2.0,0.67],
+		type=float,
 		metavar=('H', 'E'))
 	ap.add_argument("-sa", "--setadjacencyobjs",
 		help="Specify the adjaceny object to use for each mask. The number of inputs must match the number of masks in the tmi file. Note, the objects start at zero. e.g., -sa 0 1 0 1",
 		nargs='+',
-		type=str,
-		metavar=('int'))
+		type=int,
+		metavar=('INT'))
 	ap.add_argument("-st", "--assigntfcesettings",
 		help="Specify the tfce H and E settings for each mask. -st is useful for combined analysis do voxel and vertex data. More than one set of values must inputted with --tfce. The number of inputs must match the number of masks in the tmi file. The input corresponds to each pair of --tfce setting starting at zero. e.g., -st 0 0 0 0 1 1",
 		nargs='+',
-		type=str,
+		type=int,
 		metavar=('INT'))
 	ap.add_argument("--noweight", 
 		help="Do not weight each vertex for density of vertices within the specified geodesic distance (not recommended).", 
@@ -94,58 +97,60 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		action="store_true")
 	return ap
 
+
 def run(opts):
-
 	currentTime=int(time())
+	temp_directory = "tmi_temp"
+	if not os.path.exists(temp_directory):
+		os.mkdir(temp_directory)
+	_, image_array, masking_array, _, _, _, _, _, adjacency_array, _, _  = read_tm_filetype(opts.tmifile[0])
+	position_array = create_position_array(masking_array)
 
-	#assign command options
-	mmr_cmd = "echo tm_multimodal mmr -i_tmi %s" % opts.tmifile[0]
-	if opts.input:
-		cmd_input = " -i"
-		for infiles in opts.input:
-			cmd_input += " %s" % infiles
-		mmr_cmd += cmd_input
-	elif opts.inputmediation:
-		mmr_cmd += " -im %s %s %s" % (opts.inputmediation[0], opts.inputmediation[1], opts.inputmediation[2])
-	else:
-		mmr_cmd += " -r %s" % (opts.regressors[0])
-	if opts.covariates:
-		mmr_cmd += " -c %s" % (opts.covariates[0])
-	if opts.tfce:
-		mmr_cmd += " --tfce %s" % ' '.join(opts.tfce)
 	if opts.setadjacencyobjs:
-		mmr_cmd += " -sa %s" % ' '.join(opts.setadjacencyobjs)
-	if opts.assigntfcesettings:
-		if not opts.tfce:
-			print "Error: --tfce must be used with -st option."
+		if len(opts.setadjacencyobjs) == len(masking_array):
+			adjacent_range = np.array(opts.setadjacencyobjs, dtype = np.int)
+		else:
+			print "Error: # of masking arrays (%d) must and list of matching adjacency (%d) must be equal." % (len(masking_array), len(opts.setadjacencyobjs))
 			quit()
-		mmr_cmd += " -st %s" % ' '.join(opts.assigntfcesettings)
-	if opts.noweight:
-		mmr_cmd += " --noweight"
-	if opts.subset:
-		mmr_cmd += " --subset %s" % (opts.subset[0])
+	else: 
+		adjacent_range = range(len(adjacency_array))
 
+	for i in range(len(masking_array)):
+		if not opts.noweight:
+			temp_vdensity = np.zeros((adjacency_array[adjacent_range[i]].shape[0]))
+			for j in xrange(adjacency_array[adjacent_range[i]].shape[0]):
+				temp_vdensity[j] = len(adjacency_array[adjacent_range[i]][j])
+			if masking_array[i].shape[2] == 1:
+				temp_vdensity = temp_vdensity[masking_array[i][:,0,0]==True]
+		else:
+			temp_vdensity = np.array([1])
+		np.save("%s/%s_vdensity_temp.npy" % (temp_directory, i), temp_vdensity)
+		temp_vdensity = None
+	for num, j in enumerate(adjacent_range):
+		np.save("%s/%s_adjacency_temp.npy" % (temp_directory, num), np.copy(adjacency_array[j]))
+	if opts.covariates:
+		covars = np.genfromtxt(opts.covariates[0], delimiter=',')
+		x_covars = np.column_stack([np.ones(len(covars)),covars])
+	for data_count in range(len(masking_array)):
+		start = position_array[data_count]
+		end = position_array[data_count+1]
+		data_array = image_array[0][start:end,:]
 
-	#round number of permutations to the nearest 200
-	roundperm=int(np.round(opts.numperm[0]/200.0)*100.0)
-	forperm=(roundperm/100)-1
-	print "Evaluating %d permuations" % (roundperm*2)
+		if opts.subset:
+			masking_variable = np.isfinite(np.genfromtxt(str(opts.subset[0]), delimiter=','))
+			if opts.covariates:
+				merge_y = resid_covars(x_covars,data_array[:,masking_variable])
+			else:
+				merge_y = data_array[:,masking_variable].T 
+		else:
+			if opts.covariates:
+				merge_y = resid_covars(x_covars,data_array)
+			else:
+				merge_y = data_array.T
+		np.save("%s/%s_data_temp.npy" % (temp_directory, data_count), merge_y)
+		merge_y = data_array = None
+	np.save("%s/options.npy" % temp_directory,opts)
 
-	#build command text file
-	for i in xrange(forperm+1):
-		os.system("%s -p %i %i >> cmd_MStmi_randomise_%d" % (mmr_cmd, (i*100+1), (i*100+100), currentTime))
-
-	#submit text file for parallel processing; submit_condor_jobs_file is supplied with TFCE_mediation
-	if opts.gnuparallel:
-		os.system("cat cmd_MStmi_randomise_%d | parallel -j %d --delay 20" % (currentTime, int(opts.gnuparallel[0])))
-	elif opts.condor:
-		os.system("submit_condor_jobs_file cmd_MStmi_randomise_%d" % (currentTime))
-	elif opts.fslsub:
-		os.system("${FSLDIR}/bin/fsl_sub -t cmd_MStmi_randomise_%d" % (currentTime))
-	elif opts.cmdtext:
-		pass
-	else:
-		print "Submit cmd_MStmi_randomise_%d to your job clustering platform for randomisation." % (currentTime)
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

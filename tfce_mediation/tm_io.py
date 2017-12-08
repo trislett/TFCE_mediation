@@ -368,31 +368,32 @@ def read_tm_filetype(tm_file, verbose=True):
 				print "reading %s" % str(element[e])
 				print position
 			if not str(element[e]) == 'adjacency_object':
-				array_read.append((np.fromfile(obj, dtype=element_dtype[e])))
+				array_read = np.fromfile(obj, dtype=element_dtype[e])
 			else:
 				object_read.append(pickle.load(obj))
 			position += int(element_nbyte[e])
 			# reshape arrays
 			if str(element[e]) == 'data_array':
-				o_imgarray.append(np.array(array_read[e][:datashape[0][0]*datashape[0][1]]).reshape(datashape[0][1],datashape[0][0]).T)
+				o_imgarray.append(np.array(array_read[:datashape[0][0]*datashape[0][1]]).reshape(datashape[0][1],datashape[0][0]).T)
 			if str(element[e]) == 'masking_array':
-				masktemp = np.array(array_read[e][:(maskshape[maskcounter][2]*maskshape[maskcounter][1]*maskshape[maskcounter][0])]).reshape(maskshape[maskcounter][2],maskshape[maskcounter][1],maskshape[maskcounter][0]).T
+				masktemp = np.array(array_read[:(maskshape[maskcounter][2]*maskshape[maskcounter][1]*maskshape[maskcounter][0])]).reshape(maskshape[maskcounter][2],maskshape[maskcounter][1],maskshape[maskcounter][0]).T
 				o_masking_array.append((np.array(masktemp, dtype=bool) ))
 				maskcounter += 1
 			if str(element[e]) == 'affine':
-				o_affine.append(np.array(array_read[e][:affineshape[affinecounter][1]*affineshape[affinecounter][0]]).reshape(affineshape[affinecounter][1],affineshape[affinecounter][0]).T)
+				o_affine.append(np.array(array_read[:affineshape[affinecounter][1]*affineshape[affinecounter][0]]).reshape(affineshape[affinecounter][1],affineshape[affinecounter][0]).T)
 				affinecounter += 1
 			if str(element[e]) == 'vertex':
-				o_vertex.append(np.array(array_read[e][:vertexshape[vertexcounter][1]*vertexshape[vertexcounter][0]]).reshape(vertexshape[vertexcounter][1],vertexshape[vertexcounter][0]).T)
+				o_vertex.append(np.array(array_read[:vertexshape[vertexcounter][1]*vertexshape[vertexcounter][0]]).reshape(vertexshape[vertexcounter][1],vertexshape[vertexcounter][0]).T)
 				vertexcounter += 1
 			if str(element[e]) == 'face':
-				o_face.append(np.array(array_read[e][:faceshape[facecounter][1]*faceshape[facecounter][0]]).reshape(faceshape[facecounter][1],faceshape[facecounter][0]).T)
+				o_face.append(np.array(array_read[:faceshape[facecounter][1]*faceshape[facecounter][0]]).reshape(faceshape[facecounter][1],faceshape[facecounter][0]).T)
 				facecounter += 1
 			if str(element[e]) == 'column_id':
-				o_columnids.append(np.array(array_read[e][:listlength]))
+				o_columnids.append(np.array(array_read[:listlength]))
 			if str(element[e]) == 'adjacency_object':
 				o_adjacency.append(np.array(object_read[adjacencycounter][:adjlength[adjacencycounter]]))
 				adjacencycounter += 1
+			array_read = []
 	elif tm_filetype == 'ascii':
 		for e in range(len(element)):
 			if str(element[e]) == 'data_array':

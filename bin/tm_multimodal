@@ -44,6 +44,8 @@ class _Usage(ap._HelpAction):
 		splist.append(create_tmi)
 		splist.append(tmi_edit)
 		splist.append(tm_mulitmodality_adjacency)
+		splist.append(tm_mmr_rand_low_ram)
+		splist.append(tm_mmr_rand_low_ram_parallel)
 
 		helps = []
 		helps.append(parser.format_usage())
@@ -88,6 +90,14 @@ tfce_mediation.tools.tmi_edit.getArgumentParser(tmi_edit)
 tm_mulitmodality_adjacency = subparsers.add_parser("multimodal-adjacency", help="multimodal-adjacency", formatter_class=formatter_class)
 tm_mulitmodality_adjacency.set_defaults(func = tfce_mediation.tools.tm_mulitmodality_adjacency.run)
 tfce_mediation.tools.tm_mulitmodality_adjacency.getArgumentParser(tm_mulitmodality_adjacency)
+
+tm_mmr_rand_low_ram = subparsers.add_parser("mmr-lr", help="mmr-lr", formatter_class=formatter_class)
+tm_mmr_rand_low_ram.set_defaults(func = tfce_mediation.tm_multisurface.tm_mmr_rand_low_ram.run)
+tfce_mediation.tm_multisurface.tm_mmr_rand_low_ram.getArgumentParser(tm_mmr_rand_low_ram)
+
+tm_mmr_rand_low_ram_parallel = subparsers.add_parser("mmr-lr-run", help="mmr-lr-run", formatter_class=formatter_class)
+tm_mmr_rand_low_ram_parallel.set_defaults(func = tfce_mediation.tm_multisurface.tm_mmr_rand_low_ram_parallel.run)
+tfce_mediation.tm_multisurface.tm_mmr_rand_low_ram_parallel.getArgumentParser(tm_mmr_rand_low_ram_parallel)
 
 parser.add_argument('--verbosehelp', action=_HelpAction, help='Display help for each sub-command.')  # custom help
 parser.add_argument('--usage', action=_Usage, help='Display usage for sub-command.')  # printout usage

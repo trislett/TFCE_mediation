@@ -31,10 +31,9 @@ from tfce_mediation.pyfunc import convert_redtoyellow, convert_bluetolightblue, 
 
 # Main Functions
 
-# Mulitmodal Multisurface Mediation
+# Mulitmodal Multisurface Regression
 #
 # Input:
-# medtype = mediation type {I|M|Y}
 # merge_y = the data array
 # masking_array = the masking array
 # pred_x = the predictor variable(s)
@@ -124,6 +123,65 @@ def calculate_tfce(merge_y, masking_array, pred_x, calcTFCE, vdensity, position_
 		return (tvals.astype(np.float32, order = "C"), tfce_tvals.astype(np.float32, order = "C"), neg_tfce_tvals.astype(np.float32, order = "C"))
 
 
+# Low Ram Mulitmodal Multisurface Regression
+#
+# Input:
+# data = the data array
+# mask = the masking array
+# pred_x = the predictor variable(s)
+# calcTFCE = the TFCE function
+# vdensity = the numper of each neighors at each point per unit distance
+# perm_number = the permutation number
+# randomise = randomisation flag
+# verbose = longer output
+# no_intercept = strip the intercept contrasts from the final results (default is true). Note, intercepts are always included in the regression model.
+# set_surf_count = set the surface number for output
+#
+# Output:
+# tvals = the t-value for all contrasts
+# tfce_tvals = TFCE transformed values for postive associations
+# neg_tfce_tvals = TFCE transformed values for negative associations
+def low_ram_calculate_tfce(data, mask, pred_x, calcTFCE, vdensity, set_surf_count = 0, perm_number = None, randomise = False, no_intercept = True, output_dir = None):
+	X = np.column_stack([np.ones(data.shape[0]),pred_x])
+	if randomise:
+		np.random.seed(perm_number+int(float(str(time())[-6:])*100))
+		X = X[np.random.permutation(range(data.shape[0]))]
+	k = len(X.T)
+	invXX = np.linalg.inv(np.dot(X.T, X))
+	tvals = tval_int(X, invXX, data, data.shape[0], k, data.shape[1])
+	if no_intercept:
+		tvals = tvals[1:,:]
+	tvals = tvals.astype(np.float32, order = "C")
+	tfce_tvals = np.zeros_like(tvals).astype(np.float32, order = "C")
+	neg_tfce_tvals = np.zeros_like(tvals).astype(np.float32, order = "C")
+	for tstat_counter in range(tvals.shape[0]):
+		tval_temp = np.zeros_like((mask)).astype(np.float32, order = "C")
+		if tvals.shape[0] == 1:
+			tval_temp[mask==1] = tvals[0]
+		else:
+			tval_temp[mask==1] = tvals[tstat_counter]
+
+		tval_temp = tval_temp.astype(np.float32, order = "C")
+		tfce_temp = np.zeros_like(tval_temp).astype(np.float32, order = "C")
+		neg_tfce_temp = np.zeros_like(tval_temp).astype(np.float32, order = "C")
+		calcTFCE.run(tval_temp, tfce_temp)
+		calcTFCE.run(-tval_temp, neg_tfce_temp)
+
+		tfce_tvals[tstat_counter,:] = (tfce_temp[mask==1] * (tval_temp.max()/100) * vdensity)
+		neg_tfce_tvals[tstat_counter,:] = (neg_tfce_temp[mask==1] * ((tval_temp*-1).max()/100) * vdensity)
+
+		if randomise:
+			if output_dir is not None:
+				permfile = "%s/perm_maxTFCE_surf%d_tcon%d.csv" % (output_dir, int(set_surf_count), tstat_counter+1)
+			else:
+				permfile = "perm_maxTFCE_surf%d_tcon%d.csv" % (int(set_surf_count), tstat_counter+1)
+			os.system("echo %f >> %s" % (np.nanmax(tfce_tvals[tstat_counter,:]), permfile))
+			os.system("echo %f >> %s" % (np.nanmax(neg_tfce_tvals[tstat_counter,:]), permfile))
+
+	if not randomise:
+		return (tvals.astype(np.float32, order = "C"), tfce_tvals.astype(np.float32, order = "C"), neg_tfce_tvals.astype(np.float32, order = "C"))
+
+
 # Mulitmodal Multisurface Mediation
 #
 # Input:
@@ -147,13 +205,13 @@ def calculate_mediation_tfce(medtype, merge_y, masking_array, pred_x, depend_y, 
 	if randomise:
 		np.random.seed(perm_number+int(float(str(time())[-6:])*100))
 		indices_perm = np.random.permutation(range(merge_y.shape[0]))
-	if (medtype == 'M') or (medtype == 'I'):
-		if randomise:
-			pred_x = pred_x[indices_perm]
-	else:
-		if randomise:
-			pred_x = pred_x[indices_perm]
-			depend_y = depend_y[indices_perm]
+		if (medtype == 'M') or (medtype == 'I'):
+			if randomise:
+				pred_x = pred_x[indices_perm]
+		else:
+			if randomise:
+				pred_x = pred_x[indices_perm]
+				depend_y = depend_y[indices_perm]
 	SobelZ = calc_sobelz(medtype, pred_x, depend_y, merge_y, merge_y.shape[0], merge_y.shape[1])
 	SobelZ = SobelZ.astype(np.float32, order = "C")
 	tfce_SobelZ = np.zeros_like(SobelZ).astype(np.float32, order = "C")
@@ -186,6 +244,59 @@ def calculate_mediation_tfce(medtype, merge_y, masking_array, pred_x, depend_y, 
 	del calcTFCE
 	if not randomise:
 		return (SobelZ.astype(np.float32, order = "C"), tfce_SobelZ.astype(np.float32, order = "C"))
+
+# Low Ram Mulitmodal Multisurface Mediation
+#
+# Input:
+# medtype = mediation type {I|M|Y}
+# data = the data array
+# mask = the masking array
+# pred_x = the predictor variable(s)
+# calcTFCE = the TFCE function
+# vdensity = the numper of each neighors at each point per unit distance
+# perm_number = the permutation number
+# randomise = randomisation flag
+# verbose = longer output
+# no_intercept = strip the intercept contrasts from the final results (default is true). Note, intercepts are always included in the regression model.
+# set_surf_count = set the surface number for output
+#
+# Output:
+# SobelZ = the indirect effect statistic
+# tfce_SobelZ = TFCE transformed indirect effect statistic
+def low_ram_calculate_mediation_tfce(medtype, data, mask, pred_x, depend_y, calcTFCE, vdensity, set_surf_count = 0, perm_number = None, randomise = False, no_intercept = True, output_dir = None):
+
+	if randomise:
+		np.random.seed(perm_number+int(float(str(time())[-6:])*100))
+		indices_perm = np.random.permutation(range(data.shape[0]))
+
+		if (medtype == 'M') or (medtype == 'I'):
+			if randomise:
+				pred_x = pred_x[indices_perm]
+		else:
+			if randomise:
+				pred_x = pred_x[indices_perm]
+				depend_y = depend_y[indices_perm]
+
+	SobelZ = calc_sobelz(medtype, pred_x, depend_y, data, data.shape[0], data.shape[1])
+	SobelZ = SobelZ.astype(np.float32, order = "C")
+	tfce_SobelZ = np.zeros_like(SobelZ).astype(np.float32, order = "C")
+	zval = np.zeros_like((mask)).astype(np.float32, order = "C")
+	zval[mask==1] = SobelZ
+	zval = zval.astype(np.float32, order = "C")
+	tfce_zval = np.zeros_like(zval).astype(np.float32, order = "C")
+	calcTFCE.run(zval, tfce_zval)
+	zval = zval[mask==1]
+	tfce_zval = tfce_zval[mask==1]
+	tfce_zval = (tfce_zval * (zval.max()/100) * vdensity)
+
+	if randomise:
+		if output_dir is not None:
+			permfile = "%s/perm_maxTFCE_surf%d_%s_zstat.csv" % (output_dir, set_surf_count, medtype)
+		else:
+			permfile = "perm_maxTFCE_surf%d_%s_zstat.csv" % (set_surf_count, medtype)
+		os.system("echo %f >> %s" % (np.nanmax(tfce_zval), permfile))
+	else:
+		return (zval.astype(np.float32, order = "C"), tfce_zval.astype(np.float32, order = "C"))
 
 
 # Mulitmodal Multisurface Regression for mixed TFCE setting (E, H)

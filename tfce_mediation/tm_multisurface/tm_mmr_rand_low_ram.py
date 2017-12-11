@@ -26,7 +26,7 @@ from tfce_mediation.cynumstats import resid_covars
 from tfce_mediation.tfce import CreateAdjSet
 from tfce_mediation.tm_io import read_tm_filetype, write_tm_filetype, savemgh_v2, savenifti_v2
 from tfce_mediation.pyfunc import save_ply, convert_voxel, vectorized_surface_smooth
-from tfce_mediation.tm_func import calculate_tfce, calculate_mediation_tfce, calc_mixed_tfce, apply_mfwer, create_full_mask, merge_adjacency_array, lowest_length, create_position_array, paint_surface, strip_basename, saveauto
+from tfce_mediation.tm_func import calculate_tfce, calculate_mediation_tfce, calc_mixed_tfce, apply_mfwer, create_full_mask, merge_adjacency_array, lowest_length, create_position_array, paint_surface, strip_basename, saveauto, low_ram_calculate_tfce
 
 DESCRIPTION = "Description"
 
@@ -75,11 +75,13 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		help="Analyze a subset of subjects based on a single column text file. Subset will be performed based on whether each input is finite (keep) or text (remove).", 
 		nargs=1)
 	ap.add_argument("-n", "--numperm", 
-		nargs=1, 
-		type=int, 
-		help="# of permutations", 
-		metavar=('INT'), 
-		required=True)
+		nargs=1,
+		type=int,
+		help="# of permutations",
+		metavar=('INT'))
+	ap.add_argument("-os", "--outputstats",  
+		help = "Calculates the stats without permutation testing, and outputs the tmi", 
+		action =('store_true'))
 	parallel = ap.add_mutually_exclusive_group(required=False)
 	parallel.add_argument("-p","--gnuparallel", 
 		nargs=1, 
@@ -95,6 +97,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	parallel.add_argument("-t","--cmdtext", 
 		help="Outputs a text file with one command per line.",
 		action="store_true")
+	parallel.add_argument("--serial", 
+		help="Runs the command sequentially using one core (not recommended)",
+		action="store_true")
 	return ap
 
 
@@ -103,7 +108,26 @@ def run(opts):
 	temp_directory = "tmi_temp"
 	if not os.path.exists(temp_directory):
 		os.mkdir(temp_directory)
-	_, image_array, masking_array, _, _, _, _, _, adjacency_array, _, _  = read_tm_filetype(opts.tmifile[0])
+
+	# permutation options
+	if opts.outputstats:
+		_, image_array, masking_array, maskname, affine_array, vertex_array, face_array, surfname, adjacency_array, _, _  = read_tm_filetype(opts.tmifile[0])
+	else:
+		if opts.serial:
+			parallel = 'serial'
+		elif opts.cmdtext:
+			parallel = 'cmdtext'
+		elif opts.fslsub:
+			parallel = 'fslsub'
+		elif opts.condor:
+			parallel = 'condor'
+		elif opts.gnuparallel:
+			parallel = 'gnuparallel'
+		else:
+			print "Either {-os} options must be used, or {-n} with a parallelization option { -p # | -cd | -d | -t | --serial } must be used with permutation testing."
+			quit()
+
+		_, image_array, masking_array, _, _, _, _, _, adjacency_array, _, _  = read_tm_filetype(opts.tmifile[0])
 	position_array = create_position_array(masking_array)
 
 	if opts.setadjacencyobjs:
@@ -124,7 +148,17 @@ def run(opts):
 				temp_vdensity = temp_vdensity[masking_array[i][:,0,0]==True]
 		else:
 			temp_vdensity = np.array([1])
-		np.save("%s/%s_vdensity_temp.npy" % (temp_directory, i), temp_vdensity)
+		vdensity = np.array((1 - (temp_vdensity/temp_vdensity.max())+(temp_vdensity.mean()/temp_vdensity.max())), dtype=np.float32)
+		np.save("%s/%s_vdensity_temp.npy" % (temp_directory, i), vdensity)
+
+
+		if masking_array[i].shape[2] == 1: # check if vertex or voxel image
+			outmask = masking_array[i][:,0,0]
+		else:
+			outmask = masking_array[i][masking_array[i]==True]
+
+
+		np.save("%s/%s_mask_temp.npy" % (temp_directory, i), outmask)
 		temp_vdensity = None
 	for num, j in enumerate(adjacent_range):
 		np.save("%s/%s_adjacency_temp.npy" % (temp_directory, num), np.copy(adjacency_array[j]))
@@ -147,9 +181,29 @@ def run(opts):
 				merge_y = resid_covars(x_covars,data_array)
 			else:
 				merge_y = data_array.T
-		np.save("%s/%s_data_temp.npy" % (temp_directory, data_count), merge_y)
+		np.save("%s/%s_data_temp.npy" % (temp_directory, data_count), merge_y.astype(np.float32, order = "C"))
 		merge_y = data_array = None
-	np.save("%s/options.npy" % temp_directory,opts)
+	np.save("%s/opts.npy" % temp_directory, opts)
+
+	outname = opts.tmifile[0][:-4]
+	# make output folder
+	if not os.path.exists("output_%s" % (outname)):
+		os.mkdir("output_%s" % (outname))
+
+	#run the stats
+	if opts.outputstats:
+		np.save("%s/masking_array.npy" % temp_directory, masking_array)
+		np.save("%s/maskname.npy" % temp_directory, maskname)
+		np.save("%s/affine_array.npy" % temp_directory, affine_array)
+		np.save("%s/vertex_array.npy" % temp_directory, vertex_array)
+		np.save("%s/face_array.npy" % temp_directory, face_array)
+		np.save("%s/surfname.npy" % temp_directory, surfname)
+	else:
+		if not os.path.isfile("output_%s/stats_%s.tmi" % (outname, outname)):
+			print "Warning: output_%s/stats_%s.tmi file not detected.\nTo create the output tmi: (1) use the --noperm argument or (2) run tm_multimodal mmr (recommended)" % (outname, outname)
+			if not os.path.exists("output_%s/output_stats_%s.tmi" % (outname, outname)):
+				os.mkdir("output_%s/output_stats_%s.tmi" % (outname, outname))
+		print "OUTPUT DIRECTORY: output_%s/output_stats_%s.tmi" % (outname, outname)
 
 
 if __name__ == "__main__":

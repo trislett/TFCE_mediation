@@ -28,7 +28,7 @@ from tfce_mediation.tm_io import read_tm_filetype, write_tm_filetype, savemgh_v2
 from tfce_mediation.pyfunc import save_ply, convert_voxel, vectorized_surface_smooth
 from tfce_mediation.tm_func import calculate_tfce, calculate_mediation_tfce, calc_mixed_tfce, apply_mfwer, create_full_mask, merge_adjacency_array, lowest_length, create_position_array, paint_surface, strip_basename, saveauto, low_ram_calculate_tfce, low_ram_calculate_mediation_tfce
 
-DESCRIPTION = "Description"
+DESCRIPTION = "Companion program for mmr-lr"
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 

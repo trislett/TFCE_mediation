@@ -28,7 +28,7 @@ from tfce_mediation.tm_io import read_tm_filetype, write_tm_filetype, savemgh_v2
 from tfce_mediation.pyfunc import save_ply, convert_voxel, vectorized_surface_smooth
 from tfce_mediation.tm_func import calculate_tfce, calculate_mediation_tfce, calc_mixed_tfce, apply_mfwer, create_full_mask, merge_adjacency_array, lowest_length, create_position_array, paint_surface, strip_basename, saveauto, low_ram_calculate_tfce
 
-DESCRIPTION = "Description"
+DESCRIPTION = "mmr-lr: lower ram requirement version of tm_multimodal mmr (multimodality, multisurface regression)."
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 
@@ -37,6 +37,17 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=1,
 		metavar=('*.tmi'),
 		required=True)
+	ap.add_argument("-os", "--outputstats",  
+		help = "Calculates the stats without permutation testing, and outputs the tmi", 
+		action =('store_true'))
+	ap.add_argument("-n", "--numperm", 
+		nargs=1,
+		type=int,
+		help="# of permutations",
+		metavar=('INT'))
+	ap.add_argument("-um", "--usepreviousmemorymapping", 
+		help="Skip the creation of memory mapped objects. It will give an error if tmi_temp folder does not exist.",
+		action="store_true")
 
 	group = ap.add_mutually_exclusive_group(required=True)
 	group.add_argument("-i", "--input", 
@@ -74,14 +85,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	ap.add_argument("--subset",
 		help="Analyze a subset of subjects based on a single column text file. Subset will be performed based on whether each input is finite (keep) or text (remove).", 
 		nargs=1)
-	ap.add_argument("-n", "--numperm", 
-		nargs=1,
-		type=int,
-		help="# of permutations",
-		metavar=('INT'))
-	ap.add_argument("-os", "--outputstats",  
-		help = "Calculates the stats without permutation testing, and outputs the tmi", 
-		action =('store_true'))
+
 	parallel = ap.add_mutually_exclusive_group(required=False)
 	parallel.add_argument("-p","--gnuparallel", 
 		nargs=1, 
@@ -107,7 +111,11 @@ def run(opts):
 	currentTime=int(time())
 	temp_directory = "tmi_temp"
 	if not os.path.exists(temp_directory):
-		os.mkdir(temp_directory)
+		if opts.usepreviousmemorymapping:
+			print "Error: tmi_temp folder not found. Change directory, or do not use -um argument"
+			quit()
+		else:
+			os.mkdir(temp_directory)
 
 	# permutation options
 	if opts.outputstats:
@@ -139,57 +147,62 @@ def run(opts):
 	else: 
 		adjacent_range = range(len(adjacency_array))
 
-	for i in range(len(masking_array)):
-		if not opts.noweight:
-			temp_vdensity = np.zeros((adjacency_array[adjacent_range[i]].shape[0]))
-			for j in xrange(adjacency_array[adjacent_range[i]].shape[0]):
-				temp_vdensity[j] = len(adjacency_array[adjacent_range[i]][j])
-			if masking_array[i].shape[2] == 1:
-				temp_vdensity = temp_vdensity[masking_array[i][:,0,0]==True]
-		else:
-			temp_vdensity = np.array([1])
-		vdensity = np.array((1 - (temp_vdensity/temp_vdensity.max())+(temp_vdensity.mean()/temp_vdensity.max())), dtype=np.float32)
-		np.save("%s/%s_vdensity_temp.npy" % (temp_directory, i), vdensity)
-
-
-		if masking_array[i].shape[2] == 1: # check if vertex or voxel image
-			outmask = masking_array[i][:,0,0]
-		else:
-			outmask = masking_array[i][masking_array[i]==True]
-
-
-		np.save("%s/%s_mask_temp.npy" % (temp_directory, i), outmask)
-		temp_vdensity = None
-	for num, j in enumerate(adjacent_range):
-		np.save("%s/%s_adjacency_temp.npy" % (temp_directory, num), np.copy(adjacency_array[j]))
-	if opts.covariates:
-		covars = np.genfromtxt(opts.covariates[0], delimiter=',')
-		x_covars = np.column_stack([np.ones(len(covars)),covars])
-	for data_count in range(len(masking_array)):
-		start = position_array[data_count]
-		end = position_array[data_count+1]
-		data_array = image_array[0][start:end,:]
-
-		if opts.subset:
-			masking_variable = np.isfinite(np.genfromtxt(str(opts.subset[0]), delimiter=','))
-			if opts.covariates:
-				merge_y = resid_covars(x_covars,data_array[:,masking_variable])
+	if opts.usepreviousmemorymapping:
+		if os.path.isfile("%s/opts.npy" % temp_directory):
+			print "Renaming previous %s/opts.npy to %s/backup_%d_opts.npy" % (temp_directory,temp_directory, currentTime)
+			os.system("mv %s/opts.npy %s/backup_%d_opts.npy" % (temp_directory,temp_directory, currentTime))
+		np.save("%s/opts.npy" % temp_directory, opts)
+	else:
+		for i in range(len(masking_array)):
+			if not opts.noweight:
+				temp_vdensity = np.zeros((adjacency_array[adjacent_range[i]].shape[0]))
+				for j in xrange(adjacency_array[adjacent_range[i]].shape[0]):
+					temp_vdensity[j] = len(adjacency_array[adjacent_range[i]][j])
+				if masking_array[i].shape[2] == 1:
+					temp_vdensity = temp_vdensity[masking_array[i][:,0,0]==True]
 			else:
-				merge_y = data_array[:,masking_variable].T 
-		else:
-			if opts.covariates:
-				merge_y = resid_covars(x_covars,data_array)
+				temp_vdensity = np.array([1])
+			vdensity = np.array((1 - (temp_vdensity/temp_vdensity.max())+(temp_vdensity.mean()/temp_vdensity.max())), dtype=np.float32)
+			np.save("%s/%s_vdensity_temp.npy" % (temp_directory, i), vdensity)
+
+
+			if masking_array[i].shape[2] == 1: # check if vertex or voxel image
+				outmask = masking_array[i][:,0,0]
 			else:
-				merge_y = data_array.T
-		np.save("%s/%s_data_temp.npy" % (temp_directory, data_count), merge_y.astype(np.float32, order = "C"))
-		merge_y = data_array = None
-	np.save("%s/opts.npy" % temp_directory, opts)
+				outmask = masking_array[i][masking_array[i]==True]
+
+
+			np.save("%s/%s_mask_temp.npy" % (temp_directory, i), outmask)
+			temp_vdensity = None
+		for num, j in enumerate(adjacent_range):
+			np.save("%s/%s_adjacency_temp.npy" % (temp_directory, num), np.copy(adjacency_array[j]))
+		if opts.covariates:
+			covars = np.genfromtxt(opts.covariates[0], delimiter=',')
+			x_covars = np.column_stack([np.ones(len(covars)),covars])
+		for data_count in range(len(masking_array)):
+			start = position_array[data_count]
+			end = position_array[data_count+1]
+			data_array = image_array[0][start:end,:]
+
+			if opts.subset:
+				masking_variable = np.isfinite(np.genfromtxt(str(opts.subset[0]), delimiter=','))
+				if opts.covariates:
+					merge_y = resid_covars(x_covars,data_array[:,masking_variable])
+				else:
+					merge_y = data_array[:,masking_variable].T 
+			else:
+				if opts.covariates:
+					merge_y = resid_covars(x_covars,data_array)
+				else:
+					merge_y = data_array.T
+			np.save("%s/%s_data_temp.npy" % (temp_directory, data_count), merge_y.astype(np.float32, order = "C"))
+			merge_y = data_array = None
+		np.save("%s/opts.npy" % temp_directory, opts)
 
 	outname = opts.tmifile[0][:-4]
 	# make output folder
 	if not os.path.exists("output_%s" % (outname)):
 		os.mkdir("output_%s" % (outname))
-
 
 	#run the stats
 	if opts.outputstats:

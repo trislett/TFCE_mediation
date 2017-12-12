@@ -190,6 +190,7 @@ def run(opts):
 	if not os.path.exists("output_%s" % (outname)):
 		os.mkdir("output_%s" % (outname))
 
+
 	#run the stats
 	if opts.outputstats:
 		np.save("%s/masking_array.npy" % temp_directory, masking_array)
@@ -198,12 +199,55 @@ def run(opts):
 		np.save("%s/vertex_array.npy" % temp_directory, vertex_array)
 		np.save("%s/face_array.npy" % temp_directory, face_array)
 		np.save("%s/surfname.npy" % temp_directory, surfname)
+
+		if opts.inputmediation:
+			output_dir = "output_%s/output_med_%d_stats_%s.tmi" % (outname, str(opts.inputmediation[0]), outname)
+			if not os.path.exists(output_dir):
+				os.mkdir(output_dir)
+			print "OUTPUT DIRECTORY: %s" % (output_dir)
+		else:
+			output_dir = "output_%s/output_stats_%s.tmi" % (outname, outname)
+			if not os.path.exists(output_dir):
+				os.mkdir(output_dir)
+			print "OUTPUT DIRECTORY: %s" % (output_dir)
+		print "Writing statistics TMI file"
+		os.system("tm_multimodal mmr-lr-run --path %s -os" % (output_dir))
 	else:
+		output_dir = "output_%s/output_stats_%s.tmi" % (outname, outname)
 		if not os.path.isfile("output_%s/stats_%s.tmi" % (outname, outname)):
 			print "Warning: output_%s/stats_%s.tmi file not detected.\nTo create the output tmi: (1) use the --noperm argument or (2) run tm_multimodal mmr (recommended)" % (outname, outname)
-			if not os.path.exists("output_%s/output_stats_%s.tmi" % (outname, outname)):
-				os.mkdir("output_%s/output_stats_%s.tmi" % (outname, outname))
-		print "OUTPUT DIRECTORY: output_%s/output_stats_%s.tmi" % (outname, outname)
+			if not os.path.exists(output_dir):
+				os.mkdir(output_dir)
+		print "OUTPUT DIRECTORY: o%s" % (output_dir)
+
+	if opts.numperm: 
+		mmr_cmd = "echo tm_multimodal mmr-lr-run --path %s " % (output_dir)
+		#round number of permutations to the nearest 200
+		roundperm = int(np.round(opts.numperm[0]/200.0) * 100.0)
+		forperm = int((roundperm/100) - 1)
+		print "Evaluating %d permuations" % (roundperm*2)
+
+		#build command text file
+		for i in xrange(forperm+1):
+			random_seed = int(i+int(float(str(time())[-6:])*100))
+			print "Block %d Seed:\t%d" % (i, random_seed)
+			for j in range(len(masking_array)):
+				os.system("%s -sn %d -pr %i %i --seed %i >> cmd_MStmi_randomise_%d" % (mmr_cmd, j, (i*100+1), (i*100+100), random_seed, currentTime))
+
+		print "Submitting jobs for parallel processing"
+		#submit text file for parallel processing; submit_condor_jobs_file is supplied with TFCE_mediation
+		if opts.gnuparallel:
+			os.system("cat cmd_MStmi_randomise_%d | parallel -j %d" % (currentTime, int(opts.gnuparallel[0])))
+		elif opts.condor:
+			os.system("submit_condor_jobs_file cmd_MStmi_randomise_%d" % (currentTime))
+		elif opts.fslsub:
+			os.system("${FSLDIR}/bin/fsl_sub -t cmd_MStmi_randomise_%d" % (currentTime))
+		elif opts.serial:
+			os.system("cat cmd_MStmi_randomise_%d | parallel -j 1" % (currentTime))
+		elif opts.cmdtext:
+			pass
+		else:
+			print "Submit cmd_MStmi_randomise_%d to your job clustering platform for randomisation." % (currentTime)
 
 
 if __name__ == "__main__":

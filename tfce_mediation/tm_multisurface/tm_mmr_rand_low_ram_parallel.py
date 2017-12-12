@@ -43,13 +43,17 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		metavar=('INT','INT'),
 		required=False)
 	ap.add_argument("-os", "--outputstats",  
-		help = "Calculates the stats without permutation testing, and outputs the tmi. -os {# masking arrays}", 
+		help = "Calculates the stats without permutation testing, and outputs the tmi.", 
 		action = 'store_true')
 	ap.add_argument("--path",
 		nargs=1, 
 		type=str,
 		metavar=('STR'),
 		required=True)
+	ap.add_argument("--seed",
+		nargs=1, 
+		type=int,
+		metavar=('INT'))
 	return ap
 
 
@@ -70,6 +74,7 @@ def run(opts):
 		surfname = np.load("tmi_temp/surfname.npy")
 
 		for surf_num in range(len(masking_array)):
+			print "Calculating stats for:\t %s" % maskname[surf_num]
 			adjacency = np.load("tmi_temp/%d_adjacency_temp.npy" % surf_num)
 			mask = np.load("tmi_temp/%d_mask_temp.npy" % surf_num)
 			data = np.load("tmi_temp/%d_data_temp.npy" % surf_num)
@@ -95,11 +100,8 @@ def run(opts):
 					tvals = np.concatenate((tvals, temp_tvals), 1)
 					tfce_tvals = np.concatenate((tfce_tvals, temp_tfce_tvals), 1)
 					neg_tfce_tvals = np.concatenate((neg_tfce_tvals, temp_neg_tfce_tvals), 1)
-#		image_array = []
 		data = np.column_stack((tvals.T, tfce_tvals.T))
 		data = np.column_stack((data, neg_tfce_tvals.T))
-#		image_array.append((data))
-#		data = None
 		contrast_names = []
 		for i in range(num_contrasts):
 			contrast_names.append(("tstat_con%d" % (i+1)))
@@ -114,6 +116,12 @@ def run(opts):
 			depend_y =  np.genfromtxt(sopts.inputmediation[2], delimiter=',')
 
 		outname = os.path.basename(str(opts.path[0]))[7:]
+
+		if not outname.endswith('tmi'):
+			outname += '.tmi'
+		if sopts.inputmediation:
+			outname = ("med_%d_" % medtype) + outname
+
 		write_tm_filetype("%s/%s" % (os.path.dirname(str(opts.path[0])), outname), 
 			image_array = data, 
 			masking_array = masking_array, 
@@ -122,11 +130,12 @@ def run(opts):
 			vertex_array = vertex_array, 
 			face_array = face_array, 
 			surfname = surfname, 
-			checkname = False, 
+			checkname = True, 
 			columnids = np.array(contrast_names),
 			tmi_history=[])
 
 	else:
+		currentTime=int(time())
 		surf_num = int(opts.surfacenumber[0])
 		p_range = np.array(opts.permutationrange)
 		adjacency = np.load("tmi_temp/%d_adjacency_temp.npy" % surf_num)
@@ -142,17 +151,27 @@ def run(opts):
 				else:
 					pred_x = np.column_stack([pred_x, np.genfromtxt(arg_pred, delimiter=',')])
 			for perm_number in range(p_range[0],int(p_range[1]+1)):
-				low_ram_calculate_tfce(data, mask, pred_x, calcTFCE, vdensity, set_surf_count = surf_num, perm_number = perm_number, randomise = True, no_intercept = True, output_dir = str(opts.path[0]))
+				low_ram_calculate_tfce(data, mask, pred_x, calcTFCE, vdensity,
+					set_surf_count = surf_num,
+					perm_number = perm_number,
+					randomise = True,
+					no_intercept = True,
+					output_dir = str(opts.path[0]),
+					perm_seed = int(opts.seed[0]))
 
 		if sopts.inputmediation:
 			medtype = sopts.inputmediation[0]
 			pred_x =  np.genfromtxt(sopts.inputmediation[1], delimiter=',')
 			depend_y =  np.genfromtxt(sopts.inputmediation[2], delimiter=',')
 			for perm_number in range(p_range[0],int(p_range[1]+1)):
-				low_ram_calculate_mediation_tfce(medtype, data, mask, pred_x, depend_y, calcTFCE, vdensity, set_surf_count = surf_num, perm_number = perm_number, randomise = True, no_intercept = True, output_dir = str(opts.path[0]))
-
-
-
+				low_ram_calculate_mediation_tfce(medtype, data, mask, pred_x, depend_y, calcTFCE, vdensity,
+					set_surf_count = surf_num,
+					perm_number = perm_number,
+					randomise = True,
+					no_intercept = True,
+					output_dir = str(opts.path[0]),
+					perm_seed = int(opts.seed[0]))
+		print "Mask %d, Permutation %d -> %d, took %i seconds" % (surf_num, p_range[0], p_range[1], (int(time()) - currentTime))
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

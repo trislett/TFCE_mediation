@@ -141,10 +141,13 @@ def calculate_tfce(merge_y, masking_array, pred_x, calcTFCE, vdensity, position_
 # tvals = the t-value for all contrasts
 # tfce_tvals = TFCE transformed values for postive associations
 # neg_tfce_tvals = TFCE transformed values for negative associations
-def low_ram_calculate_tfce(data, mask, pred_x, calcTFCE, vdensity, set_surf_count = 0, perm_number = None, randomise = False, no_intercept = True, output_dir = None):
+def low_ram_calculate_tfce(data, mask, pred_x, calcTFCE, vdensity, set_surf_count = 0, perm_number = None, randomise = False, no_intercept = True, output_dir = None, perm_seed = None):
 	X = np.column_stack([np.ones(data.shape[0]),pred_x])
 	if randomise:
-		np.random.seed(perm_number+int(float(str(time())[-6:])*100))
+		if perm_seed is not None:
+			np.random.seed(perm_number + perm_seed)
+		else:
+			np.random.seed(perm_number+int(float(str(time())[-6:])*100))
 		X = X[np.random.permutation(range(data.shape[0]))]
 	k = len(X.T)
 	invXX = np.linalg.inv(np.dot(X.T, X))
@@ -263,10 +266,13 @@ def calculate_mediation_tfce(medtype, merge_y, masking_array, pred_x, depend_y, 
 # Output:
 # SobelZ = the indirect effect statistic
 # tfce_SobelZ = TFCE transformed indirect effect statistic
-def low_ram_calculate_mediation_tfce(medtype, data, mask, pred_x, depend_y, calcTFCE, vdensity, set_surf_count = 0, perm_number = None, randomise = False, no_intercept = True, output_dir = None):
+def low_ram_calculate_mediation_tfce(medtype, data, mask, pred_x, depend_y, calcTFCE, vdensity, set_surf_count = 0, perm_number = None, randomise = False, no_intercept = True, output_dir = None, perm_seed = None):
 
 	if randomise:
-		np.random.seed(perm_number+int(float(str(time())[-6:])*100))
+		if perm_seed is not None:
+			np.random.seed(perm_number + perm_seed)
+		else:
+			np.random.seed(perm_number+int(float(str(time())[-6:])*100))
 		indices_perm = np.random.permutation(range(data.shape[0]))
 
 		if (medtype == 'M') or (medtype == 'I'):

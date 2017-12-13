@@ -214,7 +214,7 @@ def run(opts):
 		np.save("%s/surfname.npy" % temp_directory, surfname)
 
 		if opts.inputmediation:
-			output_dir = "output_%s/output_med_%d_stats_%s.tmi" % (outname, str(opts.inputmediation[0]), outname)
+			output_dir = "output_%s/output_%d_med_stats_%s.tmi" % (outname, str(opts.inputmediation[0]), outname)
 			if not os.path.exists(output_dir):
 				os.mkdir(output_dir)
 			print "OUTPUT DIRECTORY: %s" % (output_dir)

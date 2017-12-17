@@ -80,6 +80,7 @@ def run(opts):
 			data = np.load("tmi_temp/%d_data_temp.npy" % surf_num)
 			vdensity = np.load("tmi_temp/%d_vdensity_temp.npy" % surf_num)
 			calcTFCE = CreateAdjSet(float(sopts.tfce[0]), float(sopts.tfce[1]), adjacency) # add mixed tfce settings later
+
 			if sopts.input:
 				for i, arg_pred in enumerate(sopts.input):
 					if i == 0:
@@ -100,27 +101,44 @@ def run(opts):
 					tvals = np.concatenate((tvals, temp_tvals), 1)
 					tfce_tvals = np.concatenate((tfce_tvals, temp_tfce_tvals), 1)
 					neg_tfce_tvals = np.concatenate((neg_tfce_tvals, temp_neg_tfce_tvals), 1)
-		data = np.column_stack((tvals.T, tfce_tvals.T))
-		data = np.column_stack((data, neg_tfce_tvals.T))
-		contrast_names = []
-		for i in range(num_contrasts):
-			contrast_names.append(("tstat_con%d" % (i+1)))
-		for j in range(num_contrasts):
-			contrast_names.append(("tstat_tfce_con%d" % (j+1)))
-		for k in range(num_contrasts):
-			contrast_names.append(("negtstat_tfce_con%d" % (k+1)))
 
-		if sopts.inputmediation: # add mediation later
-			medtype = sopts.inputmediation[0]
-			pred_x =  np.genfromtxt(sopts.inputmediation[1], delimiter=',')
-			depend_y =  np.genfromtxt(sopts.inputmediation[2], delimiter=',')
+			if sopts.inputmediation:
+				medtype = sopts.inputmediation[0]
+				pred_x =  np.genfromtxt(sopts.inputmediation[1], delimiter=',')
+				depend_y =  np.genfromtxt(sopts.inputmediation[2], delimiter=',')
+				temp_zvals, temp_tfce_zvals = low_ram_calculate_mediation_tfce(medtype, data, mask, pred_x, depend_y, calcTFCE, vdensity, set_surf_count = surf_num, randomise = False, no_intercept = True)
+
+				if surf_num == 0:
+					zvals = temp_zvals
+					tfce_zvals = temp_tfce_zvals
+					if pred_x.ndim == 1: # get number of contrasts
+						num_contrasts = 1
+					else:
+						num_contrasts = pred_x.shape[1]
+				else:
+					zvals = np.concatenate((zvals, temp_zvals))
+					tfce_zvals = np.concatenate((tfce_zvals, temp_tfce_zvals))
+
+		if sopts.input:
+			data = np.column_stack((tvals.T, tfce_tvals.T))
+			data = np.column_stack((data, neg_tfce_tvals.T))
+			contrast_names = []
+			for i in range(num_contrasts):
+				contrast_names.append(("tstat_con%d" % (i+1)))
+			for j in range(num_contrasts):
+				contrast_names.append(("tstat_tfce_con%d" % (j+1)))
+			for k in range(num_contrasts):
+				contrast_names.append(("negtstat_tfce_con%d" % (k+1)))
+		if sopts.inputmediation:
+			data = np.column_stack((zvals.T, tfce_zvals.T))
+			contrast_names = []
+			contrast_names.append(("SobelZ"))
+			contrast_names.append(("SobelZ_tfce"))
 
 		outname = os.path.basename(str(opts.path[0]))[7:]
 
 		if not outname.endswith('tmi'):
 			outname += '.tmi'
-		if sopts.inputmediation:
-			outname = ("med_%d_" % medtype) + outname
 
 		write_tm_filetype("%s/%s" % (os.path.dirname(str(opts.path[0])), outname), 
 			image_array = data, 
@@ -171,7 +189,7 @@ def run(opts):
 					no_intercept = True,
 					output_dir = str(opts.path[0]),
 					perm_seed = int(opts.seed[0]))
-		print "Mask %d, Permutation %d -> %d, took %i seconds" % (surf_num, p_range[0], p_range[1], (int(time()) - currentTime))
+		print "Mask %d, Iteration %d -> %d took %i seconds." % (surf_num, p_range[0], p_range[1], (int(time()) - currentTime))
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

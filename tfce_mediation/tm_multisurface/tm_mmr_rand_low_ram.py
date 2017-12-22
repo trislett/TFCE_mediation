@@ -198,6 +198,7 @@ def run(opts):
 			np.save("%s/%s_data_temp.npy" % (temp_directory, data_count), merge_y.astype(np.float32, order = "C"))
 			merge_y = data_array = None
 		np.save("%s/opts.npy" % temp_directory, opts)
+		np.save("%s/masking_array.npy" % temp_directory, masking_array)
 
 	outname = opts.tmifile[0][:-4]
 	# make output folder

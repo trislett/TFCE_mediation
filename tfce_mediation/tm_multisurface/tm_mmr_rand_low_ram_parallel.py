@@ -63,10 +63,16 @@ def run(opts):
 	except:
 		print "Error: tmi_temp was not found. Run mmr-lr first, or change directory to where tmi_temp is located." # this error should never happen.
 
+	tfce_settings = []
+	masking_array = np.load("tmi_temp/masking_array.npy")
+	for surf_num in range(len(masking_array)):
+		if sopts.assigntfcesettings:
+			pointer = int(sopts.assigntfcesettings[surf_num] * 2)
+			tfce_settings.append(([sopts.tfce[pointer],sopts.tfce[pointer+1]]))
+
 	if opts.outputstats:
 
 		# load npy objects for building the tmi file
-		masking_array = np.load("tmi_temp/masking_array.npy")
 		maskname = np.load("tmi_temp/maskname.npy")
 		affine_array = np.load("tmi_temp/affine_array.npy")
 		vertex_array = np.load("tmi_temp/vertex_array.npy")
@@ -79,7 +85,8 @@ def run(opts):
 			mask = np.load("tmi_temp/%d_mask_temp.npy" % surf_num)
 			data = np.load("tmi_temp/%d_data_temp.npy" % surf_num)
 			vdensity = np.load("tmi_temp/%d_vdensity_temp.npy" % surf_num)
-			calcTFCE = CreateAdjSet(float(sopts.tfce[0]), float(sopts.tfce[1]), adjacency) # add mixed tfce settings later
+			if not sopts.assigntfcesettings:
+				calcTFCE = CreateAdjSet(float(sopts.tfce[0]), float(sopts.tfce[1]), adjacency)
 
 			if sopts.input:
 				for i, arg_pred in enumerate(sopts.input):
@@ -87,6 +94,8 @@ def run(opts):
 						pred_x = np.genfromtxt(arg_pred, delimiter=',')
 					else:
 						pred_x = np.column_stack([pred_x, np.genfromtxt(arg_pred, delimiter=',')])
+				if sopts.assigntfcesettings:
+					calcTFCE = CreateAdjSet(float(tfce_settings[surf_num][0]), float(tfce_settings[surf_num][1]), adjacency)
 				temp_tvals, temp_tfce_tvals, temp_neg_tfce_tvals = low_ram_calculate_tfce(data, mask, pred_x, calcTFCE, vdensity, set_surf_count = surf_num, randomise = False, no_intercept = True)
 
 				if surf_num == 0:
@@ -106,6 +115,8 @@ def run(opts):
 				medtype = sopts.inputmediation[0]
 				pred_x =  np.genfromtxt(sopts.inputmediation[1], delimiter=',')
 				depend_y =  np.genfromtxt(sopts.inputmediation[2], delimiter=',')
+				if sopts.assigntfcesettings:
+					calcTFCE = CreateAdjSet(float(tfce_settings[surf_num][0]), float(tfce_settings[surf_num][1]), adjacency)
 				temp_zvals, temp_tfce_zvals = low_ram_calculate_mediation_tfce(medtype, data, mask, pred_x, depend_y, calcTFCE, vdensity, set_surf_count = surf_num, randomise = False, no_intercept = True)
 
 				if surf_num == 0:
@@ -161,7 +172,11 @@ def run(opts):
 		data = np.load("tmi_temp/%d_data_temp.npy" % surf_num)
 		vdensity = np.load("tmi_temp/%d_vdensity_temp.npy" % surf_num)
 
-		calcTFCE = CreateAdjSet(float(sopts.tfce[0]), float(sopts.tfce[1]), adjacency)
+
+		if sopts.assigntfcesettings:
+			calcTFCE = CreateAdjSet(float(tfce_settings[surf_num][0]), float(tfce_settings[surf_num][1]), adjacency)
+		else:
+			calcTFCE = CreateAdjSet(float(sopts.tfce[0]), float(sopts.tfce[1]), adjacency)
 		if sopts.input:
 			for i, arg_pred in enumerate(sopts.input):
 				if i == 0:

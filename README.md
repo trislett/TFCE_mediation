@@ -20,7 +20,7 @@ See wikis:
 
 [Work-flow example: Voxel-wise mediation analyses](https://github.com/trislett/TFCE_mediation/wiki/Work-flow-example-for-voxel-wise-mediation-analyses)
 
-[Work-flow example: Multimodal,multisurface regression](https://github.com/trislett/TFCE_mediation/wiki/Work-flow-example-for-multimodal,-multisurface-regression-(MMR))
+[Work-flow example: Multimodal multisurface regression (mmr)](https://github.com/trislett/TFCE_mediation/wiki/Work-flow-example-for-multimodal,-multisurface-regression-(MMR))
 
 Additional help:
 * Every command and subcommand has an extensive help function (i.e., try -h)

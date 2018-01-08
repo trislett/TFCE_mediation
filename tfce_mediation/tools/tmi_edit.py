@@ -64,6 +64,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 	ap.add_argument("-oh", "--history",
 		help="Output tmi file history and exits.", 
 		action='store_true')
+	ap.add_argument("-os", "--outputstats",
+		help="Output min/max values from value for each contrast per mask and exits.", 
+		action='store_true')
 	ap.add_argument("--revert",
 		help="Revert tmi to earlier time-point (removed elements cannot be restored!). Make sure to check the history first (-oh) or by using tm_multimodal read-tmi-header. Input the time-point that you wish to revert the tmi file. e.g. -r 5",
 		nargs=1, 
@@ -129,7 +132,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 def run(opts):
 	currentTime=int(strftime("%Y%m%d%H%M%S",gmtime()))
 	# read tmi
-	element, image_array, masking_array, maskname_array, affine_array, vertex_array, face_array, surfname, adjacency_array, tmi_history, subjectids = read_tm_filetype(opts.inputtmi[0])
+	element, image_array, masking_array, maskname_array, affine_array, vertex_array, face_array, surfname, adjacency_array, tmi_history, columnids = read_tm_filetype(opts.inputtmi[0])
 
 	num_masks = 0
 	num_affines = 0
@@ -137,10 +140,42 @@ def run(opts):
 	num_adjac = 0
 	append_history = True
 
+	print len(sys.argv)
+	
+	# if not enough inputs, output history
+	if len(sys.argv) <= 4:
+		opts.history = True
+
 	if opts.outputnewtmi:
 		outname = opts.outputnewtmi[0]
 	else:
 		outname = opts.inputtmi[0]
+
+
+	# first, index data array
+	pointer = 0
+	position_array = [0]
+	for i in range(len(masking_array)):
+		pointer += len(masking_array[i][masking_array[i]==True])
+		position_array.append(pointer)
+	del pointer
+
+
+	print columnids
+	if opts.outputstats:
+		for i in range(len(columnids[0])):
+			print "\n --- Subject/Contrast[%d]: %s ---\n"  % (i, columnids[0][i])
+			for j, m in enumerate(maskname_array):
+				start = position_array[j]
+				end = position_array[j+1]
+				print "Mask[%d]\t%s \t [%1.4f, %1.4f]" % (j, m,
+					image_array[0][start:end,i].min(),
+					image_array[0][start:end,i].max())
+		if surfname is not None:
+			print "\n --- Surfaces ---\n"
+			for s, surf in enumerate(surfname):
+				print"Surface[%d]\t%s" % (s,surf) 
+		sys.exit()
 
 	if opts.history:
 		print "--- History ---"
@@ -235,13 +270,6 @@ def run(opts):
 
 	# masks
 	if opts.replacemask:
-		# first, index data array
-		pointer = 0
-		position_array = [0]
-		for i in range(len(masking_array)):
-			pointer += len(masking_array[i][masking_array[i]==True])
-			position_array.append(pointer)
-		del pointer
 
 		original_mask = np.copy(masking_array[int(opts.replacemask[0])])
 		print "Replacing mask %s" % maskname_array[int(opts.replacemask[0])]

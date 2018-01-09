@@ -658,8 +658,7 @@ def replacesurface(orig_v, orig_f, surf_filename):
 		print "Error. Vertices shape mismatch."
 		sys.exit()
 	if not orig_f.shape == f.shape:
-		print "Error. Faces shape mismatch."
-		sys.exit()
+		print "Warning. Faces shape mismatch."
 	return  v, f, surfname
 
 

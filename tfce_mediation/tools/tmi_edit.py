@@ -458,9 +458,34 @@ def run(opts):
 
 	# Write tmi file
 	if not image_array==[]:
-		write_tm_filetype(outname, columnids=columnids, output_binary = 'binary', image_array=np.vstack(image_array), masking_array=masking_array, maskname=maskname_array,  affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, adjacency_array=adjacency_array, checkname=False, tmi_history=tmi_history, append_history=append_history)
+		write_tm_filetype(outname, 
+			output_binary = 'binary',
+			image_array=np.vstack(image_array),
+			masking_array=masking_array,
+			maskname=maskname_array,
+			affine_array=affine_array,
+			vertex_array=vertex_array,
+			face_array=face_array,
+			surfname=surfname,
+			adjacency_array=adjacency_array,
+			checkname=False,
+			columnids=np.array(columnids),
+			tmi_history=tmi_history,
+			append_history=append_history)
 	else:
-		write_tm_filetype(outname, columnids=columnids, output_binary = 'binary', masking_array=masking_array, maskname=maskname_array,  affine_array=affine_array, vertex_array=vertex_array, face_array=face_array, surfname=surfname, adjacency_array=adjacency_array, checkname=False, tmi_history=tmi_history, append_history=append_history)
+		write_tm_filetype(outname,
+			output_binary = 'binary',
+			masking_array=masking_array,
+			maskname=maskname_array,
+			affine_array=affine_array,
+			vertex_array=vertex_array,
+			face_array=face_array,
+			surfname=surfname,
+			adjacency_array=adjacency_array,
+			checkname=False,
+			columnids=np.array(columnids),
+			tmi_history=tmi_history,
+			append_history=append_history)
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

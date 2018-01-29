@@ -27,9 +27,14 @@ Additional help:
 * Ask in the [Issues](https://github.com/trislett/TFCE_mediation/issues) section, even if it is just a question.
 
 ### What's new / updates ###
+29-01-2018
+* version 1.4.2 is now available on [pypipe (PIP)](https://pypi.org/project/tfce-mediation/).
+* Small bug fixes. Added small more human readable error messages.
+* Updating to numpy 1.14.0 will give a warning about the package h5py (used to import minc images). It can be ignored, or removed by downgraging to numpy 1.13.3 (sudo -H pip install numpy==1.13.3).
+
 22-12-2017
 
-* version 1.4 is now available on [pypipe (PIP)](https://pypi.org/project/tfce-mediation/).
+* version 1.4.0 is now available on [pypipe (PIP)](https://pypi.org/project/tfce-mediation/).
 * 1.4 includes numerous updates to tm_multimodality include the addition of mmr-lr (multimodality, multisurface regression - low RAM) which vastly reduces the RAM requires for joint multimodal analyses of TMI files. For example, it ran 10000 permutations of a 10.5 GB TMI file contains 50 surfaces overnight (~ 7 million vertices by 350 subjects) using approximately 25 GB of RAM. After the permutation testing has completed, study-wide 1-p(FWER) can be created using the standard mmr technique (i.e., corrected for the maximum TFCE value among ~7 million vertices per permutation).
 * mmr-lr supports mixed TFCE setting, so it is possible to include voxelwise images (e.g., TBSS skeleton) with vertexwise images (cortical thickness, etc.) in the same analysis and correcting across all modalities.
 * mmr-lr, like mmr, supports mediation modeling.

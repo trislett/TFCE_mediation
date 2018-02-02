@@ -30,7 +30,7 @@ def run(opts):
 	data_full_lh = img_surf_lh.get_data()
 	data_lh = np.squeeze(data_full_lh)
 	if data_lh.shape[1] > len(subgroupvariable):
-		print "Error. Number of subjects doesn't equal length of subgrouping variable"
+		print("Error. Number of subjects doesn't equal length of subgrouping variable")
 		exit()
 	affine_mask_lh = img_surf_lh.get_affine()
 	subdata_lh=data_lh[:,masking_variable]

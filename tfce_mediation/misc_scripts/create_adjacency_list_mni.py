@@ -32,7 +32,7 @@ def mergeIdenticalVertices(v, f):
 	lkp = idx[inv]
 
 	v_ = v[idx, :]
-	f_ = np.asarray([[lkp[f[i, j]] for j in xrange(f.shape[1])] for i in xrange(f.shape[0])], dtype = np.int32)
+	f_ = np.asarray([[lkp[f[i, j]] for j in range(f.shape[1])] for i in range(f.shape[0])], dtype = np.int32)
 
 	return v, f_
 
@@ -113,7 +113,7 @@ def run(opts):
 		compute_adjacency(str(opts.surfaces[0]),"lh", min_dist, max_dist,step)
 		compute_adjacency(str(opts.surfaces[1]),"rh", min_dist, max_dist,step)
 	else:
-		print "The difference between max and min distance must be evenly divisible by the step size."
+		print("The difference between max and min distance must be evenly divisible by the step size.")
 		exit()
 
 if __name__ == "__main__":

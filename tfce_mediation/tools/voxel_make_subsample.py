@@ -16,7 +16,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 def run(opts):
 
 	if not os.path.exists("python_temp"):
-		print "python_temp is missing"
+		print("python_temp is missing")
 
 	arg_subgroupvariable = str(opts.input[0])
 #load data

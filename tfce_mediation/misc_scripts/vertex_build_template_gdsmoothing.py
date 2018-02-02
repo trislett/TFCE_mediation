@@ -57,12 +57,12 @@ def run(opts):
 		cat %s/%s | parallel -j %d;
 		""" % (tempdir,subject_list, tempdir,surface,surface,tempdir,cmd_reg, tempdir,cmd_reg, numcore) )
 	if surface == 'area':
-		print "Merging images for Box-Cox correction"
+		print("Merging images for Box-Cox correction")
 		os.system("""for hemi in lh rh; do 
 			tm_tools merge-images --vertex -o ${hemi}.all.%s.00.mgh -i %s/${hemi}*.mgh
 			done""" % (surface, tempdir) )
 		os.system("rm -rf %s" % tempdir)
-		print "Performing Box-Cox correction"
+		print("Performing Box-Cox correction")
 		os.system("""for hemi in lh rh; do
 			tm_tools vertex-box-cox-transform -i ${hemi}.all.%s.00.mgh %d --nosmoothing
 			done""" % (surface, numcore) )
@@ -73,7 +73,7 @@ def run(opts):
 			tm_maths --vertex ${hemi}.all.%s.00.boxcox.mgh -o ${hemi}.all.%s.00.boxcox.mgh --split
 			rm ${hemi}.all.%s.00.boxcox.mgh
 			done""" % (surface, surface, surface) )
-		print "Performing Geodesic smoothing with FWHM = %1.1f " % fwhm
+		print("Performing Geodesic smoothing with FWHM = %1.1f " % fwhm)
 		os.system("""
 		for hemi in lh rh; do
 			for i in img*${hemi}*; do 
@@ -88,7 +88,7 @@ def run(opts):
 			done""" % (surface, tempdir))
 		os.system("rm -rf %s" % tempdir)
 	else:
-		print "Performing Geodesic smoothing with FWHM = %1.1f " % fwhm
+		print("Performing Geodesic smoothing with FWHM = %1.1f " % fwhm)
 		os.chdir('%s/' % tempdir)
 		os.system("""
 		for hemi in lh rh; do

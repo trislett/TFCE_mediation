@@ -16,7 +16,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import division
+
 import os
 import numpy as np
 import argparse as ap
@@ -61,7 +61,7 @@ def run(opts):
 	try:
 		sopts = np.load("tmi_temp/opts.npy").tolist()
 	except:
-		print "Error: tmi_temp was not found. Run mmr-lr first, or change directory to where tmi_temp is located." # this error should never happen.
+		print("Error: tmi_temp was not found. Run mmr-lr first, or change directory to where tmi_temp is located.") # this error should never happen.
 
 	tfce_settings = []
 	masking_array = np.load("tmi_temp/masking_array.npy")
@@ -80,7 +80,7 @@ def run(opts):
 		surfname = np.load("tmi_temp/surfname.npy")
 
 		for surf_num in range(len(masking_array)):
-			print "Calculating stats for:\t %s" % maskname[surf_num]
+			print("Calculating stats for:\t %s" % maskname[surf_num])
 			adjacency = np.load("tmi_temp/%d_adjacency_temp.npy" % surf_num)
 			mask = np.load("tmi_temp/%d_mask_temp.npy" % surf_num)
 			data = np.load("tmi_temp/%d_data_temp.npy" % surf_num)
@@ -204,7 +204,7 @@ def run(opts):
 					no_intercept = True,
 					output_dir = str(opts.path[0]),
 					perm_seed = int(opts.seed[0]))
-		print "Mask %d, Iteration %d -> %d took %i seconds." % (surf_num, p_range[0], p_range[1], (int(time()) - currentTime))
+		print("Mask %d, Iteration %d -> %d took %i seconds." % (surf_num, p_range[0], p_range[1], (int(time()) - currentTime)))
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

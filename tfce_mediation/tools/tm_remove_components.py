@@ -53,7 +53,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 def run(opts):
 #check if ICA has been run
 	if not os.path.exists("ICA_temp"):
-		print "ICA_temp not found"
+		print("ICA_temp not found")
 		exit()
 #load mask
 	if opts.bothhemi:

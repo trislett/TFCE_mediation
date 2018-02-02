@@ -16,7 +16,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import division
+
 import numpy as np
 import nibabel as nib
 import argparse as ap
@@ -125,7 +125,7 @@ def run(opts):
 			if opts.specifyvolume:
 				img_data = img_data[:,:,:,int(opts.specifyvolume[0])]
 			else:
-				print "Error: -i_voxel is a 4D image. Use -vol to specify the volume of interest."
+				print("Error: -i_voxel is a 4D image. Use -vol to specify the volume of interest.")
 				quit()
 		if opts.voxelthreshold and opts.voxelbackbone:
 			mask = nib.load(opts.voxelbackbone[0]).get_data()
@@ -151,7 +151,7 @@ def run(opts):
 			img = nib.load(opts.paintsurface[0])
 			img_data = img.get_data()
 			if img_data.ndim > 3:
-				print "Error: input file can only contain one subject"
+				print("Error: input file can only contain one subject")
 				quit()
 			img_data = img_data[:,0,0]
 			if (str(opts.paintsurface[3]) == 'r_y') or (str(opts.paintsurface[3]) == 'red-yellow'):
@@ -161,13 +161,13 @@ def run(opts):
 			elif np.any(colormaps == str(opts.paintsurface[3])):
 				out_color_array = convert_mpl_colormaps(np.array(( float(opts.paintsurface[1]),float(opts.paintsurface[2]) )), img_data, str(opts.paintsurface[3]))
 			else:
-				print "Colour scheme %s does not exist" % str(opts.paintsurface[3])
+				print("Colour scheme %s does not exist" % str(opts.paintsurface[3]))
 				quit()
 			if opts.paintsecondsurface:
 				img = nib.load(opts.paintsecondsurface[0])
 				img_data = img.get_data()
 				if img_data.ndim > 3:
-					print "Error: input file can only contain one subject"
+					print("Error: input file can only contain one subject")
 					quit()
 				img_data = img_data[:,0,0]
 				index = img_data > float(opts.paintsecondsurface[1])
@@ -178,7 +178,7 @@ def run(opts):
 				elif np.any(colormaps == str(opts.paintsecondsurface[3])):
 					out_color_array2 = convert_mpl_colormaps(np.array(( float(opts.paintsecondsurface[1]),float(opts.paintsecondsurface[2]) )), img_data, str(opts.paintsecondsurface[3]))
 				else:
-					print "Error: colour scheme %s does not exist" % str(opts.paintsecondsurface[3])
+					print("Error: colour scheme %s does not exist" % str(opts.paintsecondsurface[3]))
 					quit()
 				out_color_array[index,:] = out_color_array2[index,:]
 			save_ply(v,f, opts.outputply[0], out_color_array)
@@ -199,7 +199,7 @@ def run(opts):
 				elif np.any(colormaps == str(icolormap)):
 					out_color_label = convert_mpl_colormaps(np.array(( float(0),float(max_value) )), v_value, str(icolormap))
 				else:
-					print "Error: colour scheme %s does not exist" % str(icolormap)
+					print("Error: colour scheme %s does not exist" % str(icolormap))
 					quit()
 				if counter == 2: # dirty method
 					baseColour=[227,218,201] # bone
@@ -218,7 +218,7 @@ def run(opts):
 			elif np.any(colormaps == str(opts.paintvoxelsurface[2])):
 				out_color_array = convert_mpl_colormaps(np.array(( float(opts.paintvoxelsurface[0]),float(opts.paintvoxelsurface[1]) )), values, str(opts.paintvoxelsurface[2]))
 			else:
-				print "Colour scheme %s does not exist" % str(opts.paintvoxelsurface[2])
+				print("Colour scheme %s does not exist" % str(opts.paintvoxelsurface[2]))
 				quit()
 			save_ply(v,f, opts.outputply[0], out_color_array)
 		else:

@@ -30,7 +30,7 @@ def run(opts):
 	ite=0
 	for i in vertices:
 		values[ite,:]=alldata_full[int(i),0,0,:]
- 		ite+=1
+		ite+=1
 	meanvalues=np.sum(values,axis=0)/len(vertices)
 	np.savetxt(("%s.mean.txt" % label), meanvalues, delimiter=',',fmt='%1.5f')
 

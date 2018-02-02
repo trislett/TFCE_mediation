@@ -34,7 +34,7 @@ def getArgumentParser(parser = argparse.ArgumentParser(description = DESCRIPTION
 def run(opts):
 	mask_name = opts.input[1]
 	if not os.path.isfile(mask_name):
-		print 'Error %s not found. Please use -i option.' % mask_name
+		print('Error %s not found. Please use -i option.' % mask_name)
 		quit()
 	img_mask = nib.load(mask_name)
 	data_mask = img_mask.get_data()
@@ -57,7 +57,7 @@ def run(opts):
 		imgext = '.nii.gz' # default to zipped images
 		img_all = nib.load(img_all_name)
 	else:
-		print 'Error filetype for %s is not supported' % img_all_name
+		print('Error filetype for %s is not supported' % img_all_name)
 		quit()
 
 	data_all = img_all.get_data()

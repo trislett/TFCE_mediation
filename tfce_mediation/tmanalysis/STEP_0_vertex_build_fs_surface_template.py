@@ -93,7 +93,7 @@ def run(opts):
 		if opts.fwhm:
 			fwhm = opts.fwhm
 		for j in fwhm:
-			print "Performing geodesic smoothing with FWHM = %smm." % j
+			print("Performing geodesic smoothing with FWHM = %smm." % j)
 			os.system("""
 					for i in lh*.mgh; do
 						temp_outname=$(basename ${i} .00.mgh).0%dB.mgh
@@ -105,7 +105,7 @@ def run(opts):
 						echo tm_tools geodesic-fwhm --hemi rh -i ${i} -o ${temp_outname} -d %s -f %s
 					done >> %s""" % (int(float(j)),opts.usegeodesicfwhm[1],j,cmd_smooth) )
 	else:
-		print "Performing smoothing with FWHM = 3.0mm "
+		print("Performing smoothing with FWHM = 3.0mm ")
 		os.system("""
 			for hemi in lh rh; do
 				for i in ${hemi}*.mgh; do
@@ -118,7 +118,7 @@ def run(opts):
 	else:
 		os.system("while read -r i; do eval $i; done < %s" % (cmd_smooth) )
 	os.chdir('../')
-	print "Merging surface images"
+	print("Merging surface images")
 	merge_surfaces(tempdir,'lh','00',subjects,surface)
 	merge_surfaces(tempdir,'rh','00',subjects,surface)
 
@@ -132,7 +132,7 @@ def run(opts):
 		merge_surfaces(tempdir,'rh','03B',subjects,surface)
 
 	if opts.fwhm:
-		for i in xrange(len(opts.fwhm)):
+		for i in range(len(opts.fwhm)):
 			os.system("""
 			$FREESURFER_HOME/bin/mri_surf2surf --hemi lh --s fsaverage --sval lh.all.%s.00.mgh --fwhm %d --cortex --tval lh.all.%s.0%dB.mgh
 			$FREESURFER_HOME/bin/mri_surf2surf --hemi rh --s fsaverage --sval rh.all.%s.00.mgh --fwhm %d --cortex --tval rh.all.%s.0%dB.mgh

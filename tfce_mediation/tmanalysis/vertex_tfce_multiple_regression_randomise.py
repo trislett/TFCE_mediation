@@ -79,29 +79,29 @@ def run(opts):
 
 	X = np.column_stack([np.ones(n),pred_x])
 	k = len(X.T)
-	for iter_perm in xrange(arg_perm_start,arg_perm_stop):
+	for iter_perm in range(arg_perm_start,arg_perm_stop):
 		np.random.seed(int(iter_perm*1000+time()))
-		print "Iteration number : %d" % (iter_perm)
+		print("Iteration number : %d" % (iter_perm))
 		if opts.specifyvars:
 			start=opts.specifyvars[0]
 			stop=opts.specifyvars[1]+1
 			nx = X
-			nx[:,start:stop]=X[:,start:stop][np.random.permutation(range(n))]
+			nx[:,start:stop]=X[:,start:stop][np.random.permutation(list(range(n)))]
 		else:
-			nx = X[np.random.permutation(range(n))]
+			nx = X[np.random.permutation(list(range(n)))]
 		invXX = np.linalg.inv(np.dot(nx.T, nx))
 		tvals=tval_int(nx, invXX, ny, n, k, num_vertex)
 		if opts.specifyvars:
-			for j in xrange(stop-start):
+			for j in range(stop-start):
 				tnum=j+1
 				write_perm_maxTFCE_vertex('tstat_con%d' % tnum, tvals[tnum], num_vertex_lh, bin_mask_lh, bin_mask_rh, calcTFCE_lh, calcTFCE_rh, vdensity_lh, vdensity_rh)
 				write_perm_maxTFCE_vertex('tstat_con%d' % tnum, (tvals[tnum] * -1), num_vertex_lh, bin_mask_lh, bin_mask_rh, calcTFCE_lh, calcTFCE_rh, vdensity_lh, vdensity_rh)
 		else:
-			for j in xrange(k-1):
+			for j in range(k-1):
 				tnum=j+1
 				write_perm_maxTFCE_vertex('tstat_con%d' % tnum, tvals[tnum], num_vertex_lh, bin_mask_lh, bin_mask_rh, calcTFCE_lh, calcTFCE_rh, vdensity_lh, vdensity_rh)
 				write_perm_maxTFCE_vertex('tstat_con%d' % tnum, (tvals[tnum] * -1), num_vertex_lh, bin_mask_lh, bin_mask_rh, calcTFCE_lh, calcTFCE_rh, vdensity_lh, vdensity_rh)
-	print("Finished. Randomization took %.1f seconds" % (time() - start_time))
+	print(("Finished. Randomization took %.1f seconds" % (time() - start_time)))
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

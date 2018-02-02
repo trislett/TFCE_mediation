@@ -21,6 +21,7 @@ import argparse as ap
 
 import tfce_mediation
 from tfce_mediation.version import __version__
+import sys
 
 
 class _HelpAction(ap._HelpAction):
@@ -31,9 +32,9 @@ class _HelpAction(ap._HelpAction):
 			action for action in parser._actions
 			if isinstance(action, ap._SubParsersAction)]
 		for subparsers_action in subparsers_actions:
-			for choice, subparser in subparsers_action.choices.items():
-				print("Sub-command '{}'".format(choice))
-				print(subparser.format_help())
+			for choice, subparser in list(subparsers_action.choices.items()):
+				print(("Sub-command '{}'".format(choice)))
+				print((subparser.format_help()))
 		parser.exit()
 
 class _Usage(ap._HelpAction):
@@ -58,7 +59,7 @@ class _Usage(ap._HelpAction):
 		helps.append(parser.format_usage())
 		for p in splist:
 			helps.append(p.format_usage())
-		print(''.join(helps))
+		print((''.join(helps)))
 		parser.exit()
 
 DESCRIPTION = "Mediation with TFCE"
@@ -129,6 +130,9 @@ parser.add_argument('--usage', action=_Usage, help='Display usage for sub-comman
 parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
 
 args = parser.parse_args()
-args.func(args)
-
+print(sys.version)
+try:
+	args.func(args)
+except:
+	parser.print_help()
 

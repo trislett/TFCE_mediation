@@ -89,7 +89,7 @@ def run(opts):
 	elif opts.residuals:
 		# check number of files
 		if opts.file:
-			print "Two *.csv files are necesssary"
+			print("Two *.csv files are necesssary")
 			exit()
 		arg_depvars = str(opts.input[0])
 		arg_covars = str(opts.input[1])
@@ -99,7 +99,7 @@ def run(opts):
 		covars = np.genfromtxt(arg_covars, delimiter=',')
 		# check number of columns for dependent variable
 		if depvars.ndim>1:
-			print "The dependent variable should only only have one column"
+			print("The dependent variable should only only have one column")
 			exit()
 		if opts.demean:
 			covars = covars - np.mean(covars, axis=0)
@@ -125,7 +125,7 @@ def run(opts):
 				regressors = np.divide(regressors,np.std(regressors,axis=0))
 				writeCSV(regressors_nocsv,'std_dm',regressors)
 			else:
-				print "Please select demean (-d) or standardize (-s)"
+				print("Please select demean (-d) or standardize (-s)")
 				exit()
 		if opts.input:
 			pred = np.genfromtxt(opts.input[0], delimiter=',')
@@ -145,7 +145,7 @@ def run(opts):
 				writeCSV(covars_nocsv,'std_dm',covars)
 				writeCSV(pred_nocsv,'std_dm',pred)
 			else:
-				print "Please select demean (-d) or standardize (-s)"
+				print("Please select demean (-d) or standardize (-s)")
 				exit()
 
 if __name__ == "__main__":

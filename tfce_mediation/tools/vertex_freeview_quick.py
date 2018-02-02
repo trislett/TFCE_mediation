@@ -35,8 +35,8 @@ def run(opts):
 		lhmidthickness="%s/fsaverage/surf/lh.midthickness" % (os.environ.get('SUBJECTS_DIR'))
 		if not os.path.exists(lhmidthickness):
 			path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-			print "?h.midthickness surface is is missing. run:"
-			print "cp %s/adjacency_sets/*h.midthickness %s/fsaverage/surf/" % (path, os.environ.get('SUBJECTS_DIR'))
+			print("?h.midthickness surface is is missing. run:")
+			print("cp %s/adjacency_sets/*h.midthickness %s/fsaverage/surf/" % (path, os.environ.get('SUBJECTS_DIR')))
 			exit()
 
 	if len(opts.image)==2:

@@ -33,7 +33,7 @@ def run(opts):
 	print("Calculating mean values.")
 
 	if not os.path.exists("python_temp"):
-		print "python_temp is missing ya dingus!"
+		print("python_temp is missing ya dingus!")
 
 	raw_nonzero = np.load('python_temp/raw_nonzero.npy')
 	data_mask = np.load('python_temp/data_mask.npy')
@@ -58,7 +58,7 @@ def run(opts):
 		np.savetxt("Mean_voxel_label.csv", meanvalue, delimiter=",")
 
 	if opts.pca:
-		print("Evaluating %d components" % opts.pca[0])
+		print(("Evaluating %d components" % opts.pca[0]))
 		x = (meanvalue - np.mean(meanvalue, 0)) / np.std(meanvalue, 0)
 		pca = PCA(n_components=opts.pca[0])
 		x_r = pca.fit(x).transform(x)

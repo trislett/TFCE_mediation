@@ -89,12 +89,12 @@ def run(opts):
 	reader = obj.readline().strip().split()
 	firstword=reader[0]
 	if firstword != 'tmi':
-		print "Error: not a TFCE_mediation image."
+		print("Error: not a TFCE_mediation image.")
 		exit()
 	reader = obj.readline().strip().split()
 	firstword=reader[0]
 	if firstword != 'format':
-		print "Error: unknown reading file format"
+		print("Error: unknown reading file format")
 		exit()
 	else:
 		tm_filetype = reader[1]
@@ -141,64 +141,64 @@ def run(opts):
 		position-=int(element_nbyte[i])
 
 	if opts.outputbasicinfo:
-		print "--- Basic Information ---"
+		print("--- Basic Information ---")
 		for i in range(len(element)):
 			if element[i]=='data_array':
-				print ("Data array shape: %dx%d [masked data length by # images (subjects)]" % (datashape[0][0],datashape[0][1]))
-		print ("Number of masks: %d" % maskcounter)
-		print ("Number of affines: %d" % affinecounter)
-		print ("Number of surfaces: %d" % vertexcounter)
-		print ("Number of adjacency sets: %d" % adjacencycounter)
+				print(("Data array shape: %dx%d [masked data length by # images (subjects)]" % (datashape[0][0],datashape[0][1])))
+		print(("Number of masks: %d" % maskcounter))
+		print(("Number of affines: %d" % affinecounter))
+		print(("Number of surfaces: %d" % vertexcounter))
+		print(("Number of adjacency sets: %d" % adjacencycounter))
 		print ("")
 
 	if opts.fileformat:
-			print "--- File Information ---"
-			print "File type: %s" % tm_filetype
-			print "Version: %s\n" % tmi_version
+			print("--- File Information ---")
+			print("File type: %s" % tm_filetype)
+			print("Version: %s\n" % tmi_version)
 
 	if opts.headersize:
-		print "--- Header Information ---"
+		print("--- Header Information ---")
 		if tm_filetype == 'ascii':
-			print "Header size: %d lines\n" % (linecounter+2)
+			print("Header size: %d lines\n" % (linecounter+2))
 		else:
-			print "Header size: %d bytes, %d lines\n" % (position,linecounter+2)
+			print("Header size: %d bytes, %d lines\n" % (position,linecounter+2))
 
 	if opts.outputhistory: # in future, make this into a function
-		print "--- History ---"
+		print("--- History ---")
 		for i in range(len(tmi_history)):
-			print "Time-point %d" % i
+			print("Time-point %d" % i)
 			line = tmi_history[i].split(' ')
-			print ("Date: %s-%s-%s %s:%s:%s" % (line[2][6:8],line[2][4:6],line[2][0:4], line[2][8:10], line[2][10:12], line[2][12:14]) )
+			print(("Date: %s-%s-%s %s:%s:%s" % (line[2][6:8],line[2][4:6],line[2][0:4], line[2][8:10], line[2][10:12], line[2][12:14]) ))
 			if line[1]=='mode_add':
-				print "Elements added:"
+				print("Elements added:")
 			elif line[1]=='mode_sub':
-				print "Elements removed:"
+				print("Elements removed:")
 			elif line[1] == 'mode_replace':
-				print "Element replaced"
+				print("Element replaced")
 			elif line[1] == 'mode_reorder':
-				print "Element reordered"
+				print("Element reordered")
 			else:
-				print "Error: mode is not understood"
-			print "Number of masks: %s" % line[4]
-			print "Number of affines: %s" % line[5]
-			print "Number of surfaces: %s" % line[6]
-			print "Number of adjacency sets: %s\n" % line[7]
+				print("Error: mode is not understood")
+			print("Number of masks: %s" % line[4])
+			print("Number of affines: %s" % line[5])
+			print("Number of surfaces: %s" % line[6])
+			print("Number of adjacency sets: %s\n" % line[7])
 
 	if opts.outputmaskinfo:
-		print "--- Mask Information ---"
+		print("--- Mask Information ---")
 		for i in range(len(maskname)):
-			print "Mask element %d" % i
-			print "Mask name: %s" % maskname[i]
-			print "Mask size: %s" % element_nmasked[i]
-			print ("Mask shape: %s %s %s\n" % (maskshape[i][0],maskshape[i][1],maskshape[i][2]) )
+			print("Mask element %d" % i)
+			print("Mask name: %s" % maskname[i])
+			print("Mask size: %s" % element_nmasked[i])
+			print(("Mask shape: %s %s %s\n" % (maskshape[i][0],maskshape[i][1],maskshape[i][2]) ))
 
 	if opts.outputshapeinfo:
-		print "--- Shape Information ---"
+		print("--- Shape Information ---")
 		for i in range(len(surfname)):
-			print "Shape element %d" % i
-			print "Shape name: %s" % surfname[i]
-			print ("Vertices: %s %s" % (vertexshape[i][0],vertexshape[i][1]) )
-			print ("Faces: %s %s\n" % (faceshape[i][0],faceshape[i][1]) )
+			print("Shape element %d" % i)
+			print("Shape name: %s" % surfname[i])
+			print(("Vertices: %s %s" % (vertexshape[i][0],vertexshape[i][1]) ))
+			print(("Faces: %s %s\n" % (faceshape[i][0],faceshape[i][1]) ))
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

@@ -55,7 +55,7 @@ def run(opts):
 	medtype = opts.medtype[0]
 
 	if not os.path.exists("python_temp"):
-		print "python_temp missing!"
+		print("python_temp missing!")
 
 	#load variables
 	raw_nonzero = np.load('python_temp/raw_nonzero.npy')

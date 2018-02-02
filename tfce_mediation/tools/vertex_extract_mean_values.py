@@ -47,7 +47,7 @@ def run(opts):
 			lowerLabel = int(opts.range[0])
 			upperLabel = int(opts.range[1]) + 1
 			num_label = upperLabel - lowerLabel
-			print 'Extracting from %d to %d label for a total of %d mean values' % (lowerLabel,upperLabel, num_label)
+			print('Extracting from %d to %d label for a total of %d mean values' % (lowerLabel,upperLabel, num_label))
 			outMeanValues = np.zeros([n,num_label])
 			counter=0
 			for i in range(lowerLabel,upperLabel):
@@ -55,7 +55,7 @@ def run(opts):
 				counter+=1
 		else:
 			num_label = int(data_label.max())
-			print 'Extracting %d mean label values' % num_label
+			print('Extracting %d mean label values' % num_label)
 			outMeanValues = np.zeros([n,num_label])
 			for i in range((num_label)):
 				outMeanValues[:,i]=img_data[data_label==(i+1)].mean(axis=0)
@@ -68,7 +68,7 @@ def run(opts):
 		lowerLabel = 1
 		upperLabel = int(len(names))
 		num_label = len(names)
-		print 'Extracting from %d labels mean values from annotation' % (num_label)
+		print('Extracting from %d labels mean values from annotation' % (num_label))
 		outMeanValues = np.zeros([n,num_label-1])
 		counter=0
 		for i in range(lowerLabel,upperLabel):

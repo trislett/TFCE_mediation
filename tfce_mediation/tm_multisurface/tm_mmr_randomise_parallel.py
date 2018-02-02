@@ -117,7 +117,7 @@ def run(opts):
 		mmr_cmd += " -sa %s" % ' '.join(opts.setadjacencyobjs)
 	if opts.assigntfcesettings:
 		if not opts.tfce:
-			print "Error: --tfce must be used with -st option."
+			print("Error: --tfce must be used with -st option.")
 			quit()
 		mmr_cmd += " -st %s" % ' '.join(opts.assigntfcesettings)
 	if opts.noweight:
@@ -129,10 +129,10 @@ def run(opts):
 	#round number of permutations to the nearest 200
 	roundperm=int(np.round(opts.numperm[0]/200.0)*100.0)
 	forperm=(roundperm/100)-1
-	print "Evaluating %d permuations" % (roundperm*2)
+	print("Evaluating %d permuations" % (roundperm*2))
 
 	#build command text file
-	for i in xrange(forperm+1):
+	for i in range(forperm+1):
 		os.system("%s -p %i %i >> cmd_MStmi_randomise_%d" % (mmr_cmd, (i*100+1), (i*100+100), currentTime))
 
 	#submit text file for parallel processing; submit_condor_jobs_file is supplied with TFCE_mediation
@@ -145,7 +145,7 @@ def run(opts):
 	elif opts.cmdtext:
 		pass
 	else:
-		print "Submit cmd_MStmi_randomise_%d to your job clustering platform for randomisation." % (currentTime)
+		print("Submit cmd_MStmi_randomise_%d to your job clustering platform for randomisation." % (currentTime))
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

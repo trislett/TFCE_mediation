@@ -64,7 +64,7 @@ def run(opts):
 	sorted_perm_tfce_max=np.sort(perm_tfce_max)
 	p_array=np.zeros_like(sorted_perm_tfce_max)
 	corrp_img = np.zeros(masked_data.shape)
-	for j in xrange(num_perm):
+	for j in range(num_perm):
 		p_array[j] = np.true_divide(j,num_perm)
 	cV=0
 	for k in masked_data:
@@ -75,7 +75,7 @@ def run(opts):
 	outmask=np.zeros_like(data_full)
 	outmask[bin_mask,0,0]=corrp_img
 	nib.save(nib.Nifti1Image(outmask,affine_mask),"%s_FWEcorrP.mgh" % (arg_tfce_image_noext))
-	print "The accuracy is p = 0.05 +/- %.4f" % (2*(np.sqrt(0.05*0.95/num_perm)))
+	print("The accuracy is p = 0.05 +/- %.4f" % (2*(np.sqrt(0.05*0.95/num_perm))))
 
 	if opts.outputneglog10:
 		outmask[bin_mask,0,0]=-np.log10(1-corrp_img)

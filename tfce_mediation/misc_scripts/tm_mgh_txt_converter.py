@@ -31,15 +31,15 @@ def run(opts):
 		txtname = opts.inputtxt[0]
 
 		if txtname.endswith(('.mgh', '.mgz')):
-			print "Error: mgh file input detected. Please use -s option."
+			print("Error: mgh file input detected. Please use -s option.")
 			quit()
 
 		surfVals = np.loadtxt(txtname, dtype=np.float, delimiter=',')
 		if opts.transpose:
-			print "Transposing array"
+			print("Transposing array")
 			surfVals = surfVals.T
 		numVert = len(surfVals)
-		print "Reading in %d subjects and %d vertices. If this is incorrect re-run the script is the --transpose option." % (surfVals.shape[1], surfVals.shape[0])
+		print("Reading in %d subjects and %d vertices. If this is incorrect re-run the script is the --transpose option." % (surfVals.shape[1], surfVals.shape[0]))
 		if surfVals.ndim == 1:
 			outsurf = np.zeros((numVert,1,1))
 			outsurf[:,0,0] = surfVals
@@ -52,7 +52,7 @@ def run(opts):
 		surfname = opts.inputsurface[0]
 
 		if surfname.endswith(('.txt', '.csv')):
-			print "Error: text file input detected. Please use -i option."
+			print("Error: text file input detected. Please use -i option.")
 			quit()
 
 		img, imgdata = loadmgh(surfname)
@@ -61,7 +61,7 @@ def run(opts):
 		if imgdata.ndim==4:
 			imgdata = imgdata[:,0,0,:]
 		if opts.transpose:
-			print "Transposing array"
+			print("Transposing array")
 			imgdata = imgdata.T
 		surfname = os.path.splitext(surfname)[0]
 		np.savetxt(("%s.csv" % surfname), imgdata, delimiter=",", fmt='%10.8f')

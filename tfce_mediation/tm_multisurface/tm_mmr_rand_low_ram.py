@@ -16,7 +16,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import division
+
 import os
 import numpy as np
 import argparse as ap
@@ -112,7 +112,7 @@ def run(opts):
 	temp_directory = "tmi_temp"
 	if not os.path.exists(temp_directory):
 		if opts.usepreviousmemorymapping:
-			print "Error: tmi_temp folder not found. Change directory, or do not use -um argument"
+			print("Error: tmi_temp folder not found. Change directory, or do not use -um argument")
 			quit()
 		else:
 			os.mkdir(temp_directory)
@@ -132,7 +132,7 @@ def run(opts):
 		elif opts.gnuparallel:
 			parallel = 'gnuparallel'
 		else:
-			print "Either {-os} options must be used, or {-n} with a parallelization option { -p # | -cd | -d | -t | --serial } must be used with permutation testing."
+			print("Either {-os} options must be used, or {-n} with a parallelization option { -p # | -cd | -d | -t | --serial } must be used with permutation testing.")
 			quit()
 
 		_, image_array, masking_array, _, _, _, _, _, adjacency_array, _, _  = read_tm_filetype(opts.tmifile[0])
@@ -142,21 +142,21 @@ def run(opts):
 		if len(opts.setadjacencyobjs) == len(masking_array):
 			adjacent_range = np.array(opts.setadjacencyobjs, dtype = np.int)
 		else:
-			print "Error: # of masking arrays (%d) must and list of matching adjacency (%d) must be equal." % (len(masking_array), len(opts.setadjacencyobjs))
+			print("Error: # of masking arrays (%d) must and list of matching adjacency (%d) must be equal." % (len(masking_array), len(opts.setadjacencyobjs)))
 			quit()
 	else: 
-		adjacent_range = range(len(adjacency_array))
+		adjacent_range = list(range(len(adjacency_array)))
 
 	if opts.usepreviousmemorymapping:
 		if os.path.isfile("%s/opts.npy" % temp_directory):
-			print "Renaming previous %s/opts.npy to %s/backup_%d_opts.npy" % (temp_directory,temp_directory, currentTime)
+			print("Renaming previous %s/opts.npy to %s/backup_%d_opts.npy" % (temp_directory,temp_directory, currentTime))
 			os.system("mv %s/opts.npy %s/backup_%d_opts.npy" % (temp_directory,temp_directory, currentTime))
 		np.save("%s/opts.npy" % temp_directory, opts)
 	else:
 		for i in range(len(masking_array)):
 			if not opts.noweight:
 				temp_vdensity = np.zeros((adjacency_array[adjacent_range[i]].shape[0]))
-				for j in xrange(adjacency_array[adjacent_range[i]].shape[0]):
+				for j in range(adjacency_array[adjacent_range[i]].shape[0]):
 					temp_vdensity[j] = len(adjacency_array[adjacent_range[i]][j])
 				if masking_array[i].shape[2] == 1:
 					temp_vdensity = temp_vdensity[masking_array[i][:,0,0]==True]
@@ -218,37 +218,37 @@ def run(opts):
 			output_dir = "output_%s/output_%s_med_stats_%s.tmi" % (outname, str(opts.inputmediation[0]), outname)
 			if not os.path.exists(output_dir):
 				os.mkdir(output_dir)
-			print "OUTPUT DIRECTORY: %s" % (output_dir)
+			print("OUTPUT DIRECTORY: %s" % (output_dir))
 		else:
 			output_dir = "output_%s/output_stats_%s.tmi" % (outname, outname)
 			if not os.path.exists(output_dir):
 				os.mkdir(output_dir)
-			print "OUTPUT DIRECTORY: %s" % (output_dir)
-		print "Writing statistics TMI file"
+			print("OUTPUT DIRECTORY: %s" % (output_dir))
+		print("Writing statistics TMI file")
 		os.system("tm_multimodal mmr-lr-run --path %s -os" % (output_dir))
 	else:
 		output_dir = "output_%s/output_stats_%s.tmi" % (outname, outname)
 		if not os.path.isfile("output_%s/stats_%s.tmi" % (outname, outname)):
-			print "Warning: output_%s/stats_%s.tmi file not detected.\nTo create the output tmi: (1) use the --noperm argument or (2) run tm_multimodal mmr (recommended)" % (outname, outname)
+			print("Warning: output_%s/stats_%s.tmi file not detected.\nTo create the output tmi: (1) use the --noperm argument or (2) run tm_multimodal mmr (recommended)" % (outname, outname))
 			if not os.path.exists(output_dir):
 				os.mkdir(output_dir)
-		print "OUTPUT DIRECTORY: o%s" % (output_dir)
+		print("OUTPUT DIRECTORY: o%s" % (output_dir))
 
 	if opts.numperm: 
 		mmr_cmd = "echo tm_multimodal mmr-lr-run --path %s " % (output_dir)
 		#round number of permutations to the nearest 200
 		roundperm = int(np.round(opts.numperm[0]/200.0) * 100.0)
 		forperm = int((roundperm/100) - 1)
-		print "Evaluating %d permuations" % (roundperm*2)
+		print("Evaluating %d permuations" % (roundperm*2))
 
 		#build command text file
-		for i in xrange(forperm+1):
+		for i in range(forperm+1):
 			random_seed = int(i+int(float(str(time())[-6:])*100))
-			print "Block %d Seed:\t%d" % (i, random_seed)
+			print("Block %d Seed:\t%d" % (i, random_seed))
 			for j in range(len(masking_array)):
 				os.system("%s -sn %d -pr %i %i --seed %i >> cmd_MStmi_randomise_%d" % (mmr_cmd, j, (i*100+1), (i*100+100), random_seed, currentTime))
 
-		print "Submitting jobs for parallel processing"
+		print("Submitting jobs for parallel processing")
 		#submit text file for parallel processing; submit_condor_jobs_file is supplied with TFCE_mediation
 		if opts.gnuparallel:
 			os.system("cat cmd_MStmi_randomise_%d | parallel -j %d" % (currentTime, int(opts.gnuparallel[0])))
@@ -261,7 +261,7 @@ def run(opts):
 		elif opts.cmdtext:
 			pass
 		else:
-			print "Submit cmd_MStmi_randomise_%d to your job clustering platform for randomisation." % (currentTime)
+			print("Submit cmd_MStmi_randomise_%d to your job clustering platform for randomisation." % (currentTime))
 
 
 if __name__ == "__main__":

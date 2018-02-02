@@ -27,8 +27,8 @@ from tfce_mediation.tm_io import write_tm_filetype, read_tm_filetype
 DESCRIPTION = "Create adjacency list based on geodesic distance for vertex-based TFCE. Note, 1mm, 2mm, and 3mm adjacency list have already supplied (adjacency_sets/?h_adjacency_dist_?.0_mm.npy)"
 
 def create_adjac_vertex(vertices,faces): # basic version
-	adjacency = [set([]) for i in xrange(vertices.shape[0])]
-	for i in xrange(faces.shape[0]):
+	adjacency = [set([]) for i in range(vertices.shape[0])]
+	for i in range(faces.shape[0]):
 		adjacency[faces[i, 0]].add(faces[i, 1])
 		adjacency[faces[i, 0]].add(faces[i, 2])
 		adjacency[faces[i, 1]].add(faces[i, 0])
@@ -42,7 +42,7 @@ def create_adjac_voxel(data_index, dirtype=26): # default is 26 directions
 	ind=np.where(data_index)
 	dm=np.zeros((data_index.shape))
 	x_dim, y_dim, z_dim=data_index.shape
-	adjacency = [set([]) for i in xrange(num_voxel)]
+	adjacency = [set([]) for i in range(num_voxel)]
 	label=0
 	for x,y,z in zip(ind[0],ind[1],ind[2]):
 		dm[x,y,z] = label
@@ -71,7 +71,7 @@ def mergeIdenticalVertices(v, f):
 	_, idx, inv = np.unique(vrv, return_index = True, return_inverse = True)
 	lkp = idx[inv]
 	v_ = v[idx, :]
-	f_ = np.asarray([[lkp[f[i, j]] for j in xrange(f.shape[1])] for i in xrange(f.shape[0])], dtype = np.int32)
+	f_ = np.asarray([[lkp[f[i, j]] for j in range(f.shape[1])] for i in range(f.shape[0])], dtype = np.int32)
 	return v, f_
 
 def removeNonManifoldTriangles(v, f):
@@ -180,16 +180,16 @@ def run(opts):
 	# check for tmi file first
 	if opts.appendtmi:
 		if not os.path.exists(opts.appendtmi[0]):
-			print "Cannot find tmi file: %s" % opts.appendtmi[0]
+			print("Cannot find tmi file: %s" % opts.appendtmi[0])
 			quit()
 	if opts.datatype[0] == 'voxel':
 		if not opts.voxeladjacency:
-			print "-va must be specified for voxel input data"
+			print("-va must be specified for voxel input data")
 			quit()
 		for i in range(len(opts.input)):
 			mask_data = nib.load(opts.input[i]).get_data()
 			data_index = mask_data==1
-			print "Computing adjacency for %d voxel with %d direction adjacency" % (len(data_index[data_index==True]), opts.voxeladjacency[0])
+			print("Computing adjacency for %d voxel with %d direction adjacency" % (len(data_index[data_index==True]), opts.voxeladjacency[0]))
 			adjacency.append((create_adjac_voxel(data_index,dirtype=opts.voxeladjacency[0])))
 	else:
 		for i in range(len(opts.input)):
@@ -215,16 +215,16 @@ def run(opts):
 					else:
 						temp_adjacency = compute_adjacency(min_dist, max_dist, step, v, f)
 				else:
-					print "The difference between max and min distance must be evenly divisible by the step size."
+					print("The difference between max and min distance must be evenly divisible by the step size.")
 					exit()
 				if opts.setappendadj:
 					adjacency.append((temp_adjacency[int(np.argwhere(step_range==float(opts.setappendadj[0])))]))
 				else:
 					if opts.appendtmi:
-						print "Warning: Multiple adjacency sets are appended for each surface."
+						print("Warning: Multiple adjacency sets are appended for each surface.")
 					count = 0
 					for j in step_range:
-						print "Appending adjacency set at geodesic distance of %1.2f" % j
+						print("Appending adjacency set at geodesic distance of %1.2f" % j)
 						adjacency.append((temp_adjacency[count]))
 						count += 1
 			if opts.triangularmesh:

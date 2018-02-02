@@ -33,8 +33,8 @@ def transform_boxcox(data_array,out_data_array,i):
 
 def boxcox(data_array, num_vertex, num_cores):
 	bc_data = np.zeros(data_array.shape)
-	bc_data = Parallel(n_jobs=num_cores)(delayed(transform_boxcox)((data_array[i,:]+1),bc_data[i,:],i) for i in xrange(num_vertex))
-	print "Transformation finished"
+	bc_data = Parallel(n_jobs=num_cores)(delayed(transform_boxcox)((data_array[i,:]+1),bc_data[i,:],i) for i in range(num_vertex))
+	print("Transformation finished")
 	return np.array(bc_data)
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
@@ -53,7 +53,7 @@ def run(opts):
 	num_cores = int(opts.input[1])
 	surf_name = surface.split('.mgh',1)[0]
 	if len(surface.split('.00.',1))==1:
-		print "Please input unsmoothed surface. e.g., ?h.all.???.00.mgh"
+		print("Please input unsmoothed surface. e.g., ?h.all.???.00.mgh")
 		exit()
 	surf_gen = surface.split('.00.',1)[0]
 	hemi = surface.split('.',1)[0]
@@ -74,7 +74,7 @@ def run(opts):
 	if opts.nosmoothing:
 		exit()
 	else:
-		print "Smoothing %s.boxcox.mgh" %  surf_name 
+		print("Smoothing %s.boxcox.mgh" %  surf_name) 
 		os.system = os.popen("$FREESURFER_HOME/bin/mri_surf2surf --hemi %s --s fsaverage --sval %s.boxcox.mgh --fwhm 3 --cortex --tval %s.boxcox.03B.mgh" % (hemi, surf_name, surf_gen))
 
 if __name__ == "__main__":

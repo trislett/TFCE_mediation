@@ -16,7 +16,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import division
+
 import os
 import numpy as np
 import nibabel as nib
@@ -90,7 +90,7 @@ def run(opts):
 		y = data[cortex_index].flatten()
 		(mu, sigma) = norm.fit(y)
 		cthresh = multipler*sigma + mu
-		print "The upper threshold is: %1.4f" % cthresh
+		print("The upper threshold is: %1.4f" % cthresh)
 		data[data>cthresh] = cthresh
 
 	smoothed = calc_gd_fwhm(indices_masked.astype(np.int32, order='c'), dist_masked.astype(np.float32, order='c'), data[:,0,0].astype(np.float32, order = "c"), sigma)

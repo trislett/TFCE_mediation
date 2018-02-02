@@ -16,7 +16,7 @@ affine = skeletonMask.get_affine()
 header = skeletonMask.get_header()
 outMask = skeletonMask.get_data()
 data_index = skeletonMaskData>0.99
-for i in xrange(numMerge):
+for i in range(numMerge):
 	outMask[data_index]=np.multiply(outMask[data_index],nib.load(opts.masks[i]).get_data()[data_index])
 nib.save(nib.Nifti1Image(outMask.astype(np.float32, order = "C"),affine),opts.FAMask[0])
 

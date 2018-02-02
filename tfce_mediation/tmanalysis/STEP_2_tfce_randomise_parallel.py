@@ -86,10 +86,10 @@ def run(opts):
 	#round number of permutations to the nearest 200
 	roundperm=int(np.round(opts.numperm[0]/200.0)*100.0)
 	forperm=(roundperm/100)-1
-	print "Evaluating %d permuations" % (roundperm*2)
+	print("Evaluating %d permuations" % (roundperm*2))
 
 	#build command text file
-	for i in xrange(forperm+1):
+	for i in range(forperm+1):
 		os.system("echo %s -r %i %i >> cmd_TFCE_randomise_%d" % (whichScript, (i*100+1), (i*100+100),currentTime) )
 
 
@@ -102,9 +102,9 @@ def run(opts):
 		os.system("${FSLDIR}/bin/fsl_sub -t cmd_TFCE_randomise_%d" % (currentTime) )
 
 	if opts.voxel:
-		print "Run: tfce_mediation voxel-calculate-fwep to calculate (1-P[FWE]) image (after randomisation is finished)."
+		print("Run: tfce_mediation voxel-calculate-fwep to calculate (1-P[FWE]) image (after randomisation is finished).")
 	else:
-		print "Run: tfce_mediation vertex-calculate-fwep to calculate (1-P[FWE]) image (after randomisation is finished)."
+		print("Run: tfce_mediation vertex-calculate-fwep to calculate (1-P[FWE]) image (after randomisation is finished).")
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

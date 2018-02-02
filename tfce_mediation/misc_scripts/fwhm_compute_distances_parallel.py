@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from __future__ import division
+
 import os
 import numpy as np
 import argparse as ap
@@ -34,7 +34,7 @@ def mergeIdenticalVertices(v, f):
 	_, idx, inv = np.unique(vrv, return_index = True, return_inverse = True)
 	lkp = idx[inv]
 	v_ = v[idx, :]
-	f_ = np.asarray([[lkp[f[i, j]] for j in xrange(f.shape[1])] for i in xrange(f.shape[0])], dtype = np.int32)
+	f_ = np.asarray([[lkp[f[i, j]] for j in range(f.shape[1])] for i in range(f.shape[0])], dtype = np.int32)
 	return v, f_
 
 def removeNonManifoldTriangles(v, f):
@@ -101,7 +101,7 @@ def run(opts):
 		mapped_v_ = load(filenamev, mmap_mode='r+')
 		mapped_f = load(filenamef, mmap_mode='r+')
 
-		distance_values = Parallel(n_jobs=numcores)(delayed(outputDistance)(mapped_v_, mapped_f, threshold, i) for i in xrange(len(v_)))
+		distance_values = Parallel(n_jobs=numcores)(delayed(outputDistance)(mapped_v_, mapped_f, threshold, i) for i in range(len(v_)))
 		distance_values_flat = loop_inplace_sum(distance_values)
 		distance_values_flat = np.asarray(distance_values_flat)
 		indices = distance_values_flat[:,:2].astype(np.int32, order = "c")

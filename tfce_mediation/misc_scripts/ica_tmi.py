@@ -16,7 +16,7 @@
 #	You should have received a copy of the GNU General Public License
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import division
+
 import os
 import sys
 import numpy as np
@@ -56,12 +56,12 @@ def tmi_run_ica(img_data_trunc, num_comp, masking_array, affine_array, variance_
 		temp_var = temp_back_proj.var()
 		explained_var_ratio[i] = total_var - temp_var
 		explained_total_var[i] = (total_var - temp_var) / total_var
-		print "ICA # %d; Percent of Total Variance %1.3f" % ((i+1),explained_total_var[i]*100)
+		print("ICA # %d; Percent of Total Variance %1.3f" % ((i+1),explained_total_var[i]*100))
 	explained_var_ratio = explained_var_ratio / explained_var_ratio.sum()
 
 	sum_total_variance_explained = explained_total_var.sum()
-	print "Total variance explained by all components = %1.3f" % sum_total_variance_explained
-	print "Re-ordering components"
+	print("Total variance explained by all components = %1.3f" % sum_total_variance_explained)
+	print("Re-ordering components")
 	sort_mask = (-1*explained_total_var).argsort()
 	if sum_total_variance_explained > variance_threshold:
 		#sort data
@@ -85,7 +85,7 @@ def tmi_run_ica(img_data_trunc, num_comp, masking_array, affine_array, variance_
 
 		# save outputs and ica functions for potential ica removal
 		if os.path.exists('ICA_temp'):
-			print 'ICA_temp directory exists'
+			print('ICA_temp directory exists')
 			exit()
 		else:
 			os.makedirs('ICA_temp')
@@ -153,20 +153,20 @@ def run(opts):
 		for i in range(len(pca.explained_variance_ratio_)):
 			if (pca.explained_variance_ratio_[i] < 0.01):
 				start_comp_number = i
-				print "Component %d explains %1.4f of the variance." % (i, pca.explained_variance_ratio_[0:i].sum())
+				print("Component %d explains %1.4f of the variance." % (i, pca.explained_variance_ratio_[0:i].sum()))
 				if pca.explained_variance_ratio_[0:i].sum() < 0.80:
 					pass
 				else:
 					break
 
-		print "%d number of components, explaining %1.2f of the variance." % (start_comp_number, (pca.explained_variance_ratio_[0:start_comp_number].sum()*100))
+		print("%d number of components, explaining %1.2f of the variance." % (start_comp_number, (pca.explained_variance_ratio_[0:start_comp_number].sum()*100)))
 
 		rsquare_scores = []
 		std_err = []
 		w_rsquare_scores = []
 		range_comp = np.arange(0,numpcacomps-2, 1)
 		for comp_number in range_comp:
-			x = np.array(range(len(pca.explained_variance_ratio_))[comp_number:])
+			x = np.array(list(range(len(pca.explained_variance_ratio_)))[comp_number:])
 			y = pca.explained_variance_ratio_[comp_number:]
 			slope, intercept, r_value, p_value, se = stats.linregress(x,y)
 			rsquare_scores.append((r_value**2))
@@ -176,9 +176,9 @@ def run(opts):
 		best_comp = np.argmax(rsquare_scores)
 		best_comp2 = np.argmin(std_err)
 		best_comp3 = np.argmax(w_rsquare_scores)
-		print "Best Component %d; R-square residual score %1.4f; variance explained %1.4f" % (best_comp, rsquare_scores[best_comp], pca.explained_variance_ratio_[:best_comp].sum())
+		print("Best Component %d; R-square residual score %1.4f; variance explained %1.4f" % (best_comp, rsquare_scores[best_comp], pca.explained_variance_ratio_[:best_comp].sum()))
 
-		x = np.array(range(len(pca.explained_variance_ratio_))[best_comp:])
+		x = np.array(list(range(len(pca.explained_variance_ratio_)))[best_comp:])
 		y = pca.explained_variance_ratio_[best_comp:]
 		m,b = np.polyfit(x,y,1)
 
@@ -221,9 +221,9 @@ def run(opts):
 		elif opts.numicacomponents:
 			num_comp = int(opts.numicacomponents[0])
 		else:
-			print "unknown number of compenents"
+			print("unknown number of compenents")
 			exit()
-		print num_comp
+		print(num_comp)
 		ica, sort_mask, _ = tmi_run_ica(img_data_trunc,num_comp, variance_threshold=.8, masking_array = masking_array, affine_array = affine_array, filetype='mgh', outname='ica.mgh')
 		components = ica.components_.T
 
@@ -232,11 +232,11 @@ def run(opts):
 		analysis_name = opts.timeplot[0]
 #			components = np.copy(fitcomps)
 		components = zscaler(components[:,sort_mask].T).T
-		subs=np.array(range(components.shape[0]))+1
+		subs=np.array(list(range(components.shape[0])))+1
 		time_step = 1 / 100
 
 		if os.path.exists(analysis_name):
-			print '%s directory exists' % analysis_name
+			print('%s directory exists' % analysis_name)
 			exit()
 		else:
 			os.makedirs(analysis_name)

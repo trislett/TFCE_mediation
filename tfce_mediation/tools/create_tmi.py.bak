@@ -16,7 +16,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
+from __future__ import division
 import os
 import sys
 import numpy as np
@@ -47,7 +47,7 @@ def maskdata(data):
 		mask = mask==1
 		data = data[data!=0]
 	else:
-		print("Error: %d dimensions are not supported." % data.ndim)
+		print "Error: %d dimensions are not supported." % data.ndim
 		exit()
 	return (data, mask)
 
@@ -191,7 +191,7 @@ def run(opts):
 				mask = nib.load(opts.inputmasks[i])
 				mask_data = mask.get_data()
 				if not np.array_equal(img_data.shape[:3], mask_data.shape[:3]):
-					print("Error mask data dimension do not fit image dimension")
+					print "Error mask data dimension do not fit image dimension"
 					exit()
 				mask_data = mask_data==1
 				img_data = img_data[mask_data]
@@ -211,21 +211,21 @@ def run(opts):
 
 		if opts.inputmasks:
 			if not len(opts.inputmasks)==1:
-				print("Only one mask can be added using concatenate. See help (hint: rerun using append option for multiple modalities/surfaces)")
+				print "Only one mask can be added using concatenate. See help (hint: rerun using append option for multiple modalities/surfaces)"
 				exit()
 			mask = nib.load(opts.inputmasks[0])
 			mask_data = mask.get_data()
 			if not np.array_equal(img_data.shape[:3], mask_data.shape[:3]):
-				print("Error mask data dimension do not fit image dimension")
+				print "Error mask data dimension do not fit image dimension"
 				exit()
 			mask_data = mask_data==1
 			img_data = img_data[mask_data].astype(np.float32)
 		else:
-			print("Creating mask from first image.")
+			print "Creating mask from first image."
 			img_data, mask_data = maskdata(img_data)
 
-		for i in range(numMerge):
-			print("merging image %s" % opts.concatenateimages[i])
+		for i in xrange(numMerge):
+			print "merging image %s" % opts.concatenateimages[i]
 			if i > 0:
 				tempdata = nib.load(opts.concatenateimages[i]).get_data()
 				tempdata = tempdata[mask_data].astype(np.float32)
@@ -260,8 +260,8 @@ def run(opts):
 		firstimg_data = np.genfromtxt(opts.concatenatetext[0], delimiter=',')
 		numMerge=len(opts.concatenatetext)
 
-		for i in range(numMerge):
-			print("merging text file %s" % opts.concatenatetext[i])
+		for i in xrange(numMerge):
+			print "merging text file %s" % opts.concatenatetext[i]
 			if i > 0:
 				tempdata = np.genfromtxt(opts.concatenatetext[i], delimiter=',')
 			img_data = np.column_stack((img_data,tempdata))
@@ -274,8 +274,8 @@ def run(opts):
 		firstimg_data = np.fromfile(opts.concatenatebinary[0], dtype = 'f')
 		numMerge=len(opts.concatenatebinary)
 
-		for i in range(numMerge):
-			print("merging simple float binary file %s" % opts.concatenatebinary[i])
+		for i in xrange(numMerge):
+			print "merging simple float binary file %s" % opts.concatenatebinary[i]
 			if i > 0:
 				tempdata = np.fromfile(opts.concatenatebinary[i], dtype = 'f')
 			img_data = np.column_stack((img_data,tempdata))
@@ -312,18 +312,18 @@ def run(opts):
 			adjacency_array.append(np.load(str(opts.inputadjacencyobject[i])))
 		if not np.equal(len(adjacency_array),len(masking_array)):
 			if not len(adjacency_array) % len(masking_array) == 0:
-				print("Number of adjacency objects does not match number of images.")
+				print "Number of adjacency objects does not match number of images."
 			else:
-				print("Error number of adjacency objects is not divisable by the number of masking arrays.")
+				print "Error number of adjacency objects is not divisable by the number of masking arrays."
 				exit()
 
 	if opts.inputcolumnnames:
 		columnids = np.genfromtxt(opts.inputcolumnnames[0], delimiter=',', dtype=str)
 		if columnids.ndim != 1:
-			print("Error: column names must be a one dimensional array")
+			print "Error: column names must be a one dimensional array"
 			quit()
 		if columnids.shape[0] != image_array[0].shape[1]:
-			print("Column name length %d does not match data array length %d" % (columnids.shape[0],image_array[0].shape[1]))
+			print "Column name length %d does not match data array length %d" % (columnids.shape[0],image_array[0].shape[1])
 			quit()
 
 	# Write tmi file

@@ -16,12 +16,12 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import division
+
 
 import os
 import sys
 try:
-	import cPickle as pickle
+	import pickle as pickle
 except:
 	import pickle
 import nibabel as nib
@@ -61,7 +61,7 @@ def savenifti_v2(image_array, index, imagename, affine=None):
 	elif image_array.ndim == 1:
 		imgout = np.zeros((index.shape[0],index.shape[1],index.shape[2]))
 	else:
-		print 'error'
+		print('error')
 	imgout[index]=outdata
 	nib.save(nib.Nifti1Image(imgout.astype(np.float32, order = "C"),affine=affine),imagename)
 
@@ -102,7 +102,7 @@ def write_tm_filetype(outname, columnids = [], imgtype = [], checkname = True, o
 			elif line[1] == 'mode_reorder':
 				pass
 			else:
-				print ("Error reading history. Mode %s is not understood. Count is reflect number of element in current file" % line[1])
+				print(("Error reading history. Mode %s is not understood. Count is reflect number of element in current file" % line[1]))
 
 	if not masking_array == []:
 		masking_array=np.array(masking_array)
@@ -111,7 +111,7 @@ def write_tm_filetype(outname, columnids = [], imgtype = [], checkname = True, o
 		elif masking_array.ndim==3:
 			num_mask = 1
 		else:
-			print "Error mask dimension are not understood"
+			print("Error mask dimension are not understood")
 	if not vertex_array==[]:
 		vertex_array=np.array(vertex_array)
 		if vertex_array.ndim==2:
@@ -119,7 +119,7 @@ def write_tm_filetype(outname, columnids = [], imgtype = [], checkname = True, o
 		elif (vertex_array.dtype.kind == 'O') or (vertex_array.ndim==3):
 			num_object=int(vertex_array.shape[0])
 		else:
-			print "Error surface object dimension are not understood."
+			print("Error surface object dimension are not understood.")
 	if not affine_array==[]:
 		affine_array=np.array(affine_array)
 		if affine_array.ndim==2:
@@ -127,7 +127,7 @@ def write_tm_filetype(outname, columnids = [], imgtype = [], checkname = True, o
 		elif (affine_array.dtype.kind == 'O') or (affine_array.ndim==3):
 			num_affine=int(affine_array.shape[0])
 		else:
-			print "Error affine dimension are not understood."
+			print("Error affine dimension are not understood.")
 	if not adjacency_array==[]:
 		adjacency_array=np.array(adjacency_array)
 		if (adjacency_array.dtype.kind == 'O') or (adjacency_array.ndim==2):
@@ -135,7 +135,7 @@ def write_tm_filetype(outname, columnids = [], imgtype = [], checkname = True, o
 		elif adjacency_array.ndim==1:
 			num_adjacency = 1
 		else:
-			print "Error shape of adjacency objects are not understood."
+			print("Error shape of adjacency objects are not understood.")
 
 	# write array shape
 	if not image_array == []:
@@ -254,7 +254,7 @@ def write_tm_filetype(outname, columnids = [], imgtype = [], checkname = True, o
 					binarymask = masking_array[j] * 1
 					binarymask = np.array(binarymask, dtype=np.uint8)
 					x, y, z = np.ma.nonzero(binarymask)
-					for i in xrange(len(x)):
+					for i in range(len(x)):
 						o.write("%d %d %d\n" % (int(x[i]), int(y[i]), int(z[i]) ) )
 			if num_affine>0:
 				for j in range(num_affine):
@@ -264,9 +264,9 @@ def write_tm_filetype(outname, columnids = [], imgtype = [], checkname = True, o
 				columnids.tofile(o, sep='\n', format="%s")
 			if num_object>0:
 				for k in range(num_object):
-					for i in xrange(len(vertex_array[k])):
+					for i in range(len(vertex_array[k])):
 						o.write("%1.6f %1.6f %1.6f\n" % (vertex_array[k][i,0], vertex_array[k][i,1], vertex_array[k][i,2] ) )
-					for j in xrange(len(face_array[k])):
+					for j in range(len(face_array[k])):
 						o.write("%d %d %d\n" % (int(face_array[k][j,0]), int(face_array[k][j,1]), int(face_array[k][j,2]) ) )
 
 		o.close()
@@ -313,12 +313,12 @@ def read_tm_filetype(tm_file, verbose=True):
 	reader = obj.readline().strip().split()
 	firstword=reader[0]
 	if firstword != 'tmi':
-		print "Error: not a TFCE_mediation image."
+		print("Error: not a TFCE_mediation image.")
 		exit()
 	reader = obj.readline().strip().split()
 	firstword=reader[0]
 	if firstword != 'format':
-		print "Error: unknown reading file format"
+		print("Error: unknown reading file format")
 		exit()
 	else:
 		tm_filetype = reader[1]
@@ -365,8 +365,8 @@ def read_tm_filetype(tm_file, verbose=True):
 		for e in range(len(element)):
 			obj.seek(position)
 			if verbose:
-				print "reading %s" % str(element[e])
-				print position
+				print("reading %s" % str(element[e]))
+				print(position)
 			if not str(element[e]) == 'adjacency_object':
 				array_read = np.fromfile(obj, dtype=element_dtype[e])
 			else:
@@ -435,7 +435,7 @@ def read_tm_filetype(tm_file, verbose=True):
 				o_columnids.append(( np.array(temparray, dtype=element_dtype[e]) ))
 
 	else:
-		print "Error unknown filetype: %s" % tm_filetype
+		print("Error unknown filetype: %s" % tm_filetype)
 	return(element, o_imgarray, o_masking_array, maskname, o_affine, o_vertex, o_face, surfname, o_adjacency, tmi_history, o_columnids)
 
 # Depreciated
@@ -457,7 +457,7 @@ def convert_tmi(element, output_name, output_type='freesurfer', image_array=None
 		if str(element[e]) == 'vertex':
 			if vertex_array is not None:
 				if not len(vertex_array) == len(face_array):
-					print "number of vertex and face elements must match"
+					print("number of vertex and face elements must match")
 					exit()
 				num_surf = len(vertex_array)
 	if output_type == 'freesurfer':
@@ -498,5 +498,5 @@ def convert_tmi(element, output_name, output_type='freesurfer', image_array=None
 			savenifti_v2(image_array[0], masking_array[0], output_name, affine)
 			savenifti_v2(np.ones(len(masking_array[0][masking_array[0]==True])), masking_array[0], 'mask.%s' % output_name, affine)
 	else:
-		print "Error. %s output type is not recognised" % output_type
+		print("Error. %s output type is not recognised" % output_type)
 

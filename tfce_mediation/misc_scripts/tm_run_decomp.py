@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from __future__ import division
+
 import os
 import numpy as np
 import argparse as ap
@@ -31,7 +31,7 @@ def loadcortextmgh(lh_imagename, rh_imagename, indexl = None, indexr = None):
 		img_data_trunc = np.vstack((lh_img_data_trunc,rh_img_data_trunc))
 		midpoint = lh_img_data_trunc.shape[0]
 	else:
-		print "Cannot find input images"
+		print("Cannot find input images")
 		exit()
 	return (img_data_trunc, midpoint, lh_img, rh_img, lh_mask_index, rh_mask_index)
 
@@ -54,7 +54,7 @@ def run_decomp(data, method = 'ICA', num_comp = 10, sort_comp = False, scale_res
 	elif method == 'PCA':
 		model = PCA(n_components=int(num_comp))
 	else:
-		print "Method %s not supported" % method
+		print("Method %s not supported" % method)
 		quit()
 	S_ = model.fit_transform(data).T
 	components = np.zeros_like(model.components_.T)
@@ -78,13 +78,13 @@ def run_decomp(data, method = 'ICA', num_comp = 10, sort_comp = False, scale_res
 			temp_var = temp_back_proj.var()
 			explained_var_ratio[i] = total_var - temp_var
 			explained_total_var[i] = (total_var - temp_var) / total_var
-			print "Component # %d; Percent of Total Variance %1.3f" % ((i+1),explained_total_var[i]*100)
+			print("Component # %d; Percent of Total Variance %1.3f" % ((i+1),explained_total_var[i]*100))
 			tempcomps = None
 			temp_back_proj = None
 		explained_var_ratio = explained_var_ratio / explained_var_ratio.sum()
 		sum_total_variance_explained = explained_total_var.sum()
-		print "Total variance explained by all components = %1.3f" % sum_total_variance_explained
-		print "Re-ordering components"
+		print("Total variance explained by all components = %1.3f" % sum_total_variance_explained)
+		print("Re-ordering components")
 		sort_mask = (-1*explained_total_var).argsort()
 		np.savetxt("%s_total_var.csv" % method,
 			explained_total_var[sort_mask],
@@ -203,7 +203,7 @@ def run(opts):
 		for i, options in enumerate(opts.inputvoxel):
 			mask_name = options[1]
 			if not os.path.isfile(mask_name):
-				print 'Error %s not found.' % mask_name
+				print('Error %s not found.' % mask_name)
 				quit()
 			img_mask = nib.load(mask_name)
 			mask_array.append(img_mask.get_data())
@@ -226,7 +226,7 @@ def run(opts):
 				imgext = '.nii.gz' # default to zipped images
 				img_all = nib.load(img_all_name)
 			else:
-				print 'Error filetype for %s is not supported' % img_all_name
+				print('Error filetype for %s is not supported' % img_all_name)
 				quit()
 			if data is None:
 				data = img_all[mask_array[i] != 0]
@@ -259,7 +259,7 @@ def run(opts):
 	else:
 		out, mdl = run_decomp(data, method = str(opts.method[0]), num_comp = opts.numcomp[0], scale_results = opts.scaleresults)
 		if str(opts.method[0]) == 'PCA':
-			print mdl.explained_variance_ratio_
+			print(mdl.explained_variance_ratio_)
 
 	if opts.savemodel:
 		pickle.dump(mdl, open( "%s_model_dump.p" % str(opts.method[0]), "wb"))

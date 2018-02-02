@@ -16,7 +16,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import division
+
 import os
 import sys
 import math
@@ -55,7 +55,7 @@ def calculate_tfce(merge_y, masking_array, pred_x, calcTFCE, vdensity, position_
 	X = np.column_stack([np.ones(merge_y.shape[0]),pred_x])
 	if randomise:
 		np.random.seed(perm_number+int(float(str(time())[-6:])*100))
-		X = X[np.random.permutation(range(merge_y.shape[0]))]
+		X = X[np.random.permutation(list(range(merge_y.shape[0])))]
 	k = len(X.T)
 	invXX = np.linalg.inv(np.dot(X.T, X))
 	tvals = tval_int(X, invXX, merge_y, merge_y.shape[0], k, merge_y.shape[1])
@@ -98,18 +98,18 @@ def calculate_tfce(merge_y, masking_array, pred_x, calcTFCE, vdensity, position_
 					os.system("echo %f >> perm_maxTFCE_surf%d_tcon%d.csv" % (np.nanmax(neg_tfce_tvals[tstat_counter,start:end]),surf_count,tstat_counter+1))
 			else:
 				if set_surf_count is not None:
-					print "Maximum (untransformed) postive tfce value for surface %s, tcon %d: %f" % (int(set_surf_count[surf_count]),tstat_counter+1,np.nanmax(tfce_tvals[tstat_counter,start:end])) 
-					print "Maximum (untransformed) negative tfce value for surface %s, tcon %d: %f" % (int(set_surf_count[surf_count]),tstat_counter+1,np.nanmax(neg_tfce_tvals[tstat_counter,start:end]))
+					print("Maximum (untransformed) postive tfce value for surface %s, tcon %d: %f" % (int(set_surf_count[surf_count]),tstat_counter+1,np.nanmax(tfce_tvals[tstat_counter,start:end]))) 
+					print("Maximum (untransformed) negative tfce value for surface %s, tcon %d: %f" % (int(set_surf_count[surf_count]),tstat_counter+1,np.nanmax(neg_tfce_tvals[tstat_counter,start:end])))
 				else:
-					print "Maximum (untransformed) postive tfce value for surface %s, tcon %d: %f" % (surf_count,tstat_counter+1,np.nanmax(tfce_tvals[tstat_counter,start:end])) 
-					print "Maximum (untransformed) negative tfce value for surface %s, tcon %d: %f" % (surf_count,tstat_counter+1,np.nanmax(neg_tfce_tvals[tstat_counter,start:end]))
+					print("Maximum (untransformed) postive tfce value for surface %s, tcon %d: %f" % (surf_count,tstat_counter+1,np.nanmax(tfce_tvals[tstat_counter,start:end]))) 
+					print("Maximum (untransformed) negative tfce value for surface %s, tcon %d: %f" % (surf_count,tstat_counter+1,np.nanmax(neg_tfce_tvals[tstat_counter,start:end])))
 		if verbose:
-			print "T-contrast: %d" % tstat_counter
-			print "Max tfce from all surfaces = %f" % tfce_tvals[tstat_counter].max()
-			print "Max negative tfce from all surfaces = %f" % neg_tfce_tvals[tstat_counter].max()
+			print("T-contrast: %d" % tstat_counter)
+			print("Max tfce from all surfaces = %f" % tfce_tvals[tstat_counter].max())
+			print("Max negative tfce from all surfaces = %f" % neg_tfce_tvals[tstat_counter].max())
 	if randomise:
 		if print_interation:
-			print "Interation number: %d" % perm_number
+			print("Interation number: %d" % perm_number)
 #		os.system("echo %s >> perm_maxTFCE_allsurf.csv" % ( ','.join(["%0.2f" % i for i in tfce_tvals.max(axis=1)] )) )
 #		os.system("echo %s >> perm_maxTFCE_allsurf.csv" % ( ','.join(["%0.2f" % i for i in neg_tfce_tvals.max(axis=1)] )) )
 		tvals = None
@@ -148,7 +148,7 @@ def low_ram_calculate_tfce(data, mask, pred_x, calcTFCE, vdensity, set_surf_coun
 			np.random.seed(perm_number + perm_seed)
 		else:
 			np.random.seed(perm_number+int(float(str(time())[-6:])*100))
-		X = X[np.random.permutation(range(data.shape[0]))]
+		X = X[np.random.permutation(list(range(data.shape[0])))]
 	k = len(X.T)
 	invXX = np.linalg.inv(np.dot(X.T, X))
 	tvals = tval_int(X, invXX, data, data.shape[0], k, data.shape[1])
@@ -207,7 +207,7 @@ def low_ram_calculate_tfce(data, mask, pred_x, calcTFCE, vdensity, set_surf_coun
 def calculate_mediation_tfce(medtype, merge_y, masking_array, pred_x, depend_y, calcTFCE, vdensity, position_array, fullmask, perm_number = None, randomise = False, verbose = False, no_intercept = True, print_interation = False):
 	if randomise:
 		np.random.seed(perm_number+int(float(str(time())[-6:])*100))
-		indices_perm = np.random.permutation(range(merge_y.shape[0]))
+		indices_perm = np.random.permutation(list(range(merge_y.shape[0])))
 		if (medtype == 'M') or (medtype == 'I'):
 			if randomise:
 				pred_x = pred_x[indices_perm]
@@ -235,11 +235,11 @@ def calculate_mediation_tfce(medtype, merge_y, masking_array, pred_x, depend_y, 
 		if randomise:
 			os.system("echo %f >> perm_maxTFCE_surf%d_%s_zstat.csv" % (np.nanmax(tfce_SobelZ[start:end]), surf_count, medtype))
 		else:
-			print "Max Sobel Z tfce value for surface %s:\t %1.5f" % (surf_count, np.nanmax(tfce_SobelZ[start:end])) 
+			print("Max Sobel Z tfce value for surface %s:\t %1.5f" % (surf_count, np.nanmax(tfce_SobelZ[start:end]))) 
 	if verbose:
-		print "Max Zstat tfce from all surfaces = %f" % tfce_SobelZ.max()
+		print("Max Zstat tfce from all surfaces = %f" % tfce_SobelZ.max())
 	if randomise:
-		print "Interation number: %d" % perm_number
+		print("Interation number: %d" % perm_number)
 		SobelZ = None
 		tfce_SobelZ = None
 	zval_temp = None
@@ -273,7 +273,7 @@ def low_ram_calculate_mediation_tfce(medtype, data, mask, pred_x, depend_y, calc
 			np.random.seed(perm_number + perm_seed)
 		else:
 			np.random.seed(perm_number+int(float(str(time())[-6:])*100))
-		indices_perm = np.random.permutation(range(data.shape[0]))
+		indices_perm = np.random.permutation(list(range(data.shape[0])))
 
 		if (medtype == 'M') or (medtype == 'I'):
 			if randomise:
@@ -471,7 +471,7 @@ def apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, t
 		sorted_perm_tfce_max=maxvalue_array[:,contrast]
 		p_array=np.zeros_like(sorted_perm_tfce_max)
 		corrp_img = np.zeros((positive_data.shape[0]))
-		for j in xrange(num_perm):
+		for j in range(num_perm):
 			p_array[j] = np.true_divide(j,num_perm)
 		cV=0
 		for k in positive_data[:,contrast]:
@@ -583,7 +583,7 @@ def paint_surface(lowthresh, highthres, color_scheme, data_array, save_colorbar 
 	elif np.any(colormaps == str(color_scheme)):
 		out_color_array = convert_mpl_colormaps(np.array((float(lowthresh),float(highthres))), data_array, str(color_scheme), save_colorbar = save_colorbar)
 	else:
-		print "Error: colour scheme %s does not exist" % str(color_scheme)
+		print("Error: colour scheme %s does not exist" % str(color_scheme))
 		quit()
 	return out_color_array
 
@@ -617,9 +617,9 @@ def replacemask(orig_mask, orig_maskname, maskfile):
 	mask_data = mask.get_data()
 	_, mask_index = maskdata(mask_data)
 	if not orig_mask.shape == mask_index.shape:
-		print "Error. Replacement mask dimensions %s does not match the original mask dimensions %s" % (mask_index.shape, orig_mask.shape)
+		print("Error. Replacement mask dimensions %s does not match the original mask dimensions %s" % (mask_index.shape, orig_mask.shape))
 		sys.exit()
-	splash_warning = raw_input("Warning replacing the mask will irreversibly change the masked data array. Enter Yes to confirm: \n")
+	splash_warning = input("Warning replacing the mask will irreversibly change the masked data array. Enter Yes to confirm: \n")
 	if splash_warning == 'Yes':
 		pass
 	elif splash_warning == 'Y':
@@ -629,9 +629,9 @@ def replacemask(orig_mask, orig_maskname, maskfile):
 	elif splash_warning == 'y':
 		pass
 	else:
-		print "Replace mask canceled. Exiting."
+		print("Replace mask canceled. Exiting.")
 		quit()
-	newname = raw_input("Enter a new mask name or press enter to keep the exist replacement name: %s\n" % orig_maskname)
+	newname = input("Enter a new mask name or press enter to keep the exist replacement name: %s\n" % orig_maskname)
 	if newname:
 		mask_name = newname
 	else:
@@ -648,17 +648,17 @@ def replacesurface(orig_v, orig_f, surf_filename):
 	elif surf_ext == '.gii':
 		v, f = convert_gifti(surf_filename)
 	elif surf_ext == '.obj':
-		print "Reading surface as MNI object"
+		print("Reading surface as MNI object")
 		v, f = convert_mni_object(surf_filename)
 	elif surf_ext == '.srf':
 		v, f = convert_fs(surf_filename)
 	else:
 		v, f = convert_fs(surf_filename) # place holder
 	if not orig_v.shape == v.shape:
-		print "Error. Vertices shape mismatch."
+		print("Error. Vertices shape mismatch.")
 		sys.exit()
 	if not orig_f.shape == f.shape:
-		print "Warning. Faces shape mismatch."
+		print("Warning. Faces shape mismatch.")
 	return  v, f, surfname
 
 
@@ -683,7 +683,7 @@ def maskdata(data):
 		mask = mask==1
 		data = data[data!=0]
 	else:
-		print "Error: %d dimensions are not supported." % data.ndim
+		print("Error: %d dimensions are not supported." % data.ndim)
 		exit()
 	return (data, mask)
 
@@ -703,58 +703,58 @@ def print_tmi_history(tmi_history, maskname_array, surfname, num_con = None, con
 	num_affines = 0
 	num_surfaces = 0
 	num_adjac = 0
-	print "--- History ---"
+	print("--- History ---")
 	for i in range(len(tmi_history)):
-		print "Time-point %d" % i
+		print("Time-point %d" % i)
 		line = tmi_history[i].split(' ')
-		print ("Date: %s-%s-%s %s:%s:%s" % (line[2][6:8],line[2][4:6],line[2][0:4], line[2][8:10], line[2][10:12], line[2][12:14]) )
+		print(("Date: %s-%s-%s %s:%s:%s" % (line[2][6:8],line[2][4:6],line[2][0:4], line[2][8:10], line[2][10:12], line[2][12:14]) ))
 		if line[1]=='mode_add':
-			print "Elements added"
+			print("Elements added")
 			num_masks += int(line[4])
 			num_affines += int(line[5])
 			num_surfaces += int(line[6])
 			num_adjac += int(line[7])
 		elif line[1]=='mode_sub':
-			print "Elements removed"
+			print("Elements removed")
 			num_masks -= int(line[4])
 			num_affines -= int(line[5])
 			num_surfaces -= int(line[6])
 			num_adjac -= int(line[7])
 		elif line[1] == 'mode_replace':
-			print "Element replaced"
+			print("Element replaced")
 		elif line[1] == 'mode_reorder':
-			print "Element reordered"
+			print("Element reordered")
 		else:
-			print "Error: mode is not understood"
-		print "# masks: \t %s" % line[4]
-		print "# affines: \t %s" % line[5]
-		print "# surfaces: \t %s" % line[6]
-		print "# adjacency sets: \t %s\n" % line[7]
+			print("Error: mode is not understood")
+		print("# masks: \t %s" % line[4])
+		print("# affines: \t %s" % line[5])
+		print("# surfaces: \t %s" % line[6])
+		print("# adjacency sets: \t %s\n" % line[7])
 
-	print "--- Mask names ---"
+	print("--- Mask names ---")
 	for i in range(len(maskname_array)):
-		print "Mask %d : %s" % (i,maskname_array[i])
-	print ""
-	print "--- Surface names ---"
+		print("Mask %d : %s" % (i,maskname_array[i]))
+	print("")
+	print("--- Surface names ---")
 	for i in range(len(surfname)):
-		print "Surface %d : %s" % (i,surfname[i])
-	print ""
+		print("Surface %d : %s" % (i,surfname[i]))
+	print("")
 	if contrast_names != []:
-		print "--- Contrasts/Subjects ---"
+		print("--- Contrasts/Subjects ---")
 		count = 0
 		for contrast in contrast_names[0]:
-			print "Contrast %d : %s" % (count,contrast)
+			print("Contrast %d : %s" % (count,contrast))
 			count += 1
-		print ""
+		print("")
 		num_con = None
 	if num_con:
-		print "--- Contrasts/Subjects ---"
-		print range(num_con)
-		print ""
-	print "--- Total ---"
-	print "# masks: \t %d \t ([0 -> %d])" % (num_masks, num_masks-1)
-	print "# affines: \t %d \t ([0 -> %d])" % (num_affines, num_affines-1)
-	print "# surfaces: \t %d \t ([0 -> %d])" % (num_surfaces, num_surfaces-1)
-	print "# adjacency sets: \t %d \t ([0 -> %d])\n" % (num_adjac, num_adjac-1)
+		print("--- Contrasts/Subjects ---")
+		print(list(range(num_con)))
+		print("")
+	print("--- Total ---")
+	print("# masks: \t %d \t ([0 -> %d])" % (num_masks, num_masks-1))
+	print("# affines: \t %d \t ([0 -> %d])" % (num_affines, num_affines-1))
+	print("# surfaces: \t %d \t ([0 -> %d])" % (num_surfaces, num_surfaces-1))
+	print("# adjacency sets: \t %d \t ([0 -> %d])\n" % (num_adjac, num_adjac-1))
 
 

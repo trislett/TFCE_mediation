@@ -44,7 +44,7 @@ def run(opts):
 	sorted_perm_tfce_max=np.sort(perm_tfce_max)
 	p_array=np.zeros(perm_tfce_max.shape)
 	num_perm=perm_tfce_max.shape[0]
-	for j in xrange(num_perm):
+	for j in range(num_perm):
 		p_array[j] = np.true_divide(j,num_perm)
 	thresh = np.array(data_tfce_img > 0)
 	ind=np.where(thresh)
@@ -56,7 +56,7 @@ def run(opts):
 	temp_outname, _ = os.path.splitext(temp_outname)
 	temp_outname, _ = os.path.splitext(temp_outname)
 	tfce_fweP_name = "%s_FWEcorrP.nii.gz" % (temp_outname)
-	print "The accuracy is p = 0.05 +/- %.4f" % (2*(np.sqrt(0.05*0.95/num_perm)))
+	print("The accuracy is p = 0.05 +/- %.4f" % (2*(np.sqrt(0.05*0.95/num_perm))))
 	nib.save(nib.Nifti1Image(corrp_img,affine_tfce_img),tfce_fweP_name)
 
 	if opts.outputneglog10:

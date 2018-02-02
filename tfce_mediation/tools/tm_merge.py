@@ -65,8 +65,8 @@ def run(opts):
 	if opts.scale: 
 		img_data_trunc = zscaler(img_data_trunc.T).T
 
-	for i in xrange(numMerge):
-		print "merging image %s" % opts.input[i]
+	for i in range(numMerge):
+		print("merging image %s" % opts.input[i])
 		if i > 0:
 			if opts.voxel:
 				_, tempimgdata = loadnifti(opts.input[i])
@@ -91,7 +91,7 @@ def run(opts):
 
 		#save outputs and ica functions for potential ica removal
 		if os.path.exists('ICA_temp'):
-			print 'ICA_temp directory exists'
+			print('ICA_temp directory exists')
 			exit()
 		else:
 			os.makedirs('ICA_temp')

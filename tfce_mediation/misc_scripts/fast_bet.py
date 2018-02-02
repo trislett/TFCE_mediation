@@ -65,7 +65,7 @@ def run(opts):
 	data = img.get_data()
 	hdr = img.get_header()
 	low_threshold, _ = autothreshold(data, threshold_type = opts.thresholdalgorithm)
-	print low_threshold
+	print(low_threshold)
 	mask = np.zeros_like(data)
 	mask[:] = data
 	mask[mask < low_threshold] = 0

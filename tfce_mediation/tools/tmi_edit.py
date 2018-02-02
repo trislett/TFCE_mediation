@@ -16,7 +16,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import division
+
 import os
 import sys
 import numpy as np
@@ -47,7 +47,7 @@ def maskdata(data):
 		mask = mask==1
 		data = data[data!=0]
 	else:
-		print "Error: %d dimensions are not supported." % data.ndim
+		print("Error: %d dimensions are not supported." % data.ndim)
 		exit()
 	return (data, mask)
 
@@ -140,7 +140,7 @@ def run(opts):
 	num_adjac = 0
 	append_history = True
 
-	print len(sys.argv)
+	print(len(sys.argv))
 	
 	# if not enough inputs, output history
 	if len(sys.argv) <= 4:
@@ -162,61 +162,61 @@ def run(opts):
 
 	if opts.outputstats:
 		for i in range(len(columnids[0])):
-			print "\n --- Subject/Contrast[%d]: %s ---\n"  % (i, columnids[0][i])
+			print("\n --- Subject/Contrast[%d]: %s ---\n"  % (i, columnids[0][i]))
 			for j, m in enumerate(maskname_array):
 				start = position_array[j]
 				end = position_array[j+1]
-				print "Mask[%d]\t%s \t [%1.4f, %1.4f]" % (j, m,
+				print("Mask[%d]\t%s \t [%1.4f, %1.4f]" % (j, m,
 					image_array[0][start:end,i].min(),
-					image_array[0][start:end,i].max())
+					image_array[0][start:end,i].max()))
 		if surfname is not None:
-			print "\n --- Surfaces ---\n"
+			print("\n --- Surfaces ---\n")
 			for s, surf in enumerate(surfname):
-				print"Surface[%d]\t%s" % (s,surf) 
+				print("Surface[%d]\t%s" % (s,surf)) 
 		sys.exit()
 
 	if opts.history:
-		print "--- History ---"
+		print("--- History ---")
 		for i in range(len(tmi_history)):
-			print "Time-point %d" % i
+			print("Time-point %d" % i)
 			line = tmi_history[i].split(' ')
-			print ("Date: %s-%s-%s %s:%s:%s" % (line[2][6:8],line[2][4:6],line[2][0:4], line[2][8:10], line[2][10:12], line[2][12:14]) )
+			print(("Date: %s-%s-%s %s:%s:%s" % (line[2][6:8],line[2][4:6],line[2][0:4], line[2][8:10], line[2][10:12], line[2][12:14]) ))
 			if line[1]=='mode_add':
-				print "Elements added"
+				print("Elements added")
 				num_masks += int(line[4])
 				num_affines += int(line[5])
 				num_surfaces += int(line[6])
 				num_adjac += int(line[7])
 			elif line[1]=='mode_sub':
-				print "Elements removed"
+				print("Elements removed")
 				num_masks -= int(line[4])
 				num_affines -= int(line[5])
 				num_surfaces -= int(line[6])
 				num_adjac -= int(line[7])
 			elif line[1] == 'mode_replace':
-				print "Element replaced"
+				print("Element replaced")
 			elif line[1] == 'mode_reorder':
-				print "Element reordered"
+				print("Element reordered")
 			else:
-				print "Error: mode is not understood"
-			print "# masks: %s" % line[4]
-			print "# affines: %s" % line[5]
-			print "# surfaces: %s" % line[6]
-			print "# adjacency sets: %s\n" % line[7]
+				print("Error: mode is not understood")
+			print("# masks: %s" % line[4])
+			print("# affines: %s" % line[5])
+			print("# surfaces: %s" % line[6])
+			print("# adjacency sets: %s\n" % line[7])
 
-		print "--- Mask names ---"
+		print("--- Mask names ---")
 		for i in range(len(maskname_array)):
-			print "Mask %d : %s" % (i,maskname_array[i])
-		print ""
-		print "--- Surface names ---"
+			print("Mask %d : %s" % (i,maskname_array[i]))
+		print("")
+		print("--- Surface names ---")
 		for i in range(len(surfname)):
-			print "Surface %d : %s" % (i,surfname[i])
-		print ""
-		print "--- Total ---"
-		print "# masks: %d ([0 -> %d])" % (num_masks, num_masks-1)
-		print "# affines: %d ([0 -> %d])" % (num_affines, num_affines-1)
-		print "# surfaces: %d ([0 -> %d])" % (num_surfaces, num_surfaces-1)
-		print "# adjacency sets: %d ([0 -> %d])\n" % (num_adjac, num_adjac-1)
+			print("Surface %d : %s" % (i,surfname[i]))
+		print("")
+		print("--- Total ---")
+		print("# masks: %d ([0 -> %d])" % (num_masks, num_masks-1))
+		print("# affines: %d ([0 -> %d])" % (num_affines, num_affines-1))
+		print("# surfaces: %d ([0 -> %d])" % (num_surfaces, num_surfaces-1))
+		print("# adjacency sets: %d ([0 -> %d])\n" % (num_adjac, num_adjac-1))
 		quit()
 	# revert
 	if opts.revert:
@@ -270,7 +270,7 @@ def run(opts):
 	if opts.replacemask:
 
 		original_mask = np.copy(masking_array[int(opts.replacemask[0])])
-		print "Replacing mask %s" % maskname_array[int(opts.replacemask[0])]
+		print("Replacing mask %s" % maskname_array[int(opts.replacemask[0])])
 		masking_array[int(opts.replacemask[0])], maskname_array[int(opts.replacemask[0])] = replacemask(original_mask, maskname_array[int(opts.replacemask[0])], opts.replacemask[1])
 
 		size_oldmask = original_mask[original_mask==True].shape[0]
@@ -298,9 +298,9 @@ def run(opts):
 		append_history = False
 	if opts.reordermasks:
 		if not len(opts.reordermasks) == len(masking_array):
-			print "Error. The number of inputs [%d] must match the number of masks [%] in %s." % (len(opts.reordermasks),len(masking_array),opts.inputtmi[0])
+			print("Error. The number of inputs [%d] must match the number of masks [%] in %s." % (len(opts.reordermasks),len(masking_array),opts.inputtmi[0]))
 			sys.exit()
-		print "Reordering \n%s\n to \n%s\n" % (str(maskname_array),str([maskname_array[i] for i in opts.reordermasks]))
+		print("Reordering \n%s\n to \n%s\n" % (str(maskname_array),str([maskname_array[i] for i in opts.reordermasks])))
 		masking_array = [masking_array[i] for i in opts.reordermasks]
 		maskname_array = [maskname_array[i] for i in opts.reordermasks]
 		tmi_history.append("history mode_reorder %d 1 %d 0 0 0" % (currentTime, len(opts.reordermasks)))
@@ -333,21 +333,21 @@ def run(opts):
 		if np.isnan(new_affine).any():
 			new_affine = np.genfromtxt(opts.replaceaffine[1], delimiter='\t')
 		if np.isnan(new_affine).any():
-			print "Error. Input file must be a comma, space, or tab separate (if they are, check that the line ending is UNIX and utf-8))."
+			print("Error. Input file must be a comma, space, or tab separate (if they are, check that the line ending is UNIX and utf-8)).")
 			sys.exit()
 		if not new_affine.shape == (4, 4):
-			print "Error. Input affine must (4,4)."
+			print("Error. Input affine must (4,4).")
 			sys.exit()
-		print "Replacing affine:\n %s\n" % str(original_affine)
-		print "With affine:\n %s\n" % str(new_affine)
+		print("Replacing affine:\n %s\n" % str(original_affine))
+		print("With affine:\n %s\n" % str(new_affine))
 		affine_array[int(opts.replaceaffine[0])] = new_affine
 		tmi_history.append("history mode_replace %d 1 0 1 0 0" % currentTime)
 		append_history = False
 	if opts.reorderaffines:
 		if not len(opts.reorderaffines) == len(affine_array):
-			print "Error. The number of inputs [%d] must match the number of affines [%] in %s." % (len(opts.reorderaffines),len(affine_array),opts.inputtmi[0])
+			print("Error. The number of inputs [%d] must match the number of affines [%] in %s." % (len(opts.reorderaffines),len(affine_array),opts.inputtmi[0]))
 			sys.exit()
-		print "Reordering %s to %s" % (str(range(len(affine_array))),str(opts.reorderaffines))
+		print("Reordering %s to %s" % (str(list(range(len(affine_array)))),str(opts.reorderaffines)))
 		affine_array = [affine_array[i] for i in opts.reorderaffines]
 		maskname_array = [maskname_array[i] for i in opts.reorderaffines]
 		tmi_history.append("history mode_reorder %d 1 %d 0 0 0" % (currentTime,len(opts.reorderaffines)))
@@ -362,9 +362,9 @@ def run(opts):
 		append_history = False
 	if opts.reordersurfaces:
 		if not len(opts.reordersurfaces) == len(vertex_array):
-			print "Error. The number of inputs [%d] must match the number of surfaces [%] in %s." % (len(opts.reordersurfaces),len(vertex_array),opts.inputtmi[0])
+			print("Error. The number of inputs [%d] must match the number of surfaces [%] in %s." % (len(opts.reordersurfaces),len(vertex_array),opts.inputtmi[0]))
 			sys.exit()
-		print "Reordering \n%s\n to \n%s\n" % (str(surfname),str([surfname[i] for i in opts.reordersurfaces]))
+		print("Reordering \n%s\n to \n%s\n" % (str(surfname),str([surfname[i] for i in opts.reordersurfaces])))
 		vertex_array = [vertex_array[i] for i in opts.reordersurfaces]
 		face_array = [face_array[i] for i in opts.reordersurfaces]
 		surfname = [surfname[i] for i in opts.reordersurfaces]
@@ -377,16 +377,16 @@ def run(opts):
 		new_adj = np.load(opts.replaceadj[1])
 
 		if not len(original_adj) == len(new_adj):
-			print "Error. Adjacency set lengths must match."
+			print("Error. Adjacency set lengths must match.")
 			sys.exit()
 		affine_array[int(opts.replaceadj[0])] = new_adj
 		tmi_history.append("history mode_replace %d 1 0 0 0 1" % currentTime)
 		append_history = False
 	if opts.reorderadj:
 		if not len(opts.reorderadj) == len(adjacency_array):
-			print "Error. The number of inputs [%d] must match the number of adjacency sets [%] in %s." % (len(opts.reorderadj),len(affine_array),opts.inputtmi[0])
+			print("Error. The number of inputs [%d] must match the number of adjacency sets [%] in %s." % (len(opts.reorderadj),len(affine_array),opts.inputtmi[0]))
 			sys.exit()
-		print "Reordering %s to %s" % (str(range(len(adjacency_array))),str(opts.reorderadj))
+		print("Reordering %s to %s" % (str(list(range(len(adjacency_array)))),str(opts.reorderadj)))
 		adjacency_array = [adjacency_array[i] for i in opts.reorderadj]
 		tmi_history.append("history mode_reorder %d 1 0 0 0 %d" % (currentTime,len(opts.reorderadj)))
 		append_history = False
@@ -396,11 +396,11 @@ def run(opts):
 		if len(opts.delete) == 2:
 			delete_range = np.array([int(opts.delete[1])])
 		elif len(opts.delete) == 3:
-			delete_range = range(int(opts.delete[1]), (int(opts.delete[2])+1))
+			delete_range = list(range(int(opts.delete[1]), (int(opts.delete[2])+1)))
 		else:
-			print opts.delete
-			print len(opts.delete)
-			print "Error. -d option can only be a single value or a range"
+			print(opts.delete)
+			print(len(opts.delete))
+			print("Error. -d option can only be a single value or a range")
 			sys.exit()
 		if opts.delete[0] == 'mask':
 			arr_size = len(masking_array)
@@ -453,7 +453,7 @@ def run(opts):
 			tmi_history.append("history mode_sub %d 1 0 0 0 %d" % (currentTime,int(len(delete_range))))
 			append_history = False
 		else: 
-			print "Error. Type must be one of the following: {mask|affine|surface|adjacency}"
+			print("Error. Type must be one of the following: {mask|affine|surface|adjacency}")
 			sys.exit()
 
 	# Write tmi file

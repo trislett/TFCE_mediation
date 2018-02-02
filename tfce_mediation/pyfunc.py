@@ -16,7 +16,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import division
+
 import os
 import numpy as np
 import nibabel as nib
@@ -34,8 +34,8 @@ from tfce_mediation.cynumstats import calc_beta_se, resid_covars, cy_lin_lstsqr_
 
 # Creation of adjacencty sets for TFCE connectivity
 def create_adjac_vertex(vertices,faces): # basic version
-	adjacency = [set([]) for i in xrange(vertices.shape[0])]
-	for i in xrange(faces.shape[0]):
+	adjacency = [set([]) for i in range(vertices.shape[0])]
+	for i in range(faces.shape[0]):
 		adjacency[faces[i, 0]].add(faces[i, 1])
 		adjacency[faces[i, 0]].add(faces[i, 2])
 		adjacency[faces[i, 1]].add(faces[i, 0])
@@ -48,7 +48,7 @@ def create_adjac_voxel (data_index,data_mask,num_voxel, dirtype=26): # default i
 	ind=np.where(data_index)
 	dm=np.zeros_like(data_mask)
 	x_dim,y_dim,z_dim=data_mask.shape
-	adjacency = [set([]) for i in xrange(num_voxel)]
+	adjacency = [set([]) for i in range(num_voxel)]
 	label=0
 	for x,y,z in zip(ind[0],ind[1],ind[2]):
 		dm[x,y,z] = label
@@ -139,7 +139,7 @@ def calc_sobelz(medtype, pred_x, depend_y, merge_y, n, num_vertex, alg = "aroian
 		PathB_beta, PathB_se = calc_beta_se(np.column_stack([depend_y,pred_x]),merge_y,n,num_vertex)
 		PathB_se = PathB_se[1]
 	else:
-		print "Invalid mediation type"
+		print("Invalid mediation type")
 		exit()
 	ta = PathA_beta/PathA_se
 	tb = PathB_beta/PathB_se
@@ -185,7 +185,7 @@ def loadnifti(imagename):
 			img = nib.load(imagename)
 			img_data = img.get_data()
 	else:
-		print "Cannot find input image: %s" % imagename
+		print("Cannot find input image: %s" % imagename)
 		exit()
 	return (img,img_data)
 
@@ -194,7 +194,7 @@ def loadmgh(imagename):
 		img = nib.freesurfer.mghformat.load(imagename)
 		img_data = img.get_data()
 	else:
-		print "Cannot find input image: %s" % imagename
+		print("Cannot find input image: %s" % imagename)
 		exit()
 	return (img,img_data)
 
@@ -217,10 +217,10 @@ def loadtwomgh(imagename):
 			img_data_trunc = np.vstack((lh_img_data_trunc,rh_img_data_trunc))
 			midpoint = lh_img_data_trunc.shape[0]
 		else:
-			print "Cannot find input image: %s" % rh_imagename
+			print("Cannot find input image: %s" % rh_imagename)
 			exit()
 	else:
-		print "Cannot find input image: %s" % imagename
+		print("Cannot find input image: %s" % imagename)
 		exit()
 	return (img_data_trunc, midpoint, lh_img, rh_img, lh_mask_index, rh_mask_index)
 
@@ -231,7 +231,7 @@ def savenifti(imgdata, img, index, imagename):
 	elif imgdata.ndim == 1:
 		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2]))
 	else:
-		print 'error'
+		print('error')
 	imgout[index]=outdata
 	nib.save(nib.Nifti1Image(imgout.astype(np.float32, order = "C"),img.affine),imagename)
 
@@ -242,7 +242,7 @@ def savemgh(imgdata, img, index, imagename):
 	elif imgdata.ndim == 1:
 		imgout = np.zeros((img.shape[0],img.shape[1],img.shape[2]))
 	else:
-		print 'error'
+		print('error')
 	imgout[index]=outdata
 	nib.save(nib.freesurfer.mghformat.MGHImage(imgout.astype(np.float32, order = "C"),img.affine),imagename)
 
@@ -289,9 +289,9 @@ def check_outname(outname):
 			outname = ("new_%s" % outname)
 		else:
 			outname = ("%s/new_%s" % (outpath,outname))
-		print "Output file aleady exists. Renaming output file to %s" % outname
+		print("Output file aleady exists. Renaming output file to %s" % outname)
 		if os.path.exists(outname):
-			print "%s also exists. Overwriting the file." % outname
+			print("%s also exists. Overwriting the file." % outname)
 			os.remove(outname)
 	return outname
 
@@ -363,7 +363,7 @@ def convert_mni_object(obj_file):
 	triangles=[]
 
 	for i in range(numpoints):
-		x, y, z = map(float,obj.readline().strip().split()) 
+		x, y, z = list(map(float,obj.readline().strip().split())) 
 		vertices.append((x, y, z))
 	assert obj.readline().strip() == ""
 	# numpoints normals as (x,y,z)
@@ -375,7 +375,7 @@ def convert_mni_object(obj_file):
 	_, _, _, _, _ = obj.readline().strip().split()
 	assert obj.readline().strip() == ""
 	# rest of the file is a list of numbers
-	points = map(int, "".join(obj.readlines()).strip().split())
+	points = list(map(int, "".join(obj.readlines()).strip().split()))
 	points = points[nt:]	# ignore these.. (whatever they are)
 	for i in range(nt): 
 		triangles.append((points.pop(0), points.pop(0), points.pop(0)))
@@ -517,11 +517,11 @@ def convert_fslabel(name_fslabel):
 	if reader.ndim == 1:
 		num_vertex = reader[0].astype(np.int)
 	else:
-		print 'Error reading header'
+		print('Error reading header')
 	v_id = np.zeros((num_vertex)).astype(np.int)
 	v_ras = np.zeros((num_vertex,3)).astype(np.float)
 	v_value = np.zeros((num_vertex)).astype(np.float)
-	for i in xrange(num_vertex):
+	for i in range(num_vertex):
 		reader = obj.readline().strip().split()
 		v_id[i] = np.array(reader[0]).astype(np.int)
 		v_ras[i] = np.array(reader[1:4]).astype(np.float)
@@ -535,9 +535,9 @@ def save_waveform(v,f, outname):
 		outname += '.obj'
 	outname=check_outname(outname)
 	with open(outname, "a") as o:
-		for i in xrange(len(v)):
+		for i in range(len(v)):
 			o.write("v %1.6f %1.6f %1.6f\n" % (v[i,0],v[i,1], v[i,2]) )
-		for j in xrange(len(f)):
+		for j in range(len(f)):
 			o.write("f %d %d %d\n" % (f[j,0],f[j,1], f[j,2]) )
 		o.close()
 
@@ -552,7 +552,7 @@ def save_stl(v,f, outname):
 	n = normalize_v3(n)
 	with open(outname, "a") as o:
 		o.write("solid surface\n")
-		for i in xrange(tris.shape[0]):
+		for i in range(tris.shape[0]):
 			o.write("facet normal %1.6f %1.6f %1.6f\n"% (n[i,0],n[i,0],n[i,0]))
 			o.write("outer loop\n")
 			o.write("vertex %1.6f %1.6f %1.6f\n" % (tris[i,0,0],tris[i,0,1],tris[i,0,2]))
@@ -731,17 +731,17 @@ def convert_voxel(img_data, affine = None, threshold = None, data_mask = None, a
 	try:
 		from skimage import measure
 	except:
-		print "Error skimage is required"
+		print("Error skimage is required")
 		quit()
 
 	if threshold is not None:
-		print "Zeroing data less than threshold = %1.2f" % threshold
+		print("Zeroing data less than threshold = %1.2f" % threshold)
 		img_data[img_data<threshold] = 0
 	if absthreshold is not None:
-		print "Zeroing absolute values less than threshold = %1.2f" % absthreshold
+		print("Zeroing absolute values less than threshold = %1.2f" % absthreshold)
 		img_data[np.abs(img_data)<absthreshold] = 0
 	if data_mask is not None:
-		print "Including mask"
+		print("Including mask")
 		data_mask *= .1
 		data_mask[img_data!=0] = img_data[img_data!=0]
 		del img_data
@@ -749,10 +749,10 @@ def convert_voxel(img_data, affine = None, threshold = None, data_mask = None, a
 	try:
 		v, f, _, values = measure.marching_cubes_lewiner(img_data)
 		if affine is not None:
-			print "Applying affine transformation"
+			print("Applying affine transformation")
 			v = nib.affines.apply_affine(affine,v)
 	except:
-		print "No voxels above threshold"
+		print("No voxels above threshold")
 		v = f = values = []
 	return v, f, values
 
@@ -851,7 +851,7 @@ def surface_smooth(v, f, adjacency, iter_num = 0, scalar = None, lambda_w = 1.0,
 
 			if iter_num % 2 == 0:
 				if i == 1:
-					print "Smoothing iteration (positive factor): %d" % (iter_num+1)
+					print("Smoothing iteration (positive factor): %d" % (iter_num+1))
 				if scalar is not None:
 					v_smooth[i], values[i] = calc_Vnew(v[i], v[neighbors], lambda_w, scalar[neighbors])
 				else:
@@ -859,7 +859,7 @@ def surface_smooth(v, f, adjacency, iter_num = 0, scalar = None, lambda_w = 1.0,
 			else:
 				if mode == 'taubin':
 					if i == 1:
-						print "Smoothing iteration (negative factor): %d" % (iter_num+1)
+						print("Smoothing iteration (negative factor): %d" % (iter_num+1))
 
 					if scalar is not None:
 						v_smooth[i], values[i] = calc_Vnew(v[i], v[neighbors], mu_w, scalar[neighbors])
@@ -869,7 +869,7 @@ def surface_smooth(v, f, adjacency, iter_num = 0, scalar = None, lambda_w = 1.0,
 
 				elif mode == 'laplacian':
 					if i == 1:
-						print "Smoothing iteration (positive factor): %d" % (iter_num+1)
+						print("Smoothing iteration (positive factor): %d" % (iter_num+1))
 
 					if scalar is not None:
 						v_smooth[i], values[i] = calc_Vnew(v[i], v[neighbors], lambda_w, scalar[neighbors])
@@ -877,7 +877,7 @@ def surface_smooth(v, f, adjacency, iter_num = 0, scalar = None, lambda_w = 1.0,
 						v_smooth[i] = calc_Vnew(v[i], v[neighbors], lambda_w)
 
 				else:
-					print "Error: smoothing type not understood"
+					print("Error: smoothing type not understood")
 
 	if scalar is not None:
 		return (v_smooth, f, values)
@@ -952,7 +952,7 @@ def vectorized_surface_smooth(v, f, adjacency, number_of_iter = 5, scalar = None
 			elif mode == 'laplacian':
 				v += lambda_w*(np.divide(np.sum(vectors, axis = 1), np.sum(weights[:,None], axis = 2)) - v)
 			else:
-				print "Error: mode %s not understood" % mode
+				print("Error: mode %s not understood" % mode)
 				quit()
 			v[np.isnan(v)] = vorig[np.isnan(v)] # hacky vertex nan fix
 		else:
@@ -971,7 +971,7 @@ def vectorized_surface_smooth(v, f, adjacency, number_of_iter = 5, scalar = None
 			elif mode == 'laplacian':
 				v += np.array(lambda_w*np.swapaxes(w,0,1)*(np.swapaxes(v[adj], 0, 1)-v)).sum(0)
 			else:
-				print "Error: mode %s not understood" % mode
+				print("Error: mode %s not understood" % mode)
 				quit()
 
 	if scalar is not None:
@@ -1006,7 +1006,7 @@ def image_regression(y, image_x, pred_x, covars = None, normalize = False, verbo
 
 	for i in range(nv):
 		if i % 5000 == 0:
-			print i
+			print(i)
 		if (image_x[i,:].std() < 0.01) or (np.any(np.isnan(image_x[i,:]))):
 			arr[i,:] = 0
 		else:
@@ -1019,7 +1019,7 @@ def image_regression(y, image_x, pred_x, covars = None, normalize = False, verbo
 			sigma2 = np.sum((temp_y - np.dot(X,a))**2,axis=0) / (n - k)
 			se = np.sqrt(np.diag(sigma2 * invXX))
 			arr[i] = a / se
-	print("Finished. Image-wise independent variable regression took %.1f seconds" % (time() - start_time))
+	print(("Finished. Image-wise independent variable regression took %.1f seconds" % (time() - start_time)))
 	return np.array(arr[:,:len(pred_x.T)+1], dtype=np.float32), np.array(np.squeeze(arr[:,-1:]), dtype=np.float32)
 
 def image_reg_VIF(y, regressors):

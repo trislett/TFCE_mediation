@@ -136,7 +136,7 @@ def run(opts):
 
 	#TFCE
 	if opts.triangularmesh:
-		print "Creating adjacency set"
+		print("Creating adjacency set")
 		if opts.inputsurfs:
 			# 3 Neighbour vertex connectity
 			v_lh, faces_lh = nib.freesurfer.read_geometry(opts.inputsurfs[0])
@@ -147,17 +147,17 @@ def run(opts):
 		adjac_lh = create_adjac_vertex(v_lh,faces_lh)
 		adjac_rh = create_adjac_vertex(v_rh,faces_rh)
 	elif opts.adjfiles:
-		print "Loading prior adjacency set"
+		print("Loading prior adjacency set")
 		arg_adjac_lh = opts.adjfiles[0]
 		arg_adjac_rh = opts.adjfiles[1]
 		adjac_lh = np.load(arg_adjac_lh)
 		adjac_rh = np.load(arg_adjac_rh)
 	elif opts.dist:
-		print "Loading prior adjacency set for %s mm" % opts.dist[0]
+		print("Loading prior adjacency set for %s mm" % opts.dist[0])
 		adjac_lh = np.load("%s/adjacency_sets/lh_adjacency_dist_%s.0_mm.npy" % (scriptwd,str(opts.dist[0])))
 		adjac_rh = np.load("%s/adjacency_sets/rh_adjacency_dist_%s.0_mm.npy" % (scriptwd,str(opts.dist[0])))
 	else:
-		print "Error"
+		print("Error")
 	if opts.noweight or opts.triangularmesh:
 		vdensity_lh = 1
 		vdensity_rh = 1
@@ -165,9 +165,9 @@ def run(opts):
 		# correction for vertex density
 		vdensity_lh = np.zeros((adjac_lh.shape[0]))
 		vdensity_rh = np.zeros((adjac_rh.shape[0]))
-		for i in xrange(adjac_lh.shape[0]):
+		for i in range(adjac_lh.shape[0]):
 			vdensity_lh[i] = len(adjac_lh[i])
-		for j in xrange(adjac_rh.shape[0]): 
+		for j in range(adjac_rh.shape[0]): 
 			vdensity_rh[j] = len(adjac_rh[j])
 		vdensity_lh = np.array((1 - (vdensity_lh/vdensity_lh.max()) + (vdensity_lh.mean()/vdensity_lh.max())), dtype=np.float32)
 		vdensity_rh = np.array((1 - (vdensity_rh/vdensity_rh.max()) + (vdensity_rh.mean()/vdensity_rh.max())), dtype=np.float32)
@@ -177,13 +177,13 @@ def run(opts):
 	#create masks
 	if opts.fmri:
 		maskthresh = opts.fmri
-		print("fMRI threshold mask = %2.2f" % maskthresh)
+		print(("fMRI threshold mask = %2.2f" % maskthresh))
 		bin_mask_lh = np.logical_or(mean_lh > maskthresh, mean_lh < (-1*maskthresh))
 		bin_mask_rh = np.logical_or(mean_rh > maskthresh, mean_rh < (-1*maskthresh))
 
 	elif opts.fsmask:
 		label = opts.fsmask
-		print("Loading fsaverage ?l.%s.label" % label)
+		print(("Loading fsaverage ?l.%s.label" % label))
 
 		index_lh, _, _ = convert_fslabel("%s/fsaverage/label/lh.%s.label" % (os.environ["SUBJECTS_DIR"],label))
 		index_rh, _, _ = convert_fslabel("%s/fsaverage/label/rh.%s.label" % (os.environ["SUBJECTS_DIR"],label))
@@ -354,7 +354,7 @@ def run(opts):
 		invXX = np.linalg.inv(np.dot(X.T, X))
 		tvals = tval_int(X, invXX, merge_y, n, k, num_vertex)
 
-	for j in xrange(k-1):
+	for j in range(k-1):
 		tnum=j+1
 		write_vertStat_img('tstat_con%d' % tnum, 
 			tvals[tnum,:num_vertex_lh],

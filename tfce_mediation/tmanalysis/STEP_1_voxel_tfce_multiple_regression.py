@@ -63,7 +63,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 
 def run(opts):
 	if not os.path.exists("python_temp"):
-		print "python_temp missing!"
+		print("python_temp missing!")
 
 	#load variables
 	raw_nonzero = np.load('python_temp/raw_nonzero.npy')
@@ -177,7 +177,7 @@ def run(opts):
 				imgext = '.nii.gz' # default to zipped images
 				image_x = nib.load('../%s' % img_all_name).get_data()[data_index].astype(np.float32)
 			else:
-				print 'Error filetype for %s is not supported' % img_all_name
+				print('Error filetype for %s is not supported' % img_all_name)
 				quit()
 
 			tvalues, timage = image_regression(raw_nonzero.astype(np.float32), image_x, pred_x, covars)
@@ -211,7 +211,7 @@ def run(opts):
 			tvalues = tval_int(X, invXX, y, n, k, num_voxel)
 		tvalues[np.isnan(tvalues)]=0 #only necessary for ANTS skeleton
 		#write TFCE images
-		for j in xrange(k-1):
+		for j in range(k-1):
 			tnum=j+1
 			write_voxelStat_img('tstat_con%d' % tnum, tvalues[tnum], data_mask, data_index, affine_mask, calcTFCE, imgext)
 			write_voxelStat_img('negtstat_con%d' % tnum, (tvalues[tnum]*-1), data_mask, data_index, affine_mask, calcTFCE, imgext)
@@ -227,7 +227,7 @@ def run(opts):
 			calcTFCE,
 			imgext)
 	else:
-		print "Error"
+		print("Error")
 		exit()
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import division
+
 import os
 import numpy as np
 import argparse as ap
@@ -145,7 +145,7 @@ def run(opts):
 
 		# check file dimensions
 		if not image_array[0].shape[1] % 3 == 0:
-			print 'Print file format is not understood. Please make sure %s is statistics file.' % opts.tmifile[0]
+			print('Print file format is not understood. Please make sure %s is statistics file.' % opts.tmifile[0])
 			quit()
 		else:
 			num_contrasts = int(image_array[0].shape[1] / 3)
@@ -159,30 +159,30 @@ def run(opts):
 			neg_range = [2]
 		else:
 			# get lists for positive and negative contrasts
-			pos_range = range(num_contrasts, num_contrasts+num_contrasts)
-			neg_range = range(num_contrasts*2, num_contrasts*2+num_contrasts)
+			pos_range = list(range(num_contrasts, num_contrasts+num_contrasts))
+			neg_range = list(range(num_contrasts*2, num_contrasts*2+num_contrasts))
 
 		# check that randomisation has been run
 		if not os.path.exists("%s/output_%s/perm_maxTFCE_surf0_tcon1.csv" % (os.getcwd(),opts.tmifile[0])): # make this safer
-			print 'Permutation folder not found. Please run --randomise first.'
+			print('Permutation folder not found. Please run --randomise first.')
 			quit()
 
 		#check permutation file lengths
 		num_surf = len(masking_array)
-		surface_range = range(num_surf)
+		surface_range = list(range(num_surf))
 		num_perm = lowest_length(num_contrasts, surface_range, opts.tmifile[0])
 
 		if opts.setsurfacerange:
-			surface_range = range(opts.setsurfacerange[0], opts.setsurfacerange[1]+1)
+			surface_range = list(range(opts.setsurfacerange[0], opts.setsurfacerange[1]+1))
 		elif opts.setsurface:
 			surface_range = opts.setsurface
 		if np.array(surface_range).max() > len(masking_array):
-			print "Error: range does note fit the surfaces contained in the tmi file. %s contains the following surfaces" % opts.tmifile[0]
+			print("Error: range does note fit the surfaces contained in the tmi file. %s contains the following surfaces" % opts.tmifile[0])
 			for i in range(len(surfname)):
-				print ("Surface %d : %s, %s" % (i,surfname[i], maskname[i]))
+				print(("Surface %d : %s, %s" % (i,surfname[i], maskname[i])))
 			quit()
-		print "Reading %d contrast(s) from %d of %d surface(s)" % ((num_contrasts),len(surface_range), num_surf)
-		print "Reading %s permutations with an accuracy of p=0.05+/-%.4f" % (num_perm,(2*(np.sqrt(0.05*0.95/num_perm))))
+		print("Reading %d contrast(s) from %d of %d surface(s)" % ((num_contrasts),len(surface_range), num_surf))
+		print("Reading %s permutations with an accuracy of p=0.05+/-%.4f" % (num_perm,(2*(np.sqrt(0.05*0.95/num_perm)))))
 
 		# calculate the P(FWER) images from all surfaces
 		positive_data, negative_data = apply_mfwer(image_array, num_contrasts, surface_range, num_perm, num_surf, opts.tmifile[0], position_array, pos_range, neg_range, weight='logmasksize')
@@ -318,7 +318,7 @@ def run(opts):
 							save_ply(v,f, "output_ply/%d_%s_pFWE_tcon%d.ply" % (surf_count, basename, contrast+1), out_color_array)
 							colorbar = False
 						else:
-							print "No output for %d %s T-contrast %d" % (surf_count, basename, contrast+1)
+							print("No output for %d %s T-contrast %d" % (surf_count, basename, contrast+1))
 					else:
 						img_data = np.zeros((masking_array[surf_count].shape[0]))
 						img_data[masking_array[surf_count][:,0,0]==True] = positive_data[start:end,contrast]
@@ -347,7 +347,7 @@ def run(opts):
 
 		# check file dimensions
 		if not image_array[0].shape[1] % 2 == 0:
-			print 'Print file format is not understood. Please make sure %s is statistics file.' % opts.tmifile[0]
+			print('Print file format is not understood. Please make sure %s is statistics file.' % opts.tmifile[0])
 			quit()
 
 		# get surface coordinates in data array
@@ -356,26 +356,26 @@ def run(opts):
 
 		# check that randomisation has been run
 		if not os.path.exists("%s/output_%s/perm_maxTFCE_surf0_%s_zstat.csv" % (os.getcwd(),opts.tmifile[0], opts.mediationmfwe[0])): # make this safer
-			print 'Permutation folder not found. Please run --randomise first.'
+			print('Permutation folder not found. Please run --randomise first.')
 			quit()
 
 
 		#check permutation file lengths
 		num_surf = len(masking_array)
-		surface_range = range(num_surf)
+		surface_range = list(range(num_surf))
 		num_perm = lowest_length(1, surface_range, opts.tmifile[0], medtype = opts.mediationmfwe[0])
 
 		if opts.setsurfacerange:
-			surface_range = range(opts.setsurfacerange[0], opts.setsurfacerange[1]+1)
+			surface_range = list(range(opts.setsurfacerange[0], opts.setsurfacerange[1]+1))
 		elif opts.setsurface:
 			surface_range = opts.setsurface
 		if np.array(surface_range).max() > len(masking_array):
-			print "Error: range does note fit the surfaces contained in the tmi file. %s contains the following surfaces" % opts.tmifile[0]
+			print("Error: range does note fit the surfaces contained in the tmi file. %s contains the following surfaces" % opts.tmifile[0])
 			for i in range(len(surfname)):
-				print ("Surface %d : %s, %s" % (i,surfname[i], maskname[i]))
+				print(("Surface %d : %s, %s" % (i,surfname[i], maskname[i])))
 			quit()
-		print "Reading %d contrast(s) from %d of %d surface(s)" % (1,len(surface_range), num_surf)
-		print "Reading %s permutations with an accuracy of p=0.05+/-%.4f" % (num_perm,(2*(np.sqrt(0.05*0.95/num_perm))))
+		print("Reading %d contrast(s) from %d of %d surface(s)" % (1,len(surface_range), num_surf))
+		print("Reading %s permutations with an accuracy of p=0.05+/-%.4f" % (num_perm,(2*(np.sqrt(0.05*0.95/num_perm)))))
 
 		# calculate the P(FWER) images from all surfaces
 		positive_data = apply_mfwer(image_array, 1, surface_range, num_perm, num_surf, opts.tmifile[0], position_array, [1], weight='logmasksize', mediation = True, medtype = opts.mediationmfwe[0])
@@ -420,17 +420,17 @@ def run(opts):
 			if len(opts.setadjacencyobjs) == len(masking_array):
 				adjacent_range = np.array(opts.setadjacencyobjs, dtype = np.int)
 			else:
-				print "Error: # of masking arrays (%d) must and list of matching adjacency (%d) must be equal." % (len(masking_array), len(opts.setadjacencyobjs))
+				print("Error: # of masking arrays (%d) must and list of matching adjacency (%d) must be equal." % (len(masking_array), len(opts.setadjacencyobjs)))
 				quit()
 		else: 
-			adjacent_range = range(len(adjacency_array))
+			adjacent_range = list(range(len(adjacency_array)))
 		calcTFCE = []
 		if opts.assigntfcesettings:
 			if not len(opts.assigntfcesettings) == len(masking_array):
-				print "Error: # of masking arrays (%d) must and list of matching tfce setting (%d) must be equal." % (len(masking_array), len(opts.assigntfcesettings))
+				print("Error: # of masking arrays (%d) must and list of matching tfce setting (%d) must be equal." % (len(masking_array), len(opts.assigntfcesettings)))
 				quit()
 			if not len(opts.tfce) % 2 == 0:
-				print "Error. The must be an even number of input for --tfce"
+				print("Error. The must be an even number of input for --tfce")
 				quit()
 			tfce_settings_mask = []
 			for i in np.unique(opts.assigntfcesettings):
@@ -452,7 +452,7 @@ def run(opts):
 			#np.ones_like(masking_array)
 			for i in range(len(masking_array)):
 				temp_vdensity = np.zeros((adjacency_array[adjacent_range[i]].shape[0]))
-				for j in xrange(adjacency_array[adjacent_range[i]].shape[0]):
+				for j in range(adjacency_array[adjacent_range[i]].shape[0]):
 					temp_vdensity[j] = len(adjacency_array[adjacent_range[i]][j])
 				if masking_array[i].shape[2] == 1:
 					temp_vdensity = temp_vdensity[masking_array[i][:,0,0]==True]
@@ -478,8 +478,8 @@ def run(opts):
 					merge_y = resid_covars(x_covars,image_array[0][:,masking_variable])
 				else:
 					merge_y = image_array[0][:,masking_variable].T 
-					print "Check dimensions" # CHECK
-					print merge_y.shape
+					print("Check dimensions") # CHECK
+					print(merge_y.shape)
 			else:
 				if opts.covariates:
 					merge_y = resid_covars(x_covars,image_array[0])
@@ -568,8 +568,8 @@ def run(opts):
 						fullmask,
 						perm_number=i,
 						randomise = True)
-			print("Total time took %.1f seconds" % (time() - currentTime))
-			print("Randomization took %.1f seconds" % (time() - randTime))
+			print(("Total time took %.1f seconds" % (time() - currentTime)))
+			print(("Randomization took %.1f seconds" % (time() - randTime)))
 		else:
 			# Run TFCE
 			if opts.assigntfcesettings:
@@ -640,7 +640,7 @@ def run(opts):
 					tmi_history=[])
 
 			else:
-				print "not implemented yet"
+				print("not implemented yet")
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

@@ -42,7 +42,7 @@ def save(path, ext='png', close=True, verbose=True):
 	savepath = os.path.join(directory, filename)
 
 	if verbose:
-		print("Saving figure to '%s'..." % savepath),
+		print(("Saving figure to '%s'..." % savepath))
 
 	# Actually save the figure
 	plt.savefig(savepath)
@@ -75,7 +75,7 @@ def run(opts):
 	perm_tfce_max_val = int(sorted_perm_tfce_max[0])
 	perm_tfce_min_val = int(sorted_perm_tfce_max[(num_perm-1)])
 
-	for j in xrange(num_perm):
+	for j in range(num_perm):
 		p_array[j] = 1 - np.true_divide(j,num_perm)
 
 	sig=int(num_perm*0.05)

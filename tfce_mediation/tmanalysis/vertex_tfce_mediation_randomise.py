@@ -76,10 +76,10 @@ def run(opts):
 		os.mkdir("output_med_%s/perm_SobelZ_%s" % (surface,medtype))
 	os.chdir("output_med_%s/perm_SobelZ_%s" % (surface,medtype)) 
 
-	for iter_perm in xrange(arg_perm_start,arg_perm_stop):
+	for iter_perm in range(arg_perm_start,arg_perm_stop):
 		np.random.seed(int(iter_perm*1000+time()))
-		print "Iteration number : %d" % (iter_perm)
-		indices_perm = np.random.permutation(range(n))
+		print("Iteration number : %d" % (iter_perm))
+		indices_perm = np.random.permutation(list(range(n)))
 		if (medtype == 'M') or (medtype == 'I'):
 			pathA_nx = pred_x[indices_perm]
 			pathB_nx = depend_y
@@ -89,7 +89,7 @@ def run(opts):
 			pathB_nx = depend_y[indices_perm]
 			SobelZ = calc_sobelz(medtype, pathA_nx, pathB_nx, y, n, num_vertex)
 		write_perm_maxTFCE_vertex("Zstat_%s" % medtype, SobelZ, num_vertex_lh, bin_mask_lh, bin_mask_rh, calcTFCE_lh, calcTFCE_rh, vdensity_lh, vdensity_rh)
-	print("Finished. Randomization took %.1f seconds" % (time() - start_time))
+	print(("Finished. Randomization took %.1f seconds" % (time() - start_time)))
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

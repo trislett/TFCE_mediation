@@ -154,7 +154,7 @@ def write_tm_filetype(outname, columnids = [], imgtype = [], checkname = True, o
 			outname += '.ascii.tmi'
 	if checkname:
 		outname=check_outname(outname)
-	with open(outname, "wb") as o:
+	with open(outname, "w") as o:
 		o.write("tmi\n")
 		if output_binary:
 			o.write("format binary_%s_endian %s\n" % ( sys.byteorder, tm_filetype_version() ) )
@@ -222,53 +222,59 @@ def write_tm_filetype(outname, columnids = [], imgtype = [], checkname = True, o
 		for i in range(len(tmi_history)):
 			o.write('%s\n' % (tmi_history[i]) )
 		o.write("end_header\n")
+		o.close()
 
 		if output_binary:
-			image_array = np.array(image_array.T, dtype='float32') # transpose to reduce file size
-			image_array.tofile(o)
-			if num_mask>0:
-				for j in range(num_mask):
-					binarymask = masking_array[j] * 1
-					binarymask = np.array(binarymask.T, dtype=np.uint8)
-					binarymask.tofile(o)
-			if num_affine>0:
-				for j in range(num_affine):
-					outaffine = np.array(affine_array[j].T, dtype='float32')
-					outaffine.tofile(o)
-			if num_object>0:
-				for j in range(num_object):
-					outv = np.array(vertex_array[j].T, dtype='float32')
-					outv.tofile(o)
-					outf = np.array(face_array[j].T, dtype='uint32')
-					outf.tofile(o)
-			if not np.array_equal(columnids, []):
-				columnids.tofile(o)
-			if num_adjacency>0:
-				for j in range(num_adjacency):
-					pickle.dump(adjacency_array[j],o, protocol=pickle.HIGHEST_PROTOCOL)
+			with open(outname, "ab") as o:
+				image_array = np.array(image_array.T, dtype='float32') # transpose to reduce file size
+				image_array.tofile(o)
+				if num_mask>0:
+					for j in range(num_mask):
+						binarymask = masking_array[j] * 1
+						binarymask = np.array(binarymask.T, dtype=np.uint8)
+						binarymask.tofile(o)
+				if num_affine>0:
+					for j in range(num_affine):
+						outaffine = np.array(affine_array[j].T, dtype='float32')
+						outaffine.tofile(o)
+				if num_object>0:
+					for j in range(num_object):
+						outv = np.array(vertex_array[j].T, dtype='float32')
+						outv.tofile(o)
+						outf = np.array(face_array[j].T, dtype='uint32')
+						outf.tofile(o)
+				if not np.array_equal(columnids, []):
+					columnids.tofile(o)
+				if num_adjacency>0:
+					for j in range(num_adjacency):
+						pickle.dump(adjacency_array[j],o, protocol=pickle.HIGHEST_PROTOCOL)
 		else:
-			if not image_array == []:
-				np.savetxt(o,image_array.astype(np.float32))
-			if num_mask>0:
-				for j in range(num_mask):
-					binarymask = masking_array[j] * 1
-					binarymask = np.array(binarymask, dtype=np.uint8)
-					x, y, z = np.ma.nonzero(binarymask)
-					for i in range(len(x)):
-						o.write("%d %d %d\n" % (int(x[i]), int(y[i]), int(z[i]) ) )
-			if num_affine>0:
-				for j in range(num_affine):
-					outaffine = np.array(affine_array[j])
-					np.savetxt(o,outaffine.astype(np.float32))
-			if columnids is not []:
-				columnids.tofile(o, sep='\n', format="%s")
-			if num_object>0:
-				for k in range(num_object):
-					for i in range(len(vertex_array[k])):
-						o.write("%1.6f %1.6f %1.6f\n" % (vertex_array[k][i,0], vertex_array[k][i,1], vertex_array[k][i,2] ) )
-					for j in range(len(face_array[k])):
-						o.write("%d %d %d\n" % (int(face_array[k][j,0]), int(face_array[k][j,1]), int(face_array[k][j,2]) ) )
-
+			with open(outname, "a") as o:
+				if not image_array == []:
+					np.savetxt(o,image_array.astype(np.float32))
+				if num_mask>0:
+					for j in range(num_mask):
+						binarymask = masking_array[j] * 1
+						binarymask = np.array(binarymask, dtype=np.uint8)
+						x, y, z = np.ma.nonzero(binarymask)
+						for i in range(len(x)):
+							o.write("%d %d %d\n" % (int(x[i]), int(y[i]), int(z[i]) ) )
+				if num_affine>0:
+					for j in range(num_affine):
+						outaffine = np.array(affine_array[j])
+						np.savetxt(o,outaffine.astype(np.float32))
+				if columnids is not []:
+					columnids.tofile(o, sep='\n', format="%s")
+				if num_object>0:
+					for k in range(num_object):
+						for i in range(len(vertex_array[k])):
+							o.write("%1.6f %1.6f %1.6f\n" % (vertex_array[k][i,0],
+								vertex_array[k][i,1],
+								vertex_array[k][i,2]))
+						for j in range(len(face_array[k])):
+							o.write("%d %d %d\n" % (int(face_array[k][j,0]),
+								int(face_array[k][j,1]),
+								int(face_array[k][j,2])))
 		o.close()
 
 ###############
@@ -309,13 +315,13 @@ def read_tm_filetype(tm_file, verbose=True):
 	tmi_history = []
 
 	# read first line
-	obj = open(tm_file)
-	reader = obj.readline().strip().split()
+	obj = open(tm_file, 'rb')
+	reader = obj.readline().decode("UTF-8").strip().split()
 	firstword=reader[0]
 	if firstword != 'tmi':
 		print("Error: not a TFCE_mediation image.")
 		exit()
-	reader = obj.readline().strip().split()
+	reader = obj.readline().decode("UTF-8").strip().split()
 	firstword=reader[0]
 	if firstword != 'format':
 		print("Error: unknown reading file format")
@@ -325,7 +331,7 @@ def read_tm_filetype(tm_file, verbose=True):
 
 
 	while firstword != 'end_header':
-		reader = obj.readline().strip().split()
+		reader = obj.readline().decode("UTF-8").strip().split()
 		firstword=reader[0]
 		if firstword == 'element':
 			element.append((reader[1]))
@@ -360,13 +366,12 @@ def read_tm_filetype(tm_file, verbose=True):
 	for i in range(len(element_nbyte)):
 		position-=int(element_nbyte[i])
 	# readdata
-
 	if tm_filetype == 'binary_little_endian':
 		for e in range(len(element)):
 			obj.seek(position)
 			if verbose:
-				print("reading %s" % str(element[e]))
 				print(position)
+				print("reading %s" % str(element[e]))
 			if not str(element[e]) == 'adjacency_object':
 				array_read = np.fromfile(obj, dtype=element_dtype[e])
 			else:

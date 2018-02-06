@@ -157,5 +157,8 @@ parser.add_argument('--verbosehelp', action=_HelpAction, help='Display help for 
 parser.add_argument('--usage', action=_Usage, help='Display usage for sub-command.')  # add printout usage
 
 args = parser.parse_args()
-args.func(args)
+try:
+	args.func(args)
+except:
+	parser.print_help()
 

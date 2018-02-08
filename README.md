@@ -35,7 +35,7 @@ Additional help:
 29-01-2018
 * version 1.4.2 is now available on [pypipe (PIP)](https://pypi.org/project/tfce-mediation/).
 * Small bug fixes. Added small more human readable error messages.
-* Updating to numpy 1.14.0 will give a warning about the package h5py (used to import minc images). It can be ignored, or removed by downgraging to numpy 1.13.3 (sudo -H pip install numpy==1.13.3).
+* ~~Updating to numpy 1.14.0 will give a warning about the package h5py (used to import minc images). It can be ignored, or removed by downgraging to numpy 1.13.3 (sudo -H pip install numpy==1.13.3).~~ (h5py is no longer required).
 
 22-12-2017
 

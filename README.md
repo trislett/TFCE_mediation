@@ -27,6 +27,11 @@ Additional help:
 * Ask in the [Issues](https://github.com/trislett/TFCE_mediation/issues) section, even if it is just a question.
 
 ### What's new / updates ###
+8-02-2018
+* version 1.5.0 is now availale on [pypipe (PIP)](https://pypi.org/project/tfce-mediation/).
+* TFCE_mediation now supports python 2.7 and python 3.5.
+* Changes were made to TMI format I/O to accommodate python 3.
+
 29-01-2018
 * version 1.4.2 is now available on [pypipe (PIP)](https://pypi.org/project/tfce-mediation/).
 * Small bug fixes. Added small more human readable error messages.

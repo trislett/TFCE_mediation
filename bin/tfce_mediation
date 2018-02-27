@@ -130,9 +130,10 @@ parser.add_argument('--usage', action=_Usage, help='Display usage for sub-comman
 parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
 
 args = parser.parse_args()
-print(sys.version)
-try:
-	args.func(args)
-except:
+
+if len(sys.argv) == 1:
 	parser.print_help()
+else:
+	args.func(args)
+
 

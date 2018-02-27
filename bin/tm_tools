@@ -17,6 +17,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import sys
 import argparse as ap
 
 import tfce_mediation
@@ -157,8 +158,8 @@ parser.add_argument('--verbosehelp', action=_HelpAction, help='Display help for 
 parser.add_argument('--usage', action=_Usage, help='Display usage for sub-command.')  # add printout usage
 
 args = parser.parse_args()
-try:
-	args.func(args)
-except:
+if len(sys.argv) == 1:
 	parser.print_help()
+else:
+	args.func(args)
 

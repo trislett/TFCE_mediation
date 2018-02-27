@@ -61,8 +61,16 @@ def run(opts):
 		quit()
 
 	data_all = img_all.get_data()
-
 	nonzero_data = data_all[data_mask>0.99]
+	# check mask
+	mean = np.mean(nonzero_data, axis=1)
+	if len(mean[mean==0]) != 0:
+		print("Warning: the mask contains data that is all zeros in the 4D image. Creating a new mask:\t new_%s"% mask_name)
+		new_mask = np.zeros_like(mean)
+		new_mask[mean!=0] = 1
+		data_mask[data_mask!=0] = new_mask[:]
+		nib.save(nib.Nifti1Image(data_mask.astype(np.float32),affine=img_mask.affine), 'new_%s' % mask_name)
+		nonzero_data = data_all[data_mask>0.99]
 
 	if not os.path.exists('python_temp'):
 		os.mkdir('python_temp')
@@ -76,6 +84,7 @@ def run(opts):
 	num_subjects = nonzero_data.shape[1]
 	np.save('python_temp/num_voxel',num_voxel)
 	np.save('python_temp/num_subjects',num_subjects)
+
 	os.system("rm temp_4d.nii")
 
 if __name__ == "__main__":

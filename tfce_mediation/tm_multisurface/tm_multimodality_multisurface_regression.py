@@ -390,7 +390,7 @@ def run(opts):
 				outdata = np.column_stack((outdata,-np.log10(1-positive_data)))
 
 
-			write_tm_filetype("pFWER_%s_%s" % (opts.mediationmfwe[0], opts.tmifile[0]),
+			write_tm_filetype("pFWER_%s" % (opts.tmifile[0]),
 				image_array = outdata,
 				masking_array = masking_array,
 				maskname = maskname,

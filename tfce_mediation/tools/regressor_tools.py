@@ -109,7 +109,7 @@ def run(opts):
 			covars = np.divide(covars,np.std(covars,axis=0))
 			writeCSV(covars_nocsv,'std_dm',covars)
 		x_covars = np.column_stack([np.ones(covars.shape[0]),covars])
-		a_c = np.linalg.lstsq(x_covars, depvars)[0]
+		a_c = np.linalg.lstsq(x_covars, depvars, rcond=None)[0]
 		resids = depvars - np.dot(x_covars,a_c)
 		writeCSV(depvars_nocsv,'resids',resids)
 

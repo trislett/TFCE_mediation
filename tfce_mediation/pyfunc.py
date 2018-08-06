@@ -44,7 +44,7 @@ def create_adjac_vertex(vertices,faces): # basic version
 		adjacency[faces[i, 2]].add(faces[i, 1])
 	return adjacency
 
-def create_adjac_voxel (data_index,data_mask,num_voxel, dirtype=26): # default is 26 directions
+def create_adjac_voxel(data_index,data_mask,num_voxel, dirtype=26): # default is 26 directions
 	ind=np.where(data_index)
 	dm=np.zeros_like(data_mask)
 	x_dim,y_dim,z_dim=data_mask.shape
@@ -1022,6 +1022,8 @@ def image_regression(y, image_x, pred_x, covars = None, normalize = False, verbo
 	print(("Finished. Image-wise independent variable regression took %.1f seconds" % (time() - start_time)))
 	return np.array(arr[:,:len(pred_x.T)+1], dtype=np.float32), np.array(np.squeeze(arr[:,-1:]), dtype=np.float32)
 
+# Calculates the variance inflation factor (VIF) to test for multicollinearity
+# VIF > 10 is considered high multicollinearity across an image
 def image_reg_VIF(y, regressors):
 	X = np.column_stack([np.ones(len(regressors)),regressors])
 	a = cy_lin_lstsqr_mat(X, y)
@@ -1029,9 +1031,76 @@ def image_reg_VIF(y, regressors):
 	RSS = np.sum(resids**2,axis=0)
 	TSS = np.sum((y - np.mean(y, axis =0))**2, axis = 0)
 	R2 = 1 - (RSS/TSS)
-	VIF = 1/(1-R2)
+	VIF = 1 / (1-R2)
 	VIF[np.isnan(VIF)] = 0
 	return VIF
 
+# Applies erosion of 3D voxel images using skimage.morphology
+#
+# Input
+#
+# img_data = image data (X,Y,Z)
+# erode_iter = number of iterations of erosion
+# 
+# Flags
+# 
+# do_binary_opening: erosion followed by a dilation
+# do_binary_closing: dilation followed by an erosion
+# do_remove_small_holes: Remove continguous holes smaller than the specified size.
+#
+# Output
+# img_data = eroded image
+# erode_mask = eroded image mask
+def erode_3D_image(img_data, erode_iter = 2, do_binary_opening = False, do_binary_closing = False, do_remove_small_holes = False):
+	from skimage.morphology import binary_erosion, binary_opening, binary_closing, remove_small_holes
+	mask_data = np.zeros_like(img_data)
+	mask_data[:] = img_data
+	mask_data[mask_data!=0]=1
+	erode_mask = np.zeros_like(img_data)
+	xdim, ydim, zdim = mask_data.shape
+
+	for i in range(erode_iter):
+		for x in range(xdim):
+			img_slice = mask_data[x,:,:]
+			if img_slice.mean() !=0:
+				if do_binary_opening:
+					img_slice = binary_opening(img_slice)*1
+				if do_binary_closing:
+					img_slice = binary_closing(img_slice)*1
+				if do_remove_small_holes:
+					img_slice = remove_small_holes(img_slice, 2)*1
+				img_slice = binary_erosion(img_slice)*1
+			else:
+				img_slice = mask_data[x,:,:]
+			erode_mask[x,:,:] = img_slice
+		for y in range(ydim):
+			img_slice = mask_data[:,y,:]
+			if img_slice.mean() !=0:
+				if do_binary_opening:
+					img_slice = binary_opening(img_slice)*1
+				if do_binary_closing:
+					img_slice = binary_closing(img_slice)*1
+				if do_remove_small_holes:
+					img_slice = remove_small_holes(img_slice, 2)*1
+				img_slice = binary_erosion(img_slice)*1
+			else:
+				img_slice = mask_data[:,y,:]
+			erode_mask[:,y,:] = img_slice
+		for z in range(zdim):
+			img_slice = mask_data[:,:,z]
+			if img_slice.mean() !=0:
+				if do_binary_opening:
+					img_slice = binary_opening(img_slice)*1
+				if do_binary_closing:
+					img_slice = binary_closing(img_slice)*1
+				if do_remove_small_holes:
+					img_slice = remove_small_holes(img_slice, 2)*1
+				img_slice = binary_erosion(img_slice)*1
+			else:
+				img_slice = mask_data[:,:,z]
+			erode_mask[:,:,z] = img_slice
+		mask_data[:] = erode_mask
+	img_data *= erode_mask
+	return img_data, erode_mask
 
 

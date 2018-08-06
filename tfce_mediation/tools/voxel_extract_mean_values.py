@@ -25,7 +25,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=1, 
 		metavar=('INT'))
 	ap.add_argument("-m", "--mask", 
-		help="Specify mask", 
+		help="Specify a mask", 
 		nargs=1)
 	return ap
 
@@ -34,6 +34,7 @@ def run(opts):
 
 	if not os.path.exists("python_temp"):
 		print("python_temp is missing ya dingus!")
+		quit()
 
 	raw_nonzero = np.load('python_temp/raw_nonzero.npy')
 	data_mask = np.load('python_temp/data_mask.npy')

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import numpy as np
 import pandas as pd
 import nibabel as nib
@@ -14,14 +15,10 @@ from tfce_mediation.cynumstats import resid_covars, tval_int
 from tfce_mediation.pyfunc import calc_sobelz
 from scipy.stats import t, norm, linregress
 from time import time
-import math
 
 #naughty
 if not sys.warnoptions:
 	warnings.simplefilter("ignore")
-
-#import matplotlib.pyplot as plt
-#import matplotlib.mlab as mlab
 
 def run_mm(trunc_data, out_data_array, exog_vars, groupVar, i):
 	print i
@@ -44,17 +41,23 @@ def scalevar(X, demean = True, unitvariance = True):
 		X = np.divide(X, np.std(X))
 	return X
 
-def create_exog_mat(var_arr, pdDF, scale = False, intVars = False):
+def scalearr(X, demean = True, unitvariance = True):
+	if demean:
+		X -= np.mean(X, axis=0)
+	if unitvariance:
+		X /= np.std(X, axis=0)
+	return X
+
+def create_exog_mat(var_arr, pdDF, scale = False, scale_groups = None):
+	exog_vars = pdDF['%s' % var_arr[0]]
+	if len(var_arr) is not 1:
+		for preds in range(len(var_arr)-1):
+			exog_vars = np.column_stack((exog_vars,pdDF['%s' % var_arr[preds+1]]))
 	if scale:
-		exog_vars = scalevar(pdDF['%s' % var_arr[0]])
-		if len(var_arr) is not 1:
-			for preds in range(len(var_arr)-1):
-				exog_vars = np.column_stack((exog_vars,scalevar(pdDF['%s' % var_arr[preds+1]])))
-	else:
-		exog_vars = pdDF['%s' % var_arr[0]]
-		if len(var_arr) is not 1:
-			for preds in range(len(var_arr)-1):
-				exog_vars = np.column_stack((exog_vars,pdDF['%s' % var_arr[preds+1]]))
+		exog_vars = scalearr(exog_vars)
+	if scale_groups is not None:
+		for group in np.unique(scale_groups):
+			exog_vars[scale_groups==group] = scalearr(exog_vars[scale_groups==group])
 	return np.array(sm.add_constant(exog_vars))
 
 def russiandolls(group_list, pdDF): # mm assumes equal variances... 
@@ -110,16 +113,14 @@ def strip_ones(arr): # WHYYYYYYY?
 
 def find_nearest(array, value, p_array):
 	idx = np.searchsorted(array, value, side="left")
-#	if idx == len(p_array):
-#		return p_array[idx-1]
-#	elif math.fabs(value - array[idx-1]) < math.fabs(value - array[idx]):
-#		return p_array[idx-1]
-#	else:
-#		return p_array[idx]
-	return p_array[idx-1]
+	idx[idx == len(p_array)] = idx[idx == len(p_array)] - 1 # P cannot be zero...
+	return p_array[idx]
+
+def equal_lengths(length_list):
+	return length_list[1:] == length_list[:-1]
 
 #shape 6,70
-def run_permutations(endog_arr, exog_vars, num_perm, stat_arr, uniq_groups = None, return_permutations = False):
+def run_permutations(endog_arr, exog_vars, num_perm, stat_arr, uniq_groups = None, matched_blocks = False, return_permutations = False):
 	stime = time()
 	print("The accuracy is p = 0.05 +/- %.4f" % (2*(np.sqrt(0.05*0.95/num_perm))))
 	np.random.seed(int(1000+time()))
@@ -131,12 +132,22 @@ def run_permutations(endog_arr, exog_vars, num_perm, stat_arr, uniq_groups = Non
 		unique_blocks = np.unique(uniq_groups)
 
 	for i in xrange(num_perm):
+		if i % 500 == 0:
+			print ("%d/%d" % (i,num_perm))
 		if uniq_groups is not None:
 			index_groups = np.array(range(n))
+			len_list = []
 			for block in unique_blocks:
+				len_list.append(len(uniq_groups[uniq_groups == block]))
 				s = len(index_groups[uniq_groups == block])
 				index_temp = index_groups[uniq_groups == block]
 				index_groups[uniq_groups == block] = index_temp[np.random.permutation(s)]
+			if equal_lengths(len_list): # nested blocks (add specified models!)
+				mixed_blocks = np.random.permutation(np.random.permutation(5))
+				rotate_groups = []
+				for m in mixed_blocks:
+					rotate_groups.append(index_groups[uniq_groups == unique_blocks[m]])
+				index_groups = np.array(rotate_groups).flatten()
 			nx = exog_vars[index_groups]
 		else:
 			nx = exog_vars[np.random.permutation(list(range(n)))]
@@ -154,10 +165,32 @@ def run_permutations(endog_arr, exog_vars, num_perm, stat_arr, uniq_groups = Non
 		corrP_arr[k,:] = find_nearest(sorted_maxT,np.abs(stat_arr[k,:]),p_array)
 	print("%d permutations took %1.2f seconds." % (num_perm ,(time() - stime)))
 	if return_permutations:
-		return (1 - corrP_arr), maxT_arr
+		np.savetxt('MaxPermutedValues.csv', maxT_arr.T, delimiter=',')
+		return (1 - corrP_arr)
 	else:
 		return (1 - corrP_arr)
 
+def plot_residuals(residual, fitted, basename, outdir=None, scale=True):
+	import matplotlib
+	import matplotlib.pyplot as plt
+	from statsmodels.nonparametric.smoothers_lowess import lowess
+
+	if scale:
+		residual = scalearr(residual)
+		fitted = scalearr(fitted)
+
+	fig, ax = plt.subplots()
+	ax.scatter(fitted, residual)
+
+	ys = lowess(residual, fitted)[:,1]
+	ax.plot(np.sort(fitted), ys, 'r--')
+	ax.set(xlabel='Fitted values', ylabel='Residuals', title=basename)
+	ax.axhline(0, color='black', linestyle=':')
+	if outdir is not None:
+		fig.savefig("%s/resid_plot_%s.png" % (outdir, basename))
+	else:
+		fig.savefig("resid_plot_%s.png" % basename)
+	plt.clf()
 
 DESCRIPTION = 'Run linear- and linear-mixed models for now.'
 
@@ -206,6 +239,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 	ap.add_argument("-se", "--scaleexog",
 		help="Scale the exogenous/independent variables",
 		action='store_true')
+	ap.add_argument("-seg", "--scaleexogwithingroup",
+		help="Scale the exogenous/independent variables within the grouping variable",
+		action='store_true')
 	ap.add_argument("-r", "--range",
 		help="Select the range of columns for analysis",
 		nargs=2,
@@ -220,6 +256,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		help="Permutation testing for FWER correction. Must be used with -lm. Block variable(s) can be specficied with -g. -rand {num_perm}",
 		metavar='int',
 		nargs=1)
+	ap.add_argument("-pr", "--plotresids",
+		help="Output residual plots for mixed models.",
+		action='store_true')
 	return ap
 
 def run(opts):
@@ -303,7 +342,7 @@ def run(opts):
 				if opts.statsmodel == 'mixedmodel' or opts.statsmodel == 'mm':
 					t_valuesA = []
 					t_valuesB = []
-
+					################ MM mediation ################
 					if opts.mediation[0] == 'I':
 						EXOG_A = sm.add_constant(np.column_stack((leftvar, strip_ones(exog_vars))))
 						EXOG_B = np.column_stack((leftvar, rightvar))
@@ -351,7 +390,7 @@ def run(opts):
 					p_FDR = multipletests(p_values, method = 'fdr_bh')[1]
 
 				else:
-					#LM mediation
+					################ LM mediation ################
 					if opts.mediation[0] == 'I':
 						EXOG_A = sm.add_constant(np.column_stack((leftvar, strip_ones(exog_vars))))
 						EXOG_B = np.column_stack((leftvar, rightvar))
@@ -425,7 +464,7 @@ def run(opts):
 				pd_DF.to_csv(opts.outstats[0], index_label='ROI')
 
 			else:
-				# MIXED MODEL
+				################ MIXED MODEL ################
 				if opts.statsmodel == 'mixedmodel' or opts.statsmodel == 'mm':
 					exog_vars = create_exog_mat(opts.exogenousvariables, pdCSV, opts.scaleexog==True)
 
@@ -435,14 +474,27 @@ def run(opts):
 									exogenous = strip_ones(exog_vars),
 									groups = opts.groupingvariable)
 					# rebuild exog_vars with correct length
-					exog_vars = create_exog_mat(opts.exogenousvariables, pdCSV, opts.scaleexog==True)
+					if opts.scaleexogwithingroup:
+						exog_vars = create_exog_mat(opts.exogenousvariables, 
+							pdCSV,
+							opts.scaleexog==True,
+							scale_groups = pdCSV[groupVar])
+					else:
+						exog_vars = create_exog_mat(opts.exogenousvariables,
+							pdCSV,
+							opts.scaleexog==True)
 
 					for i in xrange(int(opts.range[0]),int(opts.range[1])+1):
 						mdl_fit = sm.MixedLM(pdCSV[pdCSV.columns[i]], exog_vars, pdCSV[groupVar]).fit()
 						roi_names.append(pdCSV.columns[i])
 						t_values.append(mdl_fit.tvalues[1:])
 						p_values.append(mdl_fit.pvalues[1:])
-
+						if opts.plotresids:
+							os.system('mkdir -p resid_plots')
+							plot_residuals(residual=mdl_fit.resid,
+									fitted=mdl_fit.fittedvalues,
+									basename=('%s_%s' % (str(i).zfill(4), pdCSV.columns[i])),
+									outdir='resid_plots/')
 					p_values = np.array(p_values)
 					t_values = np.array(t_values)
 					p_FDR = np.zeros_like(p_values)
@@ -466,14 +518,22 @@ def run(opts):
 					pd_DF = pd.DataFrame(data=columndata, index=roi_names, columns=columnnames)
 					pd_DF.to_csv(opts.outstats[0], index_label='ROI')
 				else:
-					# LINEAR MODEL
+					################ LINEAR MODEL ################
 					exog_vars = create_exog_mat(opts.exogenousvariables, pdCSV, opts.scaleexog==True)
 					# build null array
 					pdCSV = omitmissing(pdDF = pdCSV,
 									endog_range = opts.range,
 									exogenous = strip_ones(exog_vars))
 					# rebuild exog_vars with correct length
-					exog_vars = create_exog_mat(opts.exogenousvariables, pdCSV, opts.scaleexog==True)
+					if opts.scaleexogwithingroup:
+						exog_vars = create_exog_mat(opts.exogenousvariables, 
+							pdCSV,
+							opts.scaleexog==True,
+							scale_groups = pdCSV[groupVar])
+					else:
+						exog_vars = create_exog_mat(opts.exogenousvariables,
+							pdCSV,
+							opts.scaleexog==True)
 					invXX = np.linalg.inv(np.dot(exog_vars.T, exog_vars))
 					y = pdCSV.iloc[:,int(opts.range[0]):int(opts.range[1])+1]
 					n, num_depv = y.shape
@@ -487,14 +547,14 @@ def run(opts):
 								num_perm = int(opts.permutation[0]),
 								stat_arr = t_values,
 								uniq_groups = pdCSV[groupVar],
-								return_permutations = False)
+								return_permutations = True)
 						else:
 							p_FWER = run_permutations(endog_arr = y,
 								exog_vars = exog_vars,
 								num_perm = int(opts.permutation[0]),
 								stat_arr = t_values,
 								uniq_groups = None,
-								return_permutations = False)
+								return_permutations = True)
 						p_FWER = p_FWER.T
 
 					t_values = t_values.T

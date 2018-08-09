@@ -1,20 +1,19 @@
 #!/usr/bin/env python
 
 import os
-import numpy as np
-import pandas as pd
-import nibabel as nib
-import argparse as ap
-import statsmodels.api as sm
-import statsmodels.formula.api as smf
-from statsmodels.stats.multitest import multipletests
-from joblib import Parallel, delayed
 import sys
 import warnings
-from tfce_mediation.cynumstats import resid_covars, tval_int
-from tfce_mediation.pyfunc import calc_sobelz
-from scipy.stats import t, norm, linregress
+import numpy as np
+import pandas as pd
+import argparse as ap
+import statsmodels.api as sm
+
+from joblib import Parallel, delayed
 from time import time
+from patsy import dmatrix
+from scipy.stats import t, norm
+from statsmodels.stats.multitest import multipletests
+from tfce_mediation.cynumstats import tval_int
 
 #naughty
 if not sys.warnoptions:
@@ -54,8 +53,10 @@ def create_exog_mat(var_arr, pdDF, scale = False, scale_groups = None):
 		for preds in range(len(var_arr)-1):
 			exog_vars = np.column_stack((exog_vars,pdDF['%s' % var_arr[preds+1]]))
 	if scale:
+		print('Scaling exogenous variables')
 		exog_vars = scalearr(exog_vars)
 	if scale_groups is not None:
+		print('Scaling exogenous variables within group')
 		for group in np.unique(scale_groups):
 			exog_vars[scale_groups==group] = scalearr(exog_vars[scale_groups==group])
 	return np.array(sm.add_constant(exog_vars))
@@ -171,7 +172,6 @@ def run_permutations(endog_arr, exog_vars, num_perm, stat_arr, uniq_groups = Non
 		return (1 - corrP_arr)
 
 def plot_residuals(residual, fitted, basename, outdir=None, scale=True):
-	import matplotlib
 	import matplotlib.pyplot as plt
 	from statsmodels.nonparametric.smoothers_lowess import lowess
 
@@ -194,7 +194,7 @@ def plot_residuals(residual, fitted, basename, outdir=None, scale=True):
 
 DESCRIPTION = 'Run linear- and linear-mixed models for now.'
 
-def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatter_class=ap.RawTextHelpFormatter)):
+def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	ap.add_argument("-m", "--statsmodel",
 		help="Select the statistical model.",
 		choices=['mixedmodel', 'mm', 'linear', 'lm'],
@@ -232,6 +232,10 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION, formatte
 		help="Select grouping variable for mixed model.",
 		metavar='str',
 		nargs='+')
+	ap.add_argument("-ei", "--exogintercept",
+		help="Select the intercept for the grouping variable for the linear mixed model. -gi {subject}",
+		metavar='str',
+		nargs=1)
 	ap.add_argument("-med", "--mediation",
 		help="Select mediation type and mediation variables. The left and right variables must be not included in exogenouse variabls! e.g., -med {medtype(I|M|Y)} {leftvar} {rightvar}",
 		nargs=3,
@@ -317,13 +321,14 @@ def run(opts):
 			roi_names = []
 			t_values = []
 			p_values = []
+			icc_values = []
 			if not opts.exogenousvariables:
 				print("The exogenous (independent) variables must be specifice. e.g., -exog pred1 pred2 age")
 				quit()
 
 			if opts.mediation:
 				medvars = ['%s' % opts.mediation[1], '%s' % opts.mediation[2]]
-				exog_vars = create_exog_mat(opts.exogenousvariables, pdCSV, opts.scaleexog==True)
+				exog_vars = create_exog_mat(opts.exogenousvariables, pdCSV)
 				# build null array
 				pdCSV = omitmissing(pdDF = pdCSV,
 								endog_range = opts.range, 
@@ -349,12 +354,16 @@ def run(opts):
 						EXOG_B = sm.add_constant(np.column_stack((EXOG_B, strip_ones(exog_vars))))
 						#pathA
 						for i in xrange(int(opts.range[0]),int(opts.range[1])+1):
-							mdl_fit = sm.MixedLM(pdCSV[pdCSV.columns[i]], EXOG_A, pdCSV[groupVar]).fit()
+							mdl_fit = sm.MixedLM(pdCSV[pdCSV.columns[i]], 
+										EXOG_A,
+										pdCSV[groupVar]).fit()
 							roi_names.append(pdCSV.columns[i])
 							t_valuesA.append(mdl_fit.tvalues[1])
 						#pathB
 						for i in xrange(int(opts.range[0]),int(opts.range[1])+1):
-							mdl_fit = sm.MixedLM(pdCSV[pdCSV.columns[i]], EXOG_B, pdCSV[groupVar]).fit()
+							mdl_fit = sm.MixedLM(pdCSV[pdCSV.columns[i]],
+										EXOG_B,
+										pdCSV[groupVar]).fit()
 							t_valuesB.append(mdl_fit.tvalues[1])
 					elif opts.mediation[0] == 'M':
 						EXOG_A = sm.add_constant(np.column_stack((leftvar, strip_ones(exog_vars))))
@@ -362,7 +371,9 @@ def run(opts):
 						EXOG_B = sm.add_constant(np.column_stack((EXOG_B, strip_ones(exog_vars))))
 						#pathA
 						for i in xrange(int(opts.range[0]),int(opts.range[1])+1):
-							mdl_fit = sm.MixedLM(pdCSV[pdCSV.columns[i]], EXOG_A, pdCSV[groupVar]).fit()
+							mdl_fit = sm.MixedLM(pdCSV[pdCSV.columns[i]],
+										EXOG_A,
+										pdCSV[groupVar]).fit()
 							roi_names.append(pdCSV.columns[i])
 							t_valuesA.append(mdl_fit.tvalues[1])
 						#pathB
@@ -380,12 +391,16 @@ def run(opts):
 
 						#pathB
 						for i in xrange(int(opts.range[0]),int(opts.range[1])+1):
-							mdl_fit = sm.MixedLM(pdCSV[pdCSV.columns[i]], exog_vars, pdCSV[groupVar]).fit()
+							mdl_fit = sm.MixedLM(pdCSV[pdCSV.columns[i]],
+										exog_vars,
+										pdCSV[groupVar]).fit()
 							roi_names.append(pdCSV.columns[i])
 							t_valuesB.append(mdl_fit.tvalues[1])
 
 
-					z_values  = special_calc_sobelz(np.array(t_valuesA), np.array(t_valuesB), alg = "aroian")
+					z_values  = special_calc_sobelz(np.array(t_valuesA),
+									np.array(t_valuesB),
+									alg = "aroian")
 					p_values = norm.sf(abs(z_values))
 					p_FDR = multipletests(p_values, method = 'fdr_bh')[1]
 
@@ -466,7 +481,7 @@ def run(opts):
 			else:
 				################ MIXED MODEL ################
 				if opts.statsmodel == 'mixedmodel' or opts.statsmodel == 'mm':
-					exog_vars = create_exog_mat(opts.exogenousvariables, pdCSV, opts.scaleexog==True)
+					exog_vars = create_exog_mat(opts.exogenousvariables, pdCSV)
 
 					# build null array
 					pdCSV = omitmissing(pdDF = pdCSV,
@@ -484,11 +499,19 @@ def run(opts):
 							pdCSV,
 							opts.scaleexog==True)
 
+					exog_re = None
+					if opts.exogintercept:
+						exog_re = dmatrix("1+%s" % opts.exogintercept[0], pdCSV)
+
 					for i in xrange(int(opts.range[0]),int(opts.range[1])+1):
-						mdl_fit = sm.MixedLM(pdCSV[pdCSV.columns[i]], exog_vars, pdCSV[groupVar]).fit()
+						mdl_fit = sm.MixedLM(endog = pdCSV[pdCSV.columns[i]],
+										exog = exog_vars,
+										groups = pdCSV[groupVar],
+										exog_re = exog_re).fit()
 						roi_names.append(pdCSV.columns[i])
 						t_values.append(mdl_fit.tvalues[1:])
 						p_values.append(mdl_fit.pvalues[1:])
+						icc_values.append(np.array(mdl_fit.cov_re/(mdl_fit.cov_re + mdl_fit.scale)))
 						if opts.plotresids:
 							os.system('mkdir -p resid_plots')
 							plot_residuals(residual=mdl_fit.resid,
@@ -503,23 +526,46 @@ def run(opts):
 					for col in range(p_FDR.shape[1]):
 						p_FDR[:,col] = multipletests(p_values[:,col], method = 'fdr_bh')[1]
 
+
 					columnnames = []
 					for colname in opts.exogenousvariables:
 						columnnames.append('tval_%s' % colname)
-					columnnames.append('tval_groupRE')
+					if opts.exogintercept:
+						columnnames.append('tval_re1')
+						columnnames.append('tval_re1Xre2')
+						columnnames.append('tval_re2')
+					else:
+						columnnames.append('tval_groupRE')
+
 					for colname in opts.exogenousvariables:
 						columnnames.append('pval_%s' % colname)
-					columnnames.append('pval_groupRE')
+					if opts.exogintercept:
+						columnnames.append('pval_re1')
+						columnnames.append('pval_re1Xre2')
+						columnnames.append('pval_re2')
+					else:
+						columnnames.append('pval_groupRE')
+
 					for colname in opts.exogenousvariables:
 						columnnames.append('pFDR_%s' % colname)
-					columnnames.append('pFDR_groupRE')
+					if opts.exogintercept:
+						columnnames.append('pFDR_re1')
+						columnnames.append('pFDR_re1Xre2')
+						columnnames.append('pFDR_re2')
+					else:
+						columnnames.append('pFDR_groupRE')
+
+					if not opts.exogintercept:
+						columnnames.append('ICC_groupRE')
 					columndata = np.column_stack((t_values, p_values))
 					columndata = np.column_stack((columndata, p_FDR))
+					if not opts.exogintercept:
+						columndata = np.column_stack((columndata, np.array(icc_values).flatten()))
 					pd_DF = pd.DataFrame(data=columndata, index=roi_names, columns=columnnames)
 					pd_DF.to_csv(opts.outstats[0], index_label='ROI')
 				else:
 					################ LINEAR MODEL ################
-					exog_vars = create_exog_mat(opts.exogenousvariables, pdCSV, opts.scaleexog==True)
+					exog_vars = create_exog_mat(opts.exogenousvariables, pdCSV)
 					# build null array
 					pdCSV = omitmissing(pdDF = pdCSV,
 									endog_range = opts.range,

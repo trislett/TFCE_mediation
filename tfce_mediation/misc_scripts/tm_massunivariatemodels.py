@@ -13,7 +13,7 @@ from time import time
 from patsy import dmatrix
 from scipy.stats import t, norm
 from statsmodels.stats.multitest import multipletests
-from tfce_mediation.cynumstats import tval_int
+from tfce_mediation.cynumstats import tval_int, cy_lin_lstsqr_mat, se_of_slope
 
 #naughty
 if not sys.warnoptions:
@@ -191,6 +191,54 @@ def plot_residuals(residual, fitted, basename, outdir=None, scale=True):
 	else:
 		fig.savefig("resid_plot_%s.png" % basename)
 	plt.clf()
+
+
+def PCAwhiten(X):
+	from sklearn.decomposition import PCA
+	pca = PCA(whiten=True)
+	return (pca.fit_transform(X))
+
+def ZCAwhiten(X):
+	U, s, Vt = np.linalg.svd(X, full_matrices=False)
+	return np.dot(U, Vt)
+
+def full_glm_results(endog_arr, exog_vars, return_resids = False, PCA_whiten = False, ZCA_whiten = False, only_tvals = False):
+	if np.mean(exog_vars[:,0])!=1:
+		print("Warning: the intercept is not included as the first column in your exogenous variable array")
+	n, num_depv = endog_arr.shape
+	k = exog_vars.shape[1]
+	invXX = np.linalg.inv(np.dot(exog_vars.T, exog_vars))
+
+	DFbetween = k - 1 # aka df model
+	DFwithin = n - k # aka df residuals
+	DFtotal = n - 1
+	if PCA_whiten:
+		endog_arr = PCAwhiten(endog_arr)
+	if ZCA_whiten:
+		endog_arr = ZCAwhiten(endog_arr)
+
+	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
+	sigma2 = np.sum((endog_arr - np.dot(exog_vars,a))**2,axis=0) / (n - k)
+	se = se_of_slope(num_depv,invXX,sigma2,k)
+
+	if only_tvals:
+		return a / se
+	else:
+		resids = endog_arr - np.dot(exog_vars,a)
+		RSS = np.sum(resids**2,axis=0)
+		TSS = np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0)
+		R2 = 1 - (RSS/TSS)
+
+		std_y = np.sqrt(TSS/DFtotal)
+		R2_adj = 1 - ((1-R2)*DFtotal/(DFwithin))
+		Fvalues = ((TSS-RSS)/(DFbetween))/(RSS/DFwithin)
+		Tvalues = a / se
+		Pvalues = t.sf(np.abs(Tvalues), DFtotal)*2
+		if return_resids:
+			fitted = np.dot(exog_vars, a)
+			return (Fvalues, Tvalues, Pvalues, R2, R2_adj, np.array(resids), np.array(fitted))
+		else:
+			return (Fvalues, Tvalues, Pvalues, R2, R2_adj)
 
 DESCRIPTION = 'Run linear- and linear-mixed models for now.'
 
@@ -516,7 +564,7 @@ def run(opts):
 							os.system('mkdir -p resid_plots')
 							plot_residuals(residual=mdl_fit.resid,
 									fitted=mdl_fit.fittedvalues,
-									basename=('%s_%s' % (str(i).zfill(4), pdCSV.columns[i])),
+									basename=('%s_mm_%s' % (str(i).zfill(4), pdCSV.columns[i])),
 									outdir='resid_plots/')
 					p_values = np.array(p_values)
 					t_values = np.array(t_values)
@@ -580,12 +628,13 @@ def run(opts):
 						exog_vars = create_exog_mat(opts.exogenousvariables,
 							pdCSV,
 							opts.scaleexog==True)
-					invXX = np.linalg.inv(np.dot(exog_vars.T, exog_vars))
 					y = pdCSV.iloc[:,int(opts.range[0]):int(opts.range[1])+1]
-					n, num_depv = y.shape
-					k = exog_vars.shape[1]
-					t_values = tval_int(exog_vars, invXX, y, n, k, num_depv)[1:,:]
-					p_values = t.sf(np.abs(t_values), n-1)*2
+
+					if opts.plotresids:
+						f_values, t_values, p_values, R2, R2_adj, resids, fitted = full_glm_results(y, exog_vars, return_resids = True)
+					else:
+						f_values, t_values, p_values, R2, R2_adj = full_glm_results(y, exog_vars)
+
 					if opts.permutation:
 						if opts.groupingvariable:
 							p_FWER = run_permutations(endog_arr = y,
@@ -603,8 +652,8 @@ def run(opts):
 								return_permutations = True)
 						p_FWER = p_FWER.T
 
-					t_values = t_values.T
-					p_values = p_values.T
+					t_values = t_values[1:,:].T # ignore intercept
+					p_values = p_values[1:,:].T # ignore intercept
 
 					roi_names = []
 					for i in xrange(int(opts.range[0]),int(opts.range[1])+1):
@@ -616,6 +665,9 @@ def run(opts):
 						p_FDR[:,col] = multipletests(p_values[:,col], method = 'fdr_bh')[1]
 
 					columnnames = []
+					columnnames.append('Fvalue')
+					columnnames.append('R2')
+					columnnames.append('R2adj')
 					for colname in opts.exogenousvariables:
 						columnnames.append('tval_%s' % colname)
 					for colname in opts.exogenousvariables:
@@ -625,12 +677,23 @@ def run(opts):
 					if opts.permutation:
 						for colname in opts.exogenousvariables:
 							columnnames.append('pFWER_%s' % colname)
-					columndata = np.column_stack((t_values, p_values))
+					columndata = np.column_stack((f_values[:,np.newaxis], R2))
+					columndata = np.column_stack((columndata, R2_adj))
+					columndata = np.column_stack((columndata, t_values))
+					columndata = np.column_stack((columndata, p_values))
 					columndata = np.column_stack((columndata, p_FDR))
 					if opts.permutation:
 						columndata = np.column_stack((columndata, p_FWER))
 					pd_DF = pd.DataFrame(data=columndata, index=roi_names, columns=columnnames)
 					pd_DF.to_csv(opts.outstats[0], index_label='ROI')
+
+					if opts.plotresids:
+						os.system('mkdir -p resid_plots')
+						for i, roi in enumerate(np.array(roi_names)):
+							plot_residuals(residual = resids[:,i],
+									fitted = fitted[:,i],
+									basename=('%s_lm_%s' % (str(i+int(opts.range[0])).zfill(4), roi)),
+									outdir='resid_plots/')
 
 
 	if opts.savecsv:

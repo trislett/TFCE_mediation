@@ -120,57 +120,6 @@ def find_nearest(array, value, p_array):
 def equal_lengths(length_list):
 	return length_list[1:] == length_list[:-1]
 
-#shape 6,70
-def run_permutations(endog_arr, exog_vars, num_perm, stat_arr, uniq_groups = None, matched_blocks = False, return_permutations = False):
-	stime = time()
-	print("The accuracy is p = 0.05 +/- %.4f" % (2*(np.sqrt(0.05*0.95/num_perm))))
-	np.random.seed(int(1000+time()))
-	n, num_depv = endog_arr.shape
-	k = exog_vars.shape[1]
-	maxT_arr = np.zeros((int(k-1), num_perm))
-
-	if uniq_groups is not None:
-		unique_blocks = np.unique(uniq_groups)
-
-	for i in xrange(num_perm):
-		if i % 500 == 0:
-			print ("%d/%d" % (i,num_perm))
-		if uniq_groups is not None:
-			index_groups = np.array(range(n))
-			len_list = []
-			for block in unique_blocks:
-				len_list.append(len(uniq_groups[uniq_groups == block]))
-				s = len(index_groups[uniq_groups == block])
-				index_temp = index_groups[uniq_groups == block]
-				index_groups[uniq_groups == block] = index_temp[np.random.permutation(s)]
-			if equal_lengths(len_list): # nested blocks (add specified models!)
-				mixed_blocks = np.random.permutation(np.random.permutation(5))
-				rotate_groups = []
-				for m in mixed_blocks:
-					rotate_groups.append(index_groups[uniq_groups == unique_blocks[m]])
-				index_groups = np.array(rotate_groups).flatten()
-			nx = exog_vars[index_groups]
-		else:
-			nx = exog_vars[np.random.permutation(list(range(n)))]
-		invXX = np.linalg.inv(np.dot(exog_vars.T, exog_vars))
-		perm_tvalues = tval_int(nx, invXX, endog_arr, n, k, num_depv)
-		perm_tvalues[np.isnan(perm_tvalues)]=0
-		maxT_arr[:,i] = perm_tvalues.max(axis=1)[1:]
-	corrP_arr = np.zeros_like(stat_arr)
-	p_array=np.zeros(num_perm)
-	for j in range(num_perm):
-		p_array[j] = np.true_divide(j,num_perm)
-	for k in range(maxT_arr.shape[0]):
-		sorted_maxT = np.sort(maxT_arr[k,:])
-		sorted_maxT[sorted_maxT<0]=0
-		corrP_arr[k,:] = find_nearest(sorted_maxT,np.abs(stat_arr[k,:]),p_array)
-	print("%d permutations took %1.2f seconds." % (num_perm ,(time() - stime)))
-	if return_permutations:
-		np.savetxt('MaxPermutedValues.csv', maxT_arr.T, delimiter=',')
-		return (1 - corrP_arr)
-	else:
-		return (1 - corrP_arr)
-
 def plot_residuals(residual, fitted, basename, outdir=None, scale=True):
 	import matplotlib.pyplot as plt
 	from statsmodels.nonparametric.smoothers_lowess import lowess
@@ -202,11 +151,44 @@ def ZCAwhiten(X):
 	U, s, Vt = np.linalg.svd(X, full_matrices=False)
 	return np.dot(U, Vt)
 
-def full_glm_results(endog_arr, exog_vars, return_resids = False, PCA_whiten = False, ZCA_whiten = False, only_tvals = False):
+def orthog_columns(arr, norm = False): # N x Exog
+	arr = np.array(arr, dtype=np.float32)
+	out_arr = []
+	for column in range(arr.shape[1]):
+		if norm:
+			X = sm.add_constant(scalearr(np.delete(arr,column,1)))
+			y = scalearr(arr[:,column])
+		else:
+			X = sm.add_constant(np.delete(arr,column,1))
+			y = arr[:,column]
+		a = cy_lin_lstsqr_mat(X, y)
+		out_arr.append(y - np.dot(X,a))
+	return np.array(out_arr).T
+
+def ortho_neareast(w):
+	return w.dot(inv(sqrtm(w.T.dot(w))))
+
+def gram_schmidt_orthonorm(X, columns=True):
+	if columns:
+		Q, _ = np.linalg.qr(X)
+	else:
+		Q, _ = np.linalg.qr(X.T)
+		Q = Q.T
+	return Q
+
+def full_glm_results(endog_arr, exog_vars, return_resids = False, only_tvals = False, PCA_whiten = False, ZCA_whiten = False,  orthogonalize = True, orthogNear = False, orthog_GramSchmidt = False):
 	if np.mean(exog_vars[:,0])!=1:
 		print("Warning: the intercept is not included as the first column in your exogenous variable array")
 	n, num_depv = endog_arr.shape
 	k = exog_vars.shape[1]
+
+	if orthogonalize:
+		exog_vars = sm.add_constant(orthog_columns(exog_vars[:,1:]))
+	if orthogNear:
+		exog_vars = sm.add_constant(orthog_columns(ortho_neareast[:,1:]))
+	if orthog_GramSchmidt: # for when order matters AKA type 2 sum of squares
+		exog_vars = sm.add_constant(orthog_columns(gram_schmidt_orthonorm[:,1:]))
+
 	invXX = np.linalg.inv(np.dot(exog_vars.T, exog_vars))
 
 	DFbetween = k - 1 # aka df model
@@ -239,6 +221,147 @@ def full_glm_results(endog_arr, exog_vars, return_resids = False, PCA_whiten = F
 			return (Fvalues, Tvalues, Pvalues, R2, R2_adj, np.array(resids), np.array(fitted))
 		else:
 			return (Fvalues, Tvalues, Pvalues, R2, R2_adj)
+
+def run_permutations(endog_arr, exog_vars, num_perm, stat_arr, uniq_groups = None, matched_blocks = False, return_permutations = False):
+	stime = time()
+	print("The accuracy is p = 0.05 +/- %.4f" % (2*(np.sqrt(0.05*0.95/num_perm))))
+	np.random.seed(int(1000+time()))
+	maxT_arr = np.zeros((int(k-1), num_perm))
+
+	n, num_depv = endog_arr.shape
+	k = exog_vars.shape[1]
+
+	if uniq_groups is not None:
+		unique_blocks = np.unique(uniq_groups)
+
+	for i in xrange(num_perm):
+		if i % 500 == 0:
+			print ("%d/%d" % (i,num_perm))
+		if uniq_groups is not None:
+			index_groups = np.array(range(n))
+			len_list = []
+			for block in unique_blocks:
+				len_list.append(len(uniq_groups[uniq_groups == block]))
+				s = len(index_groups[uniq_groups == block])
+				index_temp = index_groups[uniq_groups == block]
+				index_groups[uniq_groups == block] = index_temp[np.random.permutation(s)]
+			if equal_lengths(len_list): # nested blocks (add specified models!)
+				mixed_blocks = np.random.permutation(np.random.permutation(len_list))
+				rotate_groups = []
+				for m in mixed_blocks:
+					rotate_groups.append(index_groups[uniq_groups == unique_blocks[m]])
+				index_groups = np.array(rotate_groups).flatten()
+			nx = exog_vars[index_groups]
+		else:
+			nx = exog_vars[np.random.permutation(list(range(n)))]
+		perm_tvalues = full_glm_results(endog_arr, nx, only_tvals=True)[1,:]
+		perm_tvalues[np.isnan(perm_tvalues)]=0
+		maxT_arr[:,i] = perm_tvalues.max(axis=1)
+	corrP_arr = np.zeros_like(stat_arr)
+	p_array=np.zeros(num_perm)
+	for j in range(num_perm):
+		p_array[j] = np.true_divide(j,num_perm)
+	for k in range(maxT_arr.shape[0]):
+		sorted_maxT = np.sort(maxT_arr[k,:])
+		sorted_maxT[sorted_maxT<0]=0
+		corrP_arr[k,:] = find_nearest(sorted_maxT,np.abs(stat_arr[k,:]),p_array)
+	print("%d permutations took %1.2f seconds." % (num_perm ,(time() - stime)))
+	if return_permutations:
+		np.savetxt('MaxPermutedValues.csv', maxT_arr.T, delimiter=',')
+		return (1 - corrP_arr)
+	else:
+		return (1 - corrP_arr)
+
+def run_permutations_med(endog_arr, exog_vars, medtype, leftvar, rightvar, num_perm, stat_arr, uniq_groups = None, matched_blocks = False, return_permutations = False):
+	stime = time()
+	print("The accuracy is p = 0.05 +/- %.4f" % (2*(np.sqrt(0.05*0.95/num_perm))))
+	np.random.seed(int(1000+time()))
+	maxT_arr = np.zeros((num_perm))
+
+	n, num_depv = endog_arr.shape
+	k = exog_vars.shape[1]
+
+	if uniq_groups is not None:
+		unique_blocks = np.unique(uniq_groups)
+
+	for i in xrange(num_perm):
+		if i % 500 == 0:
+			print ("%d/%d" % (i,num_perm))
+		if uniq_groups is not None:
+			index_groups = np.array(range(n))
+			len_list = []
+			for block in unique_blocks:
+				len_list.append(len(uniq_groups[uniq_groups == block]))
+				s = len(index_groups[uniq_groups == block])
+				index_temp = index_groups[uniq_groups == block]
+				index_groups[uniq_groups == block] = index_temp[np.random.permutation(s)]
+			if equal_lengths(len_list): # nested blocks (add specified models!)
+				mixed_blocks = np.random.permutation(np.random.permutation(len_list))
+				rotate_groups = []
+				for m in mixed_blocks:
+					rotate_groups.append(index_groups[uniq_groups == unique_blocks[m]])
+				index_groups = np.array(rotate_groups).flatten()
+			nx = exog_vars[index_groups]
+		else:
+			index_groups = np.random.permutation(list(range(n)))
+			nx = exog_vars[index_groups]
+
+		if medtype == 'I':
+			EXOG_A = sm.add_constant(np.column_stack((leftvar, strip_ones(exog_vars))))
+
+			EXOG_A = EXOG_A[index_groups]
+
+			EXOG_B = np.column_stack((leftvar, rightvar))
+			EXOG_B = sm.add_constant(np.column_stack((EXOG_B, strip_ones(exog_vars))))
+
+			#pathA
+			t_valuesA = full_glm_results(endog_arr, EXOG_A, only_tvals=True)[1,:]
+			#pathB
+			t_valuesB = full_glm_results(endog_arr, EXOG_B, only_tvals=True)[1,:]
+
+		elif medtype == 'M':
+			EXOG_A = sm.add_constant(np.column_stack((leftvar, strip_ones(exog_vars))))
+
+			EXOG_A = EXOG_A[index_groups]
+
+			EXOG_B = np.column_stack((rightvar, leftvar))
+			EXOG_B = sm.add_constant(np.column_stack((EXOG_B, strip_ones(exog_vars))))
+
+			#pathA
+			t_valuesA = full_glm_results(endog_arr, EXOG_A, only_tvals=True)[1,:]
+			#pathB
+			t_valuesB = full_glm_results(endog_arr, EXOG_B, only_tvals=True)[1,:]
+
+		elif medtype == 'Y':
+			EXOG_A = sm.add_constant(np.column_stack((leftvar, strip_ones(exog_vars))))
+			EXOG_B = np.column_stack((rightvar, leftvar))
+			EXOG_B = sm.add_constant(np.column_stack((EXOG_B, strip_ones(exog_vars))))
+
+			EXOG_A = EXOG_A[index_groups]
+			EXOG_B = EXOG_B[index_groups]
+
+			#pathA
+			t_valuesA = sm.OLS(rightvar, EXOG_A).fit().tvalues[1]
+			#pathB
+			t_valuesB = full_glm_results(endog_arr, EXOG_B, only_tvals=True)[1,:]
+
+		perm_zvalues  = special_calc_sobelz(np.array(t_valuesA), np.array(t_valuesB), alg = "aroian")
+		perm_zvalues[np.isnan(perm_zvalues)]=0
+		maxT_arr[i] = perm_zvalues.max()
+	corrP_arr = np.zeros_like(stat_arr)
+	p_array=np.zeros(num_perm)
+	for j in range(num_perm):
+		p_array[j] = np.true_divide(j,num_perm)
+	sorted_maxT = np.sort(maxT_arr[:])
+	sorted_maxT[sorted_maxT<0]=0
+	corrP_arr[:] = find_nearest(sorted_maxT,np.abs(stat_arr[:]),p_array)
+	print("%d permutations took %1.2f seconds." % (num_perm ,(time() - stime)))
+	if return_permutations:
+		np.savetxt('MaxPermutedValues.csv', maxT_arr.T, delimiter=',')
+		return (1 - corrP_arr)
+	else:
+		return (1 - corrP_arr)
+
 
 DESCRIPTION = 'Run linear- and linear-mixed models for now.'
 
@@ -459,59 +582,62 @@ def run(opts):
 						EXOG_B = np.column_stack((leftvar, rightvar))
 						EXOG_B = sm.add_constant(np.column_stack((EXOG_B, strip_ones(exog_vars))))
 
+						y = pdCSV.iloc[:,int(opts.range[0]):int(opts.range[1])+1]
 						#pathA
-						invXX = np.linalg.inv(np.dot(EXOG_A.T, EXOG_A))
-						y = pdCSV.iloc[:,int(opts.range[0]):int(opts.range[1])+1]
-						n, num_depv = y.shape
-						k = EXOG_A.shape[1]
-						t_valuesA = tval_int(EXOG_A, invXX, y, n, k, num_depv)[1,:]
-
+						t_valuesA = full_glm_results(y, EXOG_A, only_tvals=True)[1,:]
 						#pathB
-						invXX = np.linalg.inv(np.dot(EXOG_B.T, EXOG_B))
-						y = pdCSV.iloc[:,int(opts.range[0]):int(opts.range[1])+1]
-						n, num_depv = y.shape
-						k = EXOG_B.shape[1]
-						t_valuesB = tval_int(EXOG_B, invXX, y, n, k, num_depv)[1,:]
+						t_valuesB = full_glm_results(y, EXOG_B, only_tvals=True)[1,:]
 
 					elif opts.mediation[0] == 'M':
 						EXOG_A = sm.add_constant(np.column_stack((leftvar, strip_ones(exog_vars))))
 						EXOG_B = np.column_stack((rightvar, leftvar))
 						EXOG_B = sm.add_constant(np.column_stack((EXOG_B, strip_ones(exog_vars))))
 
+						y = pdCSV.iloc[:,int(opts.range[0]):int(opts.range[1])+1]
 						#pathA
-						invXX = np.linalg.inv(np.dot(EXOG_A.T, EXOG_A))
-						y = pdCSV.iloc[:,int(opts.range[0]):int(opts.range[1])+1]
-						n, num_depv = y.shape
-						k = EXOG_A.shape[1]
-						t_valuesA = tval_int(EXOG_A, invXX, y, n, k, num_depv)[1,:]
-
+						t_valuesA = full_glm_results(y, EXOG_A, only_tvals=True)[1,:]
 						#pathB
-						invXX = np.linalg.inv(np.dot(EXOG_B.T, EXOG_B))
-						y = pdCSV.iloc[:,int(opts.range[0]):int(opts.range[1])+1]
-						n, num_depv = y.shape
-						k = EXOG_B.shape[1]
-						t_valuesB = tval_int(EXOG_B, invXX, y, n, k, num_depv)[1,:]
+						t_valuesB = full_glm_results(y, EXOG_B, only_tvals=True)[1,:]
+
 					elif opts.mediation[0] == 'Y':
 						EXOG_A = sm.add_constant(np.column_stack((leftvar, strip_ones(exog_vars))))
 						EXOG_B = np.column_stack((rightvar, leftvar))
 						EXOG_B = sm.add_constant(np.column_stack((EXOG_B, strip_ones(exog_vars))))
 
-						#pathA
-						mdl_fit = sm.OLS(rightvar, EXOG_A).fit()
-						t_valuesA = mdl_fit.tvalues[1]
-
-						#pathB
-						invXX = np.linalg.inv(np.dot(EXOG_B.T, EXOG_B))
 						y = pdCSV.iloc[:,int(opts.range[0]):int(opts.range[1])+1]
-						n, num_depv = y.shape
-						k = EXOG_B.shape[1]
-						t_valuesB = tval_int(EXOG_B, invXX, y, n, k, num_depv)[1,:]
+						#pathA
+						t_valuesA = sm.OLS(rightvar, EXOG_A).fit().tvalues[1]
+						#pathB
+						t_valuesB = full_glm_results(y, EXOG_B, only_tvals=True)[1,:]
+
 					else:
 						print("Error: Invalid mediation type.")
 						quit()
 					z_values  = special_calc_sobelz(np.array(t_valuesA), np.array(t_valuesB), alg = "aroian")
 					p_values = norm.sf(abs(z_values))
 					p_FDR = multipletests(p_values, method = 'fdr_bh')[1]
+
+					if opts.permutation:
+						if opts.groupingvariable:
+							p_FWER = run_permutations_med(endog_arr = y,
+								exog_vars = exog_vars,
+								medtype = opts.mediation[0],
+								leftvar = leftvar,
+								rightvar = rightvar,
+								num_perm = int(opts.permutation[0]),
+								stat_arr = z_values,
+								uniq_groups = pdCSV[groupVar],
+								return_permutations = True)
+						else:
+							p_FWER = run_permutations_med(endog_arr = y,
+								exog_vars = exog_vars,
+								medtype = opts.mediation[0],
+								leftvar = leftvar,
+								rightvar = rightvar,
+								num_perm = int(opts.permutation[0]),
+								stat_arr = z_values,
+								uniq_groups = None,
+								return_permutations = True)
 
 					roi_names = []
 					for i in xrange(int(opts.range[0]),int(opts.range[1])+1):
@@ -523,6 +649,9 @@ def run(opts):
 				columnnames.append('pFDR')
 				columndata = np.column_stack((z_values, p_values))
 				columndata = np.column_stack((columndata, p_FDR))
+				if opts.permutation:
+					columnnames.append('pFWER')
+					columndata = np.column_stack((columndata, p_FWER))
 				pd_DF = pd.DataFrame(data=columndata, index=roi_names, columns=columnnames)
 				pd_DF.to_csv(opts.outstats[0], index_label='ROI')
 
@@ -650,7 +779,7 @@ def run(opts):
 								stat_arr = t_values,
 								uniq_groups = None,
 								return_permutations = True)
-						p_FWER = p_FWER.T
+						p_FWER = p_FWER[1:,:].T
 
 					t_values = t_values[1:,:].T # ignore intercept
 					p_values = p_values[1:,:].T # ignore intercept

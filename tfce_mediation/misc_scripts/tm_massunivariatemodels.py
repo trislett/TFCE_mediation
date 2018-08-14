@@ -82,7 +82,7 @@ def omitmissing(pdDF, endog_range, exogenous = None, groups = None):
 		if exogenous.ndim ==1:
 			isnull_arr = np.column_stack((isnull_arr, np.isnan(exogenous)*1))
 		else:
-			for j in range(exogenous.ndim):
+			for j in range(exogenous.shape[1]):
 				isnull_arr = np.column_stack((isnull_arr, np.isnan(exogenous[:,j])*1))
 	if groups is not None:
 		for groupvar in groups:
@@ -226,10 +226,11 @@ def run_permutations(endog_arr, exog_vars, num_perm, stat_arr, uniq_groups = Non
 	stime = time()
 	print("The accuracy is p = 0.05 +/- %.4f" % (2*(np.sqrt(0.05*0.95/num_perm))))
 	np.random.seed(int(1000+time()))
-	maxT_arr = np.zeros((int(k-1), num_perm))
 
 	n, num_depv = endog_arr.shape
 	k = exog_vars.shape[1]
+
+	maxT_arr = np.zeros((int(k), num_perm))
 
 	if uniq_groups is not None:
 		unique_blocks = np.unique(uniq_groups)
@@ -254,11 +255,12 @@ def run_permutations(endog_arr, exog_vars, num_perm, stat_arr, uniq_groups = Non
 			nx = exog_vars[index_groups]
 		else:
 			nx = exog_vars[np.random.permutation(list(range(n)))]
-		perm_tvalues = full_glm_results(endog_arr, nx, only_tvals=True)[1,:]
+		perm_tvalues = full_glm_results(endog_arr, nx, only_tvals=True)#[1:,:]
 		perm_tvalues[np.isnan(perm_tvalues)]=0
 		maxT_arr[:,i] = perm_tvalues.max(axis=1)
 	corrP_arr = np.zeros_like(stat_arr)
 	p_array=np.zeros(num_perm)
+
 	for j in range(num_perm):
 		p_array[j] = np.true_divide(j,num_perm)
 	for k in range(maxT_arr.shape[0]):
@@ -369,7 +371,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	ap.add_argument("-m", "--statsmodel",
 		help="Select the statistical model.",
 		choices=['mixedmodel', 'mm', 'linear', 'lm'],
-		required=True)
+		required=False)
 	ap.add_argument("-i", "-i_csv", "--inputcsv",
 		help="Edit existing *.tmi file.",
 		nargs='+', 
@@ -395,10 +397,10 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		help="Exogenous (independent) variables. Intercept(s) will be included automatically. e.g. -exog {time_h} {weight_lbs}",
 		metavar='str',
 		nargs='+')
-	ap.add_argument("-int", "--twowayinteration",
-		help="Interaction of two exogenous (independent) variables. Variables should not be included in -exog. e.g. -int diagnosis genescore",
-		metavar = ['str','str'],
-		nargs = 2)
+	ap.add_argument("-int", "--interactionvars",
+		help="Interaction exogenous (independent) variables. Variables should not be included in -exog. e.g. -int diagnosis*genescore sex*age",
+		metavar = ['Var1*Var2'],
+		nargs = '+')
 	ap.add_argument("-g", "--groupingvariable",
 		help="Select grouping variable for mixed model.",
 		metavar='str',
@@ -449,19 +451,32 @@ def run(opts):
 			pdCSV = pd.concat([pdCSV, tempCSV], axis=1, join_axes=[pdCSV.index])
 
 	# Interaction Variables
-	if opts.twowayinteration:
-		var1 = scalevar(pdCSV[opts.twowayinteration[0]])
-		var2 = scalevar(pdCSV[opts.twowayinteration[1]])
-		intvar = var1 * var2
-		var1_name = '%s_p' % opts.twowayinteration[0]
-		var2_name = '%s_p' % opts.twowayinteration[1]
-		intvar_name = '%s.X.%s' % (opts.twowayinteration[0],opts.twowayinteration[1])
-		pdCSV[var1_name] = var1
-		pdCSV[var2_name] = var2
-		pdCSV[intvar_name] = intvar
-		opts.exogenousvariables.append(var1_name)
-		opts.exogenousvariables.append(var2_name)
-		opts.exogenousvariables.append(intvar_name)
+	if opts.interactionvars:
+		for int_terms in opts.interactionvars:
+			inteaction_vars = int_terms.split("*")
+			for scale_var in inteaction_vars:
+				var_temp = scalevar(pdCSV[scale_var])
+				var_tempname = '%s_p' % scale_var
+				if var_tempname in opts.exogenousvariables:
+					pass
+				else:
+					pdCSV[var_tempname] = var_temp
+					opts.exogenousvariables.append(var_tempname)
+		for int_terms in opts.interactionvars:
+			inteaction_vars = int_terms.split("*")
+			for i, scale_var in enumerate(inteaction_vars):
+				if i == 0:
+					int_temp = pdCSV['%s_p' % scale_var]
+					int_tempname = '%s' % scale_var
+				else:
+					int_temp = int_temp * pdCSV['%s_p' % scale_var]
+					int_tempname = int_tempname + '.X.' + scale_var
+			if int_tempname in opts.exogenousvariables:
+				pass
+			else:
+				pdCSV[int_tempname] = int_temp
+				opts.exogenousvariables.append(int_tempname)
+			int_temp = None
 		print opts.exogenousvariables
 
 
@@ -482,11 +497,14 @@ def run(opts):
 	# stats functions
 
 	if opts.outstats:
+		if not opts.statsmodel:
+			print("A statistical model must be specificed. -m {model}")
+			quit()
 		if not opts.range:
-			print("Range must be specfied")
+			print("Range must be specfied. -r {start} {stop}")
 			quit()
 		elif len(opts.range) != 2:
-			print("Range must have start and stop")
+			print("Range must have start and stop. -r {start} {stop}")
 			quit()
 		else:
 			roi_names = []
@@ -757,11 +775,12 @@ def run(opts):
 						exog_vars = create_exog_mat(opts.exogenousvariables,
 							pdCSV,
 							opts.scaleexog==True)
-					y = pdCSV.iloc[:,int(opts.range[0]):int(opts.range[1])+1]
+					y = np.array(pdCSV.iloc[:,int(opts.range[0]):int(opts.range[1])+1])
 
 					if opts.plotresids:
 						f_values, t_values, p_values, R2, R2_adj, resids, fitted = full_glm_results(y, exog_vars, return_resids = True)
 					else:
+						np.savetxt('temp_int.csv', orthog_columns(strip_ones(exog_vars)), delimiter=',')
 						f_values, t_values, p_values, R2, R2_adj = full_glm_results(y, exog_vars)
 
 					if opts.permutation:
@@ -803,15 +822,15 @@ def run(opts):
 						columnnames.append('pval_%s' % colname)
 					for colname in opts.exogenousvariables:
 						columnnames.append('pFDR_%s' % colname)
-					if opts.permutation:
-						for colname in opts.exogenousvariables:
-							columnnames.append('pFWER_%s' % colname)
+
 					columndata = np.column_stack((f_values[:,np.newaxis], R2))
 					columndata = np.column_stack((columndata, R2_adj))
 					columndata = np.column_stack((columndata, t_values))
 					columndata = np.column_stack((columndata, p_values))
 					columndata = np.column_stack((columndata, p_FDR))
 					if opts.permutation:
+						for colname in opts.exogenousvariables:
+							columnnames.append('pFWER_%s' % colname)
 						columndata = np.column_stack((columndata, p_FWER))
 					pd_DF = pd.DataFrame(data=columndata, index=roi_names, columns=columnnames)
 					pd_DF.to_csv(opts.outstats[0], index_label='ROI')

@@ -19,7 +19,6 @@
 import numpy as np
 import nibabel as nib
 import argparse as ap
-import math
 
 DESCRIPTION = "Calculate 1-P[FWE] surface from max TFCE values from randomisation."
 
@@ -37,12 +36,10 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 #find nearest permuted TFCE max value that corresponse to family-wise error rate 
 def find_nearest(array,value,p_array):
 	idx = np.searchsorted(array, value, side="left")
-	if idx == len(p_array):
-		return p_array[idx-1]
-	elif math.fabs(value - array[idx-1]) < math.fabs(value - array[idx]):
-		return p_array[idx-1]
-	else:
+	if idx == 0:
 		return p_array[idx]
+	else:
+		return p_array[idx-1]
 
 
 def run(opts):

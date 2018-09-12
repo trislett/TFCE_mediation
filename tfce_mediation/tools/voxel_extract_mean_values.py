@@ -6,6 +6,22 @@ import nibabel as nib
 import argparse as ap
 from sklearn.decomposition import PCA
 
+# Detects outliers using median absolute deviation
+# Reference
+# Boris Iglewicz and David Hoaglin (1993), "Volume 16: How to Detect and
+# Handle Outliers", The ASQC Basic References in Quality Control:
+# Statistical Techniques, Edward F. Mykytka, Ph.D., Editor.
+def mad_based_outlier(points, thresh=3.5):
+	if len(points.shape) == 1:
+		points = points[:,None]
+	median = np.median(points, axis=0)
+	diff = np.sum((points - median)**2, axis=-1)
+	diff = np.sqrt(diff)
+	med_abs_deviation = np.median(diff)
+	modified_z_score = 0.6745 * diff / med_abs_deviation
+	return modified_z_score > thresh
+
+
 DESCRIPTION = "Calculate mean FA values from label after running STEP_0."
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
@@ -54,10 +70,15 @@ def run(opts):
 		start=opts.range[0]
 		stop=opts.range[1] + 1
 		meanvalue = np.zeros((num_subjects,int(stop-start)))
+		outliers = np.zeros((num_subjects,int(stop-start)))
 		for i in range(start,stop):
-			meanvalue[:,(i-1)]=allFA4D[label_data==i].mean(axis=0)
+			mean = allFA4D[label_data==i].mean(axis=0)
+			meanvalue[:,(i-1)] = mean
+			outliers[:,(i-1)] = mad_based_outlier(mean)*1
 		np.savetxt("Mean_voxel_label.csv", meanvalue, delimiter=",")
+		np.savetxt("Outlier_voxel_label.csv", outliers, delimiter=",")
 
+	
 	if opts.pca:
 		print(("Evaluating %d components" % opts.pca[0]))
 		x = (meanvalue - np.mean(meanvalue, 0)) / np.std(meanvalue, 0)

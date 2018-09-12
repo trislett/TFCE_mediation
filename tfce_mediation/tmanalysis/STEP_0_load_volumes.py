@@ -68,7 +68,7 @@ def run(opts):
 		nonzero_data = np.array(nonzero_data).T
 	elif opts.filelist:
 		nonzero_data = []
-		for image_path in np.genfromtxt(opts.filelist[0], delimiter=','):
+		for image_path in np.genfromtxt(opts.filelist[0], delimiter=',', dtype=None):
 			nonzero_data.append(import_voxel_neuroimage(image_path, mask_index))
 		nonzero_data = np.array(nonzero_data).T
 	else:

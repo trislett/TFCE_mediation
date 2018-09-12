@@ -23,12 +23,12 @@ import nibabel as nib
 import math
 import sys
 import struct
+import uuid
 from scipy.stats import linregress
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.patches as mpatches
 from time import time
-
 
 from tfce_mediation.cynumstats import calc_beta_se, resid_covars, cy_lin_lstsqr_mat
 
@@ -1103,4 +1103,36 @@ def erode_3D_image(img_data, erode_iter = 2, do_binary_opening = False, do_binar
 	img_data *= erode_mask
 	return img_data, erode_mask
 
+# load voxel neuorimages, checks for file size to conserve RAM, return nibabel img or masked data
+def import_voxel_neuroimage(image_path, mask_index = None):
+	if not os.path.exists(image_path):
+		print('Error: %s not found' % image_path)
+		quit()
+	base, file_ext = os.path.splitext(image_path)
+	if file_ext == '.gz':
+		file_ext = os.path.splitext(base)[1]
+		if file_ext == '.nii':
+			if os.path.getsize(image_path) < 50000000:
+				image = nib.load(image_path)
+			else:
+				tempname = str(uuid.uuid4().hex) + '.nii'
+				os.system("zcat %s > %s" % (image_path,tempname))
+				image = nib.load(tempname)
+				os.system("rm %s" % tempname)
+		else:
+			print('Error: filetype for %s is not supported' % image_path)
+	elif file_ext == '.nii':
+		image = nib.load(image_path)
+	elif file_ext == '.mnc':
+		image = nib.load(image_path)
+	else:
+		print('Error filetype for %s is not supported' % img_all_name)
+		quit()
+	print("Imported:\t%s" % image_path)
+	if mask_index is not None:
+		image_data = image.get_data()
+		image_data = image_data[mask_index]
+		return image_data
+	else:
+		return image
 

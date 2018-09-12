@@ -174,7 +174,7 @@ def gram_schmidt_orthonorm(X, columns=True):
 	else:
 		Q, _ = np.linalg.qr(X.T)
 		Q = Q.T
-	return Q
+	return -Q
 
 def full_glm_results(endog_arr, exog_vars, return_resids = False, only_tvals = False, PCA_whiten = False, ZCA_whiten = False,  orthogonalize = True, orthogNear = False, orthog_GramSchmidt = False):
 	if np.mean(exog_vars[:,0])!=1:
@@ -184,10 +184,12 @@ def full_glm_results(endog_arr, exog_vars, return_resids = False, only_tvals = F
 
 	if orthogonalize:
 		exog_vars = sm.add_constant(orthog_columns(exog_vars[:,1:]))
-	if orthogNear:
-		exog_vars = sm.add_constant(orthog_columns(ortho_neareast[:,1:]))
-	if orthog_GramSchmidt: # for when order matters AKA type 2 sum of squares
-		exog_vars = sm.add_constant(orthog_columns(gram_schmidt_orthonorm[:,1:]))
+	elif orthogNear:
+		exog_vars = sm.add_constant(ortho_neareast(exog_vars[:,1:]))
+	elif orthog_GramSchmidt: # for when order matters AKA type 2 sum of squares
+		exog_vars = sm.add_constant(gram_schmidt_orthonorm(exog_vars[:,1:]))
+	else:
+		pass
 
 	invXX = np.linalg.inv(np.dot(exog_vars.T, exog_vars))
 
@@ -303,10 +305,8 @@ def run_permutations_med(endog_arr, exog_vars, medtype, leftvar, rightvar, num_p
 				for m in mixed_blocks:
 					rotate_groups.append(index_groups[uniq_groups == unique_blocks[m]])
 				index_groups = np.array(rotate_groups).flatten()
-			nx = exog_vars[index_groups]
 		else:
 			index_groups = np.random.permutation(list(range(n)))
-			nx = exog_vars[index_groups]
 
 		if medtype == 'I':
 			EXOG_A = sm.add_constant(np.column_stack((leftvar, strip_ones(exog_vars))))
@@ -456,7 +456,7 @@ def run(opts):
 			inteaction_vars = int_terms.split("*")
 			for scale_var in inteaction_vars:
 				var_temp = scalevar(pdCSV[scale_var])
-				var_tempname = '%s_p' % scale_var
+				var_tempname = '%s_std' % scale_var
 				if var_tempname in opts.exogenousvariables:
 					pass
 				else:
@@ -466,10 +466,10 @@ def run(opts):
 			inteaction_vars = int_terms.split("*")
 			for i, scale_var in enumerate(inteaction_vars):
 				if i == 0:
-					int_temp = pdCSV['%s_p' % scale_var]
+					int_temp = pdCSV['%s_std' % scale_var]
 					int_tempname = '%s' % scale_var
 				else:
-					int_temp = int_temp * pdCSV['%s_p' % scale_var]
+					int_temp = int_temp * pdCSV['%s_std' % scale_var]
 					int_tempname = int_tempname + '.X.' + scale_var
 			if int_tempname in opts.exogenousvariables:
 				pass

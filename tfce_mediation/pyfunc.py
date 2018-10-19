@@ -1136,3 +1136,242 @@ def import_voxel_neuroimage(image_path, mask_index = None):
 	else:
 		return image
 
+# Repeated measure ANOVA
+#
+# Input
+# data = data [ Ncondition * Nindividuals * Ndep ]
+#
+# Output
+# F = F-statistics of the interval variable
+def rm_anova(data):
+	k = data.shape[0]
+	ni = data.shape[1]
+	mu_grand = np.divide((np.mean(data[0],0) + np.mean(data[1],0)),2)
+	SStime = ni * ((np.mean(data[0],0)-mu_grand)**2 + (np.mean(data[1],0)-mu_grand)**2)
+	SSw = np.sum(np.square(data[0] - np.mean(data[0],0)),0) + np.sum(np.square(data[1] - np.mean(data[1],0)),0)
+	SSsub = k * np.sum(np.square(np.divide((data[0] + data[1]),2) - mu_grand),0)
+	SSerror = SSw - SSsub
+	MStime = np.divide(SStime, (k-1))
+	MSerror = SSerror /((ni -1) * (k-1))
+	F = MStime / MSerror
+	return(mu_grand, SStime, SSw, SSsub, SSerror, MStime, MSerror, F)
+
+# One factor Repeated measure ANOVA
+#
+# Input
+# data = data [ Ncondition * Nindividuals * Ndep ]
+#
+# Output
+# F = F-statistics of the interval variable
+def onefactor_rm_anova(data, between_sub_factor):
+	k = data.shape[0]
+	Ns =  data.shape[1]
+
+	#grand mean
+	mu_grand = 0
+	for i in range(k):
+		mu_grand += np.mean(data[i],0)
+	mu_grand = np.divide(mu_grand,k)
+
+	# Total sum of squares
+	if data.ndim == 3:
+		SStotal = np.sum((data - mu_grand)**2, (0,1))
+	else:
+		SStotal = np.sum((data - mu_grand)**2)
+
+
+	# Sum of squareas of the subjects
+	SSsub = np.sum((np.mean(data,0) - mu_grand)**2,0) * k
+
+	ni_array = []
+	for factor in np.unique(between_sub_factor):
+		ni = data[:,between_sub_factor==factor].shape[1]
+		ni_array.append(ni)
+	ni = np.divide(np.sum(np.array(ni_array)), k)
+	print ni
+
+
+	# Sum of squares of the groups
+	SSgroups = 0
+	for factor in np.unique(between_sub_factor):
+		if data.ndim == 3:
+			SSgroups += (np.mean(data[:,between_sub_factor==factor], (0,1)) - mu_grand)**2 * k * data[:,between_sub_factor==factor].shape[1]
+		else:
+			SSgroups += (np.mean(data[:,between_sub_factor==factor]) - mu_grand)**2 * k * data[:,between_sub_factor==factor].shape[1]
+
+	# Sum of squares intervals (i.e., time)
+	ki = len(np.unique(between_sub_factor))
+	SStime = np.sum((np.mean(data,1) - mu_grand)**2,0) * ni * ki
+
+	# Sum of squares for cells
+	SScells = 0
+
+	for factor in np.unique(between_sub_factor):
+		SScells += np.sum(np.square(np.mean(data[:,between_sub_factor==factor],1) - mu_grand),0) * data[:,between_sub_factor==factor].shape[1]
+
+	SSint = SScells - SStime - SSgroups
+	SSwithingroups = SSsub - SSgroups
+
+	SSwithinsubs = SStotal - SSsub
+	SSintwithingroups = SSwithinsubs - SStime - SSint
+
+	df_total = k * Ns - 1
+	df_groups = ki - 1
+	df_withingroups = (ki * (ni - 1))
+	df_time = (k-1)
+	df_int = df_groups * df_time
+	df_intwithingroups = df_total - df_groups - df_withingroups - df_time - df_int
+
+	MSgroups = np.divide(SSgroups, df_groups)
+	MSwithingroups = np.divide(SSwithingroups, df_withingroups)
+	Fbetween = np.divide(MSgroups, MSwithingroups)
+	Pbetween = 1 - f.cdf(Fbetween,df_groups,df_withingroups)
+
+	MStime = np.divide(SStime, df_time)
+	MSint = np.divide(SSint, df_int)
+	MSintwithingroups = np.divide(SSintwithingroups, df_intwithingroups)
+
+	Ftime =  np.divide(MStime, MSintwithingroups)
+	Fint =  np.divide(MSint, MSintwithingroups)
+	Ptime = 1 - f.cdf(Ftime,df_time,df_intwithingroups)
+	Pint = 1 - f.cdf(Fint,df_int,df_intwithingroups)
+
+	return(Fbetween, Ftime, Fint, Pbetween, Ptime, Pint)
+
+def two_factor_rm_anova(data, factor1, factor2):
+
+	f1xf2 = np.array(map('_'.join, zip(factor1.astype(np.str),factor2.astype(np.str))))
+
+	k = data.shape[0]
+	Ns =  data.shape[1]
+
+	#grand mean
+	mu_grand = 0
+	for i in range(k):
+		mu_grand += np.mean(data[i],0)
+	mu_grand = np.divide(mu_grand,k)
+
+	# Total sum of squares
+	if data.ndim == 3:
+		SStotal = np.sum((data - mu_grand)**2, (0,1))
+	else:
+		SStotal = np.sum((data - mu_grand)**2)
+
+	# Sum of squares of the subjects
+	SSsub = np.sum((np.mean(data,0) - mu_grand)**2,0) * k
+
+	# checks fo unequal sizes
+	ni_array = []
+	for factor in np.unique(factor1):
+		ni = data[:,factor1==factor].shape[1]
+		ni_array.append(ni)
+	ni1 = np.divide(np.sum(np.array(ni_array)), k)
+	ni_array = []
+	for factor in np.unique(factor1):
+		ni = data[:,factor2==factor].shape[1]
+		ni_array.append(ni)
+	ni2 = np.divide(np.sum(np.array(ni_array)), k)
+
+	# Sum of squares of the groups (factor1 and factor2)
+	SSfac1 = 0
+	for factor in np.unique(factor1):
+		if data.ndim == 3:
+			SSfac1 += (np.mean(data[:,factor1==factor], (0,1)) - mu_grand)**2 * k * data[:,factor1==factor].shape[1]
+		else:
+			SSfac1 += (np.mean(data[:,factor1==factor]) - mu_grand)**2 * k * data[:,factor1==factor].shape[1]
+
+	SSfac2 = 0
+	for factor in np.unique(factor2):
+		if data.ndim == 3:
+			SSfac2 += (np.mean(data[:,factor2==factor], (0,1)) - mu_grand)**2 * k * data[:,factor2==factor].shape[1]
+		else:
+			SSfac2 += (np.mean(data[:,factor2==factor]) - mu_grand)**2 * k * data[:,factor2==factor].shape[1]
+
+	# Sum of squares for cells (factor1xfactor2)
+	SScellsFF = 0
+	for factor in np.unique(f1xf2):
+		if data.ndim == 3:
+			SScellsFF += np.square(np.mean(data[:,f1xf2==factor],(0,1)) - mu_grand) * np.sum((f1xf2 == factor)*1) * k
+		else:
+			SScellsFF += np.square(np.mean(data[:,f1xf2==factor]) - mu_grand) * np.sum((f1xf2 == factor)*1) * k
+
+	# Sum of squares for factor1xfactor
+	SSFF = SScellsFF - SSfac2 - SSfac1
+
+	# Sum of squares intervals (i.e., time)
+	if data.ndim == 3:
+		SStime = np.sum((np.mean(data,1) - mu_grand)**2,0) * ni1 * 2
+
+	# Sum of squares for cells (factor1xinterval)
+	SScellsF1time = 0
+	for factor in np.unique(factor1):
+		SScellsF1time += np.sum(np.square(np.mean(data[:,factor1==factor],1) - mu_grand),0) * data[:,factor1==factor].shape[1]
+
+	# Sum of squares for factor1xinterval
+	SSF1time = SScellsF1time - SStime - SSfac1
+
+	# Sum of squares for cells (factor2xinterval)
+	SScellsF2time = 0
+	for factor in np.unique(factor2):
+		SScellsF2time += np.sum(np.square(np.mean(data[:,factor2==factor],1) - mu_grand),0) * data[:,factor2==factor].shape[1]
+
+	# Sum of squares for factor2xinterval
+	SSF2time = SScellsF2time - SStime - SSfac2
+
+	# Sum of squares for cells (factor1xfactor2xinterval)
+	SScellsF1F2time = 0
+	for factor in np.unique(f1xf2):
+		SScellsF1F2time += np.sum(np.square(np.mean(data[:,f1xf2==factor],1) - mu_grand),0) * data[:,f1xf2==factor].shape[1]
+
+	# Sum of squares for factor1xfactor2xinterval
+	SSF1F2time = SScellsF1F2time - SSfac1 - SSfac2 - SStime - SSFF - SSF1time - SSF2time
+
+	# "Error" between subjects
+	SSwithingroups = SSsub - SSfac1 - SSfac2 - SSFF
+	# "Total" within subjects
+	SSwithinsub = SStotal - SSsub
+	# "Error" within subjects
+	SStimewithingroups = SSwithinsub - SStime - SSF1time - SSF2time - SSF1F2time
+
+	# Between subjects df
+	df_BS  = Ns-1
+	df_F1 =  len(np.unique(factor1)) - 1
+	df_F2 =  len(np.unique(factor2)) - 1
+	df_F2F2 =  df_F1 * df_F2
+	df_withingroups = df_BS - df_F1 - df_F2 - df_F2F2
+
+	# Within subjects df
+	df_WS = Ns * (len(data) - 1)
+	df_time = len(data) - 1
+	df_F1time = df_F1*df_time
+	df_F2time = df_F2*df_time
+	df_F1F2time = df_F1*df_F2*df_time
+	df_timewithingroups = df_withingroups * df_time
+	# Total
+	df_total = Ns*k - 1
+
+	# F stats
+	# Between subjects
+	MS_wingroups = np.divide(SSwithingroups, df_withingroups)
+	F_f1 = np.divide(np.divide(SSfac1, df_F1), MS_wingroups)
+	P_f1 = 1 - f.cdf(F_f1,df_F1,df_withingroups)
+	F_f2 = np.divide(np.divide(SSfac2, df_F2), MS_wingroups)
+	P_f2 = 1 - f.cdf(F_f2,df_F2,df_withingroups)
+	F_f1xf2 = np.divide(np.divide(SSFF, df_F2F2), MS_wingroups)
+	P_f1xf2 = 1 - f.cdf(F_f1xf2,df_F2F2,df_withingroups)
+	# Within subjects
+	MS_timewingroups = np.divide(SStimewithingroups, df_timewithingroups)
+	F_time = np.divide(np.divide(SStime, df_time), MS_timewingroups)
+	P_time = 1 - f.cdf(F_time,df_time,df_timewithingroups)
+	F_f1time = np.divide(np.divide(SSF1time, df_F1time), MS_timewingroups)
+	P_f1time = 1 - f.cdf(F_f1time,df_F1time,df_timewithingroups)
+	F_f2time = np.divide(np.divide(SSF2time, df_F2time), MS_timewingroups)
+	P_f2time = 1 - f.cdf(F_f2time,df_F2time,df_timewithingroups)
+	F_f1xf2xtime = np.divide(np.divide(SSF1F2time, df_F1F2time), MS_timewingroups)
+	P_f1xf2xtime = 1 - f.cdf(F_f1xf2xtime,df_F1F2time,df_timewithingroups)
+
+	return (F_f1, F_f2, F_f1xf2, F_time, F_f1time, F_f2time, F_f1xf2xtime, P_f1, P_f2, P_f1xf2, P_time, P_f1time, P_f2time, P_f1xf2xtime)
+
+
+
+

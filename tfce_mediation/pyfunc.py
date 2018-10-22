@@ -759,7 +759,7 @@ def convert_voxel(img_data, affine = None, threshold = None, data_mask = None, a
 
 # Applies laplacian smoothing with option to smooth single volume
 #
-# Herrmann, Leonard R. (1976), "Laplacian-isoparametric grid generation scheme", Journal of the Engineering Mechanics Division, 102 (5): 749–756.
+# Herrmann, Leonard R. (1976), "Laplacian-isoparametric grid generation scheme", Journal of the Engineering Mechanics Division, 102 (5): 749-756.
 #
 # Input:
 # v = vertices array
@@ -795,7 +795,7 @@ def basic_laplacian_smoothing(v, f, adjacency = None, scalar = None):
 
 # Applies Laplacian or Taubin smoothing with option to smooth single volume
 #
-# Herrmann, Leonard R. (1976), "Laplacian-isoparametric grid generation scheme", Journal of the Engineering Mechanics Division, 102 (5): 749–756.
+# Herrmann, Leonard R. (1976), "Laplacian-isoparametric grid generation scheme", Journal of the Engineering Mechanics Division, 102 (5): 749-756.
 # Taubin, Gabriel. "A signal processing approach to fair surface design." Proceedings of the 22nd annual conference on Computer graphics and interactive techniques. ACM, 1995.
 #
 # Input:
@@ -886,7 +886,7 @@ def surface_smooth(v, f, adjacency, iter_num = 0, scalar = None, lambda_w = 1.0,
 
 # Applies Laplacian or Taubin smoothing with option to smooth single volume
 #
-# Herrmann, Leonard R. (1976), "Laplacian-isoparametric grid generation scheme", Journal of the Engineering Mechanics Division, 102 (5): 749–756.
+# Herrmann, Leonard R. (1976), "Laplacian-isoparametric grid generation scheme", Journal of the Engineering Mechanics Division, 102 (5): 749-756.
 # Taubin, Gabriel. "A signal processing approach to fair surface design." Proceedings of the 22nd annual conference on Computer graphics and interactive techniques. ACM, 1995.
 #
 # Input:

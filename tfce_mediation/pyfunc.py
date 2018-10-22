@@ -1283,7 +1283,7 @@ def onefactor_rm_anova(data, between_factor, output_sig = False):
 	else:
 		return(Fbetween, Ftime, Fint)
 
-def two_factor_rm_anova(data, factor1, factor2), output_sig = False:
+def two_factor_rm_anova(data, factor1, factor2, output_sig = False):
 	"""
 	Two factor repeated measure ANOVA for longitudinal dependent variables
 	

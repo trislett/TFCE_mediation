@@ -1136,14 +1136,28 @@ def import_voxel_neuroimage(image_path, mask_index = None):
 	else:
 		return image
 
-# Repeated measure ANOVA
-#
-# Input
-# data = data [ Ncondition * Nindividuals * Ndep ]
-#
-# Output
-# F = F-statistics of the interval variable
-def rm_anova(data):
+
+def rm_anova(data, output_sig = False):
+	"""
+	Repeated measure ANOVA for longitudinal dependent variables
+	
+	Parameters
+	----------
+	data : array
+		Data array (N_intervals, N_individuals, N_dependent variables)
+	
+	Optional Flags
+	----------
+	output_sig : bool
+		outputs p-values of F-statistics
+	
+	Returns
+	-------
+	F : array
+		F-statistics of the interval variable
+	
+	"""
+
 	k = data.shape[0]
 	ni = data.shape[1]
 	mu_grand = np.divide((np.mean(data[0],0) + np.mean(data[1],0)),2)
@@ -1151,19 +1165,47 @@ def rm_anova(data):
 	SSw = np.sum(np.square(data[0] - np.mean(data[0],0)),0) + np.sum(np.square(data[1] - np.mean(data[1],0)),0)
 	SSsub = k * np.sum(np.square(np.divide((data[0] + data[1]),2) - mu_grand),0)
 	SSerror = SSw - SSsub
-	MStime = np.divide(SStime, (k-1))
-	MSerror = SSerror /((ni -1) * (k-1))
-	F = MStime / MSerror
-	return(mu_grand, SStime, SSw, SSsub, SSerror, MStime, MSerror, F)
 
-# One factor Repeated measure ANOVA
-#
-# Input
-# data = data [ Ncondition * Nindividuals * Ndep ]
-#
-# Output
-# F = F-statistics of the interval variable
-def onefactor_rm_anova(data, between_sub_factor):
+	df_time = (k-1)
+	df_error = (ni -1) * df_time
+
+	MStime = np.divide(SStime, df_time)
+	MSerror = np.divide(SSerror, df_error)
+	F = np.divide(MStime, MSerror)
+	if output_sig:
+		P = 1 - f.cdf(F,df_time,df_error)
+		return(F, P)
+	else:
+		return(F)
+
+
+def onefactor_rm_anova(data, between_factor, output_sig = False):
+	"""
+	One factor repeated measure ANOVA for longitudinal dependent variables
+	
+	Parameters
+	----------
+	data : array
+		Data array (N_intervals, N_individuals, N_dependent variables)
+	between_factor : array
+		1D array of the between subject factor. 
+	
+	Optional Flags
+	----------
+	output_sig : bool
+		outputs p-values of F-statistics
+	
+	Returns
+	-------
+	Fbetween : array
+		F-statistics of the between subject factor
+	Ftime : array
+		F-statistics of the within-subject interval
+	Fint : array
+		F-statistics of the factor*interval interaction
+	
+	"""
+
 	k = data.shape[0]
 	Ns =  data.shape[1]
 
@@ -1184,30 +1226,29 @@ def onefactor_rm_anova(data, between_sub_factor):
 	SSsub = np.sum((np.mean(data,0) - mu_grand)**2,0) * k
 
 	ni_array = []
-	for factor in np.unique(between_sub_factor):
-		ni = data[:,between_sub_factor==factor].shape[1]
+	for factor in np.unique(between_factor):
+		ni = data[:,between_factor==factor].shape[1]
 		ni_array.append(ni)
 	ni = np.divide(np.sum(np.array(ni_array)), k)
 	print ni
 
-
 	# Sum of squares of the groups
 	SSgroups = 0
-	for factor in np.unique(between_sub_factor):
+	for factor in np.unique(between_factor):
 		if data.ndim == 3:
-			SSgroups += (np.mean(data[:,between_sub_factor==factor], (0,1)) - mu_grand)**2 * k * data[:,between_sub_factor==factor].shape[1]
+			SSgroups += (np.mean(data[:,between_factor==factor], (0,1)) - mu_grand)**2 * k * data[:,between_factor==factor].shape[1]
 		else:
-			SSgroups += (np.mean(data[:,between_sub_factor==factor]) - mu_grand)**2 * k * data[:,between_sub_factor==factor].shape[1]
+			SSgroups += (np.mean(data[:,between_factor==factor]) - mu_grand)**2 * k * data[:,between_factor==factor].shape[1]
 
 	# Sum of squares intervals (i.e., time)
-	ki = len(np.unique(between_sub_factor))
+	ki = len(np.unique(between_factor))
 	SStime = np.sum((np.mean(data,1) - mu_grand)**2,0) * ni * ki
 
 	# Sum of squares for cells
 	SScells = 0
 
-	for factor in np.unique(between_sub_factor):
-		SScells += np.sum(np.square(np.mean(data[:,between_sub_factor==factor],1) - mu_grand),0) * data[:,between_sub_factor==factor].shape[1]
+	for factor in np.unique(between_factor):
+		SScells += np.sum(np.square(np.mean(data[:,between_factor==factor],1) - mu_grand),0) * data[:,between_factor==factor].shape[1]
 
 	SSint = SScells - SStime - SSgroups
 	SSwithingroups = SSsub - SSgroups
@@ -1225,7 +1266,7 @@ def onefactor_rm_anova(data, between_sub_factor):
 	MSgroups = np.divide(SSgroups, df_groups)
 	MSwithingroups = np.divide(SSwithingroups, df_withingroups)
 	Fbetween = np.divide(MSgroups, MSwithingroups)
-	Pbetween = 1 - f.cdf(Fbetween,df_groups,df_withingroups)
+
 
 	MStime = np.divide(SStime, df_time)
 	MSint = np.divide(SSint, df_int)
@@ -1233,17 +1274,57 @@ def onefactor_rm_anova(data, between_sub_factor):
 
 	Ftime =  np.divide(MStime, MSintwithingroups)
 	Fint =  np.divide(MSint, MSintwithingroups)
-	Ptime = 1 - f.cdf(Ftime,df_time,df_intwithingroups)
-	Pint = 1 - f.cdf(Fint,df_int,df_intwithingroups)
 
-	return(Fbetween, Ftime, Fint, Pbetween, Ptime, Pint)
+	if output_sig:
+		Pbetween = 1 - f.cdf(Fbetween,df_groups,df_withingroups)
+		Ptime = 1 - f.cdf(Ftime,df_time,df_intwithingroups)
+		Pint = 1 - f.cdf(Fint,df_int,df_intwithingroups)
+		return(Fbetween, Ftime, Fint, Pbetween, Ptime, Pint)
+	else:
+		return(Fbetween, Ftime, Fint)
 
-def two_factor_rm_anova(data, factor1, factor2):
+def two_factor_rm_anova(data, factor1, factor2), output_sig = False:
+	"""
+	Two factor repeated measure ANOVA for longitudinal dependent variables
+	
+	Parameters
+	----------
+	data : array
+		Data array (N_intervals, N_individuals, N_dependent variables)
+	factor1 : array
+		1D array of factor 1
+	factor2 : array
+		1D array of factor 2
+	
+	Optional Flags
+	----------
+	output_sig : bool
+		outputs p-values of F-statistics
+	
+	Returns
+	-------
+	F_f1 : array
+		F-statistics of the between-subject factor1
+	F_f2 : array
+		F-statistics of the between-subject factor1
+	F_f1xf2 : array
+		F-statistics of the between-subject interaction of factor1*factor2
+	F_time : array
+		F-statistics of the within-subject interval
+	F_f1time : array
+		F-statistics of the factor1*interval interaction
+	F_f2time : array
+		F-statistics of the factor2*interval interaction
+	F_f1xf2xtime : array
+		F-statistics of the factor1*factor2*interval interaction
+	
+	"""
 
+	# merge the factors for the interaction
 	f1xf2 = np.array(map('_'.join, zip(factor1.astype(np.str),factor2.astype(np.str))))
 
-	k = data.shape[0]
-	Ns =  data.shape[1]
+	k = data.shape[0] # number of intervals
+	Ns =  data.shape[1]	# number of subjects
 
 	#grand mean
 	mu_grand = 0
@@ -1347,31 +1428,35 @@ def two_factor_rm_anova(data, factor1, factor2):
 	df_F2time = df_F2*df_time
 	df_F1F2time = df_F1*df_F2*df_time
 	df_timewithingroups = df_withingroups * df_time
-	# Total
+	# Total df
 	df_total = Ns*k - 1
 
-	# F stats
+	# F-stats
 	# Between subjects
 	MS_wingroups = np.divide(SSwithingroups, df_withingroups)
 	F_f1 = np.divide(np.divide(SSfac1, df_F1), MS_wingroups)
-	P_f1 = 1 - f.cdf(F_f1,df_F1,df_withingroups)
 	F_f2 = np.divide(np.divide(SSfac2, df_F2), MS_wingroups)
-	P_f2 = 1 - f.cdf(F_f2,df_F2,df_withingroups)
 	F_f1xf2 = np.divide(np.divide(SSFF, df_F2F2), MS_wingroups)
-	P_f1xf2 = 1 - f.cdf(F_f1xf2,df_F2F2,df_withingroups)
+
 	# Within subjects
 	MS_timewingroups = np.divide(SStimewithingroups, df_timewithingroups)
 	F_time = np.divide(np.divide(SStime, df_time), MS_timewingroups)
-	P_time = 1 - f.cdf(F_time,df_time,df_timewithingroups)
 	F_f1time = np.divide(np.divide(SSF1time, df_F1time), MS_timewingroups)
-	P_f1time = 1 - f.cdf(F_f1time,df_F1time,df_timewithingroups)
 	F_f2time = np.divide(np.divide(SSF2time, df_F2time), MS_timewingroups)
-	P_f2time = 1 - f.cdf(F_f2time,df_F2time,df_timewithingroups)
 	F_f1xf2xtime = np.divide(np.divide(SSF1F2time, df_F1F2time), MS_timewingroups)
-	P_f1xf2xtime = 1 - f.cdf(F_f1xf2xtime,df_F1F2time,df_timewithingroups)
 
-	return (F_f1, F_f2, F_f1xf2, F_time, F_f1time, F_f2time, F_f1xf2xtime, P_f1, P_f2, P_f1xf2, P_time, P_f1time, P_f2time, P_f1xf2xtime)
-
-
+	if output_sig:
+		# Between subjects
+		P_f1 = 1 - f.cdf(F_f1,df_F1,df_withingroups)
+		P_f2 = 1 - f.cdf(F_f2,df_F2,df_withingroups)
+		P_f1xf2 = 1 - f.cdf(F_f1xf2,df_F2F2,df_withingroups)
+		# Within subjects
+		P_time = 1 - f.cdf(F_time,df_time,df_timewithingroups)
+		P_f1time = 1 - f.cdf(F_f1time,df_F1time,df_timewithingroups)
+		P_f2time = 1 - f.cdf(F_f2time,df_F2time,df_timewithingroups)
+		P_f1xf2xtime = 1 - f.cdf(F_f1xf2xtime,df_F1F2time,df_timewithingroups)
+		return (F_f1, F_f2, F_f1xf2, F_time, F_f1time, F_f2time, F_f1xf2xtime, P_f1, P_f2, P_f1xf2, P_time, P_f1time, P_f2time, P_f1xf2xtime)
+	else:
+		return (F_f1, F_f2, F_f1xf2, F_time, F_f1time, F_f2time, F_f1xf2xtime)
 
 

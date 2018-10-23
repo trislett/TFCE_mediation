@@ -1636,7 +1636,6 @@ def full_glm_results(endog_arr, exog_vars,  only_tvals = False, return_resids = 
 	
 	Returns
 	-------
-(Fvalues, Tvalues, Pvalues, R2, R2_adj, np.array(resids), np.array(fitted))
 	Fvalues  :array
 		F-statistics of model
 	Tvalues : array

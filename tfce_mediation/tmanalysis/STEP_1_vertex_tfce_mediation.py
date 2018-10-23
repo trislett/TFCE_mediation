@@ -191,8 +191,8 @@ def run(opts):
 		bin_mask_lh = binmgh_lh>.99
 		bin_mask_rh = binmgh_rh>.99
 	else:
-		bin_mask_lh = mean_lh>0
-		bin_mask_rh = mean_rh>0
+		bin_mask_lh = mean_lh != 0
+		bin_mask_rh = mean_rh != 0
 	data_lh = data_lh[bin_mask_lh]
 	num_vertex_lh = data_lh.shape[0]
 	data_rh = data_rh[bin_mask_rh]

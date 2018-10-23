@@ -24,13 +24,14 @@ import math
 import sys
 import struct
 import uuid
-from scipy.stats import linregress
+from scipy.stats import linregress, t, f
+from scipy.linalg import inv, sqrtm
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.patches as mpatches
 from time import time
 
-from tfce_mediation.cynumstats import calc_beta_se, resid_covars, cy_lin_lstsqr_mat
+from tfce_mediation.cynumstats import calc_beta_se, cy_lin_lstsqr_mat, se_of_slope
 
 # Creation of adjacencty sets for TFCE connectivity
 def create_adjac_vertex(vertices,faces): # basic version
@@ -258,7 +259,8 @@ def find_nearest(array,value,p_array):
 
 # Z standardize or whiten
 def zscaler(X, axis=0, w_mean=True, w_std=True):
-	data = np.copy(X)
+	data = np.zeros_like(X)
+	data[:] = np.copy(X)
 	if w_mean:
 		data -= np.mean(data, axis)
 	if w_std:
@@ -279,6 +281,31 @@ def minmaxscaler(X, axis=0):
 	X = (X - X.min(axis)) / (X.max(axis) - X.min(axis))
 	return X
 
+def PCAwhiten(X):
+	from sklearn.decomposition import PCA
+	pca = PCA(whiten=True)
+	return (pca.fit_transform(X))
+
+def ZCAwhiten(X):
+	U, s, Vt = np.linalg.svd(X, full_matrices=False)
+	return np.dot(U, Vt)
+
+def orthog_columns(arr, normalize = True): # N x Exog
+	arr = np.array(arr, dtype=np.float32)
+	out_arr = []
+	for column in range(arr.shape[1]):
+		if normalize:
+			X = stack_ones(zscaler(np.delete(arr,column,1)))
+			y = zscaler(arr[:,column])
+		else:
+			X = stack_ones(np.delete(arr,column,1))
+			y = arr[:,column]
+		a = cy_lin_lstsqr_mat(X, y)
+		out_arr.append(y - np.dot(X,a))
+	return np.array(out_arr).T
+
+def ortho_neareast(w):
+	return w.dot(inv(sqrtm(w.T.dot(w))))
 
 ### surface conversion tools ###
 
@@ -713,21 +740,33 @@ def write_colorbar(threshold, input_cmap, name_cmap, outtype = 'png'):
 	plt.savefig("%s_colorbar.%s" % (os.path.basename(name_cmap), outtype),bbox_inches='tight')
 	plt.clf()
 
-
-# Converts a voxel image to a surface including outputs voxel values to paint vertex surface.
-#
-# Input:
-# 3D array of a voxel image
-#
-# Output:
-# v = vertices
-# f = faces
-# values = transformed voxels values to vertex space
-# Optional variables:
-# affine = affine [4x4] to convert vertices values to native space
-# threshold = threshold for output of voxels
-# data_mask = use a mask to create a surface backbone
 def convert_voxel(img_data, affine = None, threshold = None, data_mask = None, absthreshold = None):
+	"""
+	Converts a voxel image to a surface including outputs voxel values to paint vertex surface.
+	
+	Parameters
+	----------
+	img_data : array
+		image array
+	affine : array
+		 affine [4x4] to convert vertices values to native space (Default = None)
+	data_mask : array
+		use a mask to create a surface backbone (Default = None)
+	threshold : float
+		threshold for output of voxels (Default = None)
+	absthreshold : float
+		threshold for output of abs(voxels) (Default = None)
+		
+	Returns
+	-------
+		v : array
+			vertices
+		f : array
+			faces
+		values : array
+			scalar values
+	
+	"""
 	try:
 		from skimage import measure
 	except:
@@ -756,24 +795,11 @@ def convert_voxel(img_data, affine = None, threshold = None, data_mask = None, a
 		v = f = values = []
 	return v, f, values
 
-
-# Applies laplacian smoothing with option to smooth single volume
-#
-# Herrmann, Leonard R. (1976), "Laplacian-isoparametric grid generation scheme", Journal of the Engineering Mechanics Division, 102 (5): 749-756.
-#
-# Input:
-# v = vertices array
-# f = face array
-#
-# Optional:
-# scalar = scalar values
-#
-# Output:
-# lapace_v = smoothed vertices array
-# f = face array (unchanged)
-# values = smoothed scalar array
+# Check if okay to remove
 def basic_laplacian_smoothing(v, f, adjacency = None, scalar = None):
-
+	"""
+	Depreciated.
+	"""
 	n = v.shape[0]
 	laplace_v = np.empty((n,3))
 
@@ -793,28 +819,11 @@ def basic_laplacian_smoothing(v, f, adjacency = None, scalar = None):
 	else:
 		return (laplace_v, f)
 
-# Applies Laplacian or Taubin smoothing with option to smooth single volume
-#
-# Herrmann, Leonard R. (1976), "Laplacian-isoparametric grid generation scheme", Journal of the Engineering Mechanics Division, 102 (5): 749-756.
-# Taubin, Gabriel. "A signal processing approach to fair surface design." Proceedings of the 22nd annual conference on Computer graphics and interactive techniques. ACM, 1995.
-#
-# Input:
-# v = vertices array
-# f = face array
-# adjacency = adjacency set (probably best to use the mesh)
-#
-# Optional:
-# scalar = scalar values
-# lambda_w = postive factor
-# mu_w = negative factor (note, mu_w = 0 is laplacian smoothing)
-# mode = taubin or laplacian
-#
-# Output:
-# v_taubin = smoothed vertices array
-# f = face array (unchanged)
-# values = smoothed scalar array
+# Check if okay to remove
 def surface_smooth(v, f, adjacency, iter_num = 0, scalar = None, lambda_w = 1.0, mode = 'laplacian', v_weighted = True):
-
+	"""
+	Depreciated.
+	"""
 	k = 0.1
 	mu_w = -lambda_w/(1-k*lambda_w)
 	n = v.shape[0]
@@ -884,27 +893,53 @@ def surface_smooth(v, f, adjacency, iter_num = 0, scalar = None, lambda_w = 1.0,
 	else:
 		return (v_smooth, f)
 
-# Applies Laplacian or Taubin smoothing with option to smooth single volume
-#
-# Herrmann, Leonard R. (1976), "Laplacian-isoparametric grid generation scheme", Journal of the Engineering Mechanics Division, 102 (5): 749-756.
-# Taubin, Gabriel. "A signal processing approach to fair surface design." Proceedings of the 22nd annual conference on Computer graphics and interactive techniques. ACM, 1995.
-#
-# Input:
-# v = vertices array
-# f = face array
-# adjacency = adjacency set (probably best to use the mesh)
-#
-# Optional:
-# scalar = scalar values
-# lambda_w = postive factor
-# mode = taubin or laplacian
-#
-# Output:
-# v_taubin = smoothed vertices array
-# f = face array (unchanged)
-# values = smoothed scalar array
-def vectorized_surface_smooth(v, f, adjacency, number_of_iter = 5, scalar = None, lambda_w = 0.5, mode = 'laplacian', weighted = True):
 
+def vectorized_surface_smooth(v, f, adjacency, number_of_iter = 5, scalar = None, lambda_w = 0.5, mode = 'laplacian', weighted = True):
+	"""
+	Applies Laplacian (Gaussian) or Taubin (low-pass) smoothing with option to smooth single volume
+	
+	Citations
+	----------
+	
+	Herrmann, Leonard R. (1976), "Laplacian-isoparametric grid generation scheme", Journal of the Engineering Mechanics Division, 102 (5): 749-756.
+	Taubin, Gabriel. "A signal processing approach to fair surface design." Proceedings of the 22nd annual conference on Computer graphics and interactive techniques. ACM, 1995.
+	
+	
+	Parameters
+	----------
+	v : array
+		vertex array
+	f : array
+		face array
+	adjacency : array
+		adjacency array
+
+	
+	Flags
+	----------
+	number_of_iter : int
+		number of smoothing iterations
+	scalar : array
+		apply the same smoothing to a image scalar
+	lambda_w : float
+		lamda weighting of degree of movement for each iteration
+		The weighting should never be above 1.0
+	mode : string
+		The type of smoothing can either be laplacian (which cause surface shrinkage) or taubin (no shrinkage)
+		
+	Returns
+	-------
+	v_smooth : array
+		smoothed vertices array
+	f : array
+		f = face array (unchanged)
+	
+	Optional returns
+	-------
+	values : array
+		smoothed scalar array
+	
+	"""
 	k = 0.1
 	mu_w = -lambda_w/(1-k*lambda_w)
 
@@ -979,18 +1014,38 @@ def vectorized_surface_smooth(v, f, adjacency, number_of_iter = 5, scalar = None
 	else:
 		return (v, f)
 
-# Applies regression using a voxel/vertex wise regressor
-#
-# Input
-#
-# y = masked image data (V x Subjects)
-# image_x = image regressor
-# pred_x = predictors
-# covars = covariates
-#
-# Output
-# arr = t-value image, image_covariate image
+
 def image_regression(y, image_x, pred_x, covars = None, normalize = False, verbose = True):
+	"""
+	Applies regression using a voxel/vertex wise regressor
+	
+	Parameters
+	----------
+	y : array
+		masked image data (V x Subjects)
+	image_x : array
+		image regressor
+	pred_x : array
+		predictors
+
+	
+	Flags
+	----------
+	covars : array
+		covariates
+	normalize : bool
+		Z-scale the image regressor
+	verbose : bool
+		Verbose output
+	
+	Returns
+	-------
+	Tval : array
+		T-values image of the predictors
+	Timg : array
+		T-value of image regressor
+	
+	"""
 	start_time = time()
 	nv = y.shape[0]
 	n = y.shape[1]
@@ -1020,11 +1075,28 @@ def image_regression(y, image_x, pred_x, covars = None, normalize = False, verbo
 			se = np.sqrt(np.diag(sigma2 * invXX))
 			arr[i] = a / se
 	print(("Finished. Image-wise independent variable regression took %.1f seconds" % (time() - start_time)))
-	return np.array(arr[:,:len(pred_x.T)+1], dtype=np.float32), np.array(np.squeeze(arr[:,-1:]), dtype=np.float32)
+	Tval = np.array(arr[:,:len(pred_x.T)+1], dtype=np.float32)
+	Timg = np.array(np.squeeze(arr[:,-1:]), dtype=np.float32)
+	return(Tval, Timg)
 
-# Calculates the variance inflation factor (VIF) to test for multicollinearity
-# VIF > 10 is considered high multicollinearity across an image
 def image_reg_VIF(y, regressors):
+	"""
+	Calculates the variance inflation factor (VIF) to test for multicollinearity
+	VIF > 10 is considered high multicollinearity across an image
+	
+	Parameters
+	----------
+	y : array
+		masked neuroimage (endogenous) data array
+	regressors : array
+		exogenous variable array (without intercept) 
+	
+	Returns
+	-------
+	VIF : array
+		The variance inflation factor across the image.
+	
+	"""
 	X = np.column_stack([np.ones(len(regressors)),regressors])
 	a = cy_lin_lstsqr_mat(X, y)
 	resids = y - np.dot(X,a)
@@ -1035,23 +1107,36 @@ def image_reg_VIF(y, regressors):
 	VIF[np.isnan(VIF)] = 0
 	return VIF
 
-# Applies erosion of 3D voxel images using skimage.morphology
-#
-# Input
-#
-# img_data = image data (X,Y,Z)
-# erode_iter = number of iterations of erosion
-# 
-# Flags
-# 
-# do_binary_opening: erosion followed by a dilation
-# do_binary_closing: dilation followed by an erosion
-# do_remove_small_holes: Remove continguous holes smaller than the specified size.
-#
-# Output
-# img_data = eroded image
-# erode_mask = eroded image mask
 def erode_3D_image(img_data, erode_iter = 2, do_binary_opening = False, do_binary_closing = False, do_remove_small_holes = False):
+	"""
+	Applies erosion of 3D voxel images using skimage.morphology
+
+	Parameters
+	----------
+
+	img_data : array
+		image data (X,Y,Z)
+	erode_iter : int
+		number of iterations of erosion
+	
+	Flags
+	----------
+	
+	do_binary_opening : bool
+		erosion followed by a dilation (default = False)
+	do_binary_closing : bool
+		dilation followed by an erosion (default = False)
+	do_remove_small_holes : bool
+		Remove continguous holes smaller than the specified size (default = False)
+	
+	Returns
+	-------
+	img_data : array
+		eroded image
+	erode_mask : array
+		eroded image mask
+	
+	"""
 	from skimage.morphology import binary_erosion, binary_opening, binary_closing, remove_small_holes
 	mask_data = np.zeros_like(img_data)
 	mask_data[:] = img_data
@@ -1103,8 +1188,31 @@ def erode_3D_image(img_data, erode_iter = 2, do_binary_opening = False, do_binar
 	img_data *= erode_mask
 	return img_data, erode_mask
 
-# load voxel neuorimages, checks for file size to conserve RAM, return nibabel img or masked data
 def import_voxel_neuroimage(image_path, mask_index = None):
+	"""
+	Low-RAM voxel-image importer using nibabel
+	
+	Parameters
+	----------
+	image_path : string
+		PATH/TO/IMAGE
+	
+	Flags
+	----------
+	mask_index : index array (bool or binary)
+		Masks the image by non-zero index (Default = None)
+	
+	Returns
+	-------
+	image : array
+		nibable image object
+	
+	OR
+	
+	image_data : array
+		numpy array of masked image data
+	
+	"""
 	if not os.path.exists(image_path):
 		print('Error: %s not found' % image_path)
 		quit()
@@ -1126,7 +1234,7 @@ def import_voxel_neuroimage(image_path, mask_index = None):
 	elif file_ext == '.mnc':
 		image = nib.load(image_path)
 	else:
-		print('Error filetype for %s is not supported' % img_all_name)
+		print('Error filetype for %s is not supported' % file_ext)
 		quit()
 	print("Imported:\t%s" % image_path)
 	if mask_index is not None:
@@ -1135,7 +1243,6 @@ def import_voxel_neuroimage(image_path, mask_index = None):
 		return image_data
 	else:
 		return image
-
 
 def rm_anova(data, output_sig = False):
 	"""
@@ -1155,6 +1262,11 @@ def rm_anova(data, output_sig = False):
 	-------
 	F : array
 		F-statistics of the interval variable
+	
+	Optional returns
+	-------
+	P : array
+		P-statistics of the interval variable
 	
 	"""
 
@@ -1179,7 +1291,7 @@ def rm_anova(data, output_sig = False):
 		return(F)
 
 
-def onefactor_rm_anova(data, between_factor, output_sig = False):
+def rm_anova_onefactor(data, between_factor, output_sig = False):
 	"""
 	One factor repeated measure ANOVA for longitudinal dependent variables
 	
@@ -1203,6 +1315,15 @@ def onefactor_rm_anova(data, between_factor, output_sig = False):
 		F-statistics of the within-subject interval
 	Fint : array
 		F-statistics of the factor*interval interaction
+	
+	Optional returns
+	-------
+	Pbetween : array
+		P-statistics of the between subject factor
+	Ptime : array
+		P-statistics of the within-subject interval
+	Pint : array
+		P-statistics of the factor*interval interaction
 	
 	"""
 
@@ -1283,7 +1404,7 @@ def onefactor_rm_anova(data, between_factor, output_sig = False):
 	else:
 		return(Fbetween, Ftime, Fint)
 
-def two_factor_rm_anova(data, factor1, factor2, output_sig = False):
+def rm_anova_two_factor(data, factor1, factor2, output_sig = False):
 	"""
 	Two factor repeated measure ANOVA for longitudinal dependent variables
 	
@@ -1317,6 +1438,24 @@ def two_factor_rm_anova(data, factor1, factor2, output_sig = False):
 		F-statistics of the factor2*interval interaction
 	F_f1xf2xtime : array
 		F-statistics of the factor1*factor2*interval interaction
+	
+	Optional returns
+	-------
+	
+	P_f1 : array
+		P-statistics of the between-subject factor1
+	P_f2 : array
+		P-statistics of the between-subject factor1
+	P_f1xf2 : array
+		P-statistics of the between-subject interaction of factor1*factor2
+	P_time : array
+		P-statistics of the within-subject interval
+	P_f1time : array
+		P-statistics of the factor1*interval interaction
+	P_f2time : array
+		P-statistics of the factor2*interval interaction
+	P_f1xf2xtime : array
+		P-statistics of the factor1*factor2*interval interaction
 	
 	"""
 
@@ -1352,6 +1491,7 @@ def two_factor_rm_anova(data, factor1, factor2, output_sig = False):
 		ni = data[:,factor2==factor].shape[1]
 		ni_array.append(ni)
 	ni2 = np.divide(np.sum(np.array(ni_array)), k)
+	ni = np.mean((ni1 + ni2))
 
 	# Sum of squares of the groups (factor1 and factor2)
 	SSfac1 = 0
@@ -1381,7 +1521,7 @@ def two_factor_rm_anova(data, factor1, factor2, output_sig = False):
 
 	# Sum of squares intervals (i.e., time)
 	if data.ndim == 3:
-		SStime = np.sum((np.mean(data,1) - mu_grand)**2,0) * ni1 * 2
+		SStime = np.sum((np.mean(data,1) - mu_grand)**2,0) * ni * 2
 
 	# Sum of squares for cells (factor1xinterval)
 	SScellsF1time = 0
@@ -1422,14 +1562,14 @@ def two_factor_rm_anova(data, factor1, factor2, output_sig = False):
 	df_withingroups = df_BS - df_F1 - df_F2 - df_F2F2
 
 	# Within subjects df
-	df_WS = Ns * (len(data) - 1)
+#	df_WS = Ns * (len(data) - 1)
 	df_time = len(data) - 1
 	df_F1time = df_F1*df_time
 	df_F2time = df_F2*df_time
 	df_F1F2time = df_F1*df_F2*df_time
 	df_timewithingroups = df_withingroups * df_time
 	# Total df
-	df_total = Ns*k - 1
+#	df_total = Ns*k - 1
 
 	# F-stats
 	# Between subjects
@@ -1458,5 +1598,158 @@ def two_factor_rm_anova(data, factor1, factor2, output_sig = False):
 		return (F_f1, F_f2, F_f1xf2, F_time, F_f1time, F_f2time, F_f1xf2xtime, P_f1, P_f2, P_f1xf2, P_time, P_f1time, P_f2time, P_f1xf2xtime)
 	else:
 		return (F_f1, F_f2, F_f1xf2, F_time, F_f1time, F_f2time, F_f1xf2xtime)
+
+def full_glm_results(endog_arr, exog_vars,  only_tvals = False, return_resids = False, return_fitted = False, PCA_whiten = False, ZCA_whiten = False,  orthogonalize = True, orthogNear = False, orthog_GramSchmidt = False):
+	"""
+	One factor repeated measure ANOVA for longitudinal dependent variables
+	
+	Parameters
+	----------
+	endog_arr : array
+		endogenours variable array (i.e., masked neuroimage dependent variables)
+	exog_vars : array
+		exogenous variable array (i.e., independent variables)
+	
+	Optional Flags
+	----------
+
+	only_tvals : bool
+		Returns only t-values (default = False)
+	return_resids : bool
+		Returns the residuals (default = False)
+	return_fitted : bool
+		Returns the fitted values (default = False)
+	PCA_whiten : bool
+		PCA whiten indendent variables (not recommended) (default = False)
+	PCA_whiten : bool 
+		ZCA whiten indendent variables (not recommended) (default = False)
+	PCA_whiten : bool 
+		ZCA whiten indendent variables (not recommended) (default = False)
+	orthogonalize : bool 
+		Orthogonalize exogenous variables (default = True)
+	orthogNear : bool 
+		Orthogonalize exogenous variables to the nearest orthogonal matrix (default = False)
+	orthog_GramSchmidt : bool
+		Use the Gram–Schmidt process to orthonormalize the exogenous variables.
+		i.e., Type-1 sum of squares (like R).
+		It is particularly useful for assessing interations.
+	
+	Returns
+	-------
+(Fvalues, Tvalues, Pvalues, R2, R2_adj, np.array(resids), np.array(fitted))
+	Fvalues  :array
+		F-statistics of model
+	Tvalues : array
+		T-statistics of factors
+	Pvalues : array
+		P-values of factors
+	R2 : array
+		R-squared of the model
+	R2_adj : array
+		Adjusted R-squared of the model
+	
+	Optional returns
+	-------
+	resids : array
+		The residuals of the model
+	fitted : array
+		The fitted values of the model
+	
+	"""
+	if np.mean(exog_vars[:,0])!=1:
+		print("Warning: the intercept is not included as the first column in your exogenous variable array")
+	n, num_depv = endog_arr.shape
+	k = exog_vars.shape[1]
+
+	if orthogonalize:
+		exog_vars = stack_ones(orthog_columns(exog_vars[:,1:]))
+	if orthogNear:
+		exog_vars = stack_ones(ortho_neareast(exog_vars[:,1:]))
+	if orthog_GramSchmidt: # for when order matters AKA type 2 sum of squares
+		exog_vars = stack_ones(gram_schmidt_orthonorm(exog_vars[:,1:]))
+
+	invXX = np.linalg.inv(np.dot(exog_vars.T, exog_vars))
+
+	DFbetween = k - 1 # aka df model
+	DFwithin = n - k # aka df residuals
+	DFtotal = n - 1
+	if PCA_whiten:
+		endog_arr = PCAwhiten(endog_arr)
+	if ZCA_whiten:
+		endog_arr = ZCAwhiten(endog_arr)
+
+	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
+	sigma2 = np.sum((endog_arr - np.dot(exog_vars,a))**2,axis=0) / (n - k)
+	se = se_of_slope(num_depv,invXX,sigma2,k)
+
+	if only_tvals:
+		return a / se
+	else:
+		resids = endog_arr - np.dot(exog_vars,a)
+		RSS = np.sum(resids**2,axis=0)
+		TSS = np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0)
+		R2 = 1 - (RSS/TSS)
+		R2_adj = 1 - ((1-R2)*DFtotal/(DFwithin))
+		Fvalues = ((TSS-RSS)/(DFbetween))/(RSS/DFwithin)
+		Tvalues = a / se
+		Pvalues = t.sf(np.abs(Tvalues), DFtotal)*2
+		if return_resids:
+			if return_fitted:
+				fitted = np.dot(exog_vars, a)
+				return (Tvalues, Pvalues, Fvalues, R2, R2_adj, np.array(resids), np.array(fitted))
+			else:
+				return (Tvalues, Pvalues, Fvalues, R2, R2_adj, np.array(resids))
+		else:
+			return (Tvalues, Pvalues, Fvalues, R2, R2_adj)
+
+def stack_ones(arr):
+	"""
+	Add a column of ones to an array
+	
+	Parameters
+	----------
+	arr : array
+
+	Returns
+	---------
+	arr : array
+		array with a column of ones
+	
+	"""
+	return np.column_stack([np.ones(len(arr)),arr])
+
+def calc_indirect(ta, tb, alg = "aroian"):
+	"""
+	Calculates the indirect effect of simple mediation
+	
+	Parameters
+	----------
+	ta : array
+		T-values from Path A
+	tb : array
+		T-values from Path B
+	alg : string
+		The algorithm used for mediation (default = "aroian") 
+
+	Returns
+	---------
+	SobelZ : array
+		Sobel-Z statistics of the indirect effect.
+	
+	"""
+	if alg == 'aroian':
+		#Aroian variant
+		SobelZ = 1/np.sqrt((1/(tb**2))+(1/(ta**2))+(1/(ta**2*tb**2)))
+	elif alg == 'sobel':
+		#Sobel variant
+		SobelZ = 1/np.sqrt((1/(tb**2))+(1/(ta**2)))
+	elif alg == 'goodman':
+		#Goodman variant
+		SobelZ = 1/np.sqrt((1/(tb**2))+(1/(ta**2))-(1/(ta**2*tb**2)))
+	else:
+		print("Unknown indirect test algorithm")
+		exit()
+	return SobelZ
+
 
 

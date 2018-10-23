@@ -33,13 +33,6 @@ def mixedmodelparallel(data_array, exog_vars, groupVar, numV, num_cores):
 	resid_data = Parallel(n_jobs=num_cores)(delayed(run_mm)((data_array[i,:]+1),resid_data[i,:], exog_vars, groupVar, i) for i in range(numV))
 	return np.array(resid_data)
 
-def scalevar(X, demean = True, unitvariance = True):
-	if demean:
-		X = X - np.mean(X)
-	if unitvariance:
-		X = np.divide(X, np.std(X))
-	return X
-
 def scalearr(X, demean = True, unitvariance = True):
 	if demean:
 		X -= np.mean(X, axis=0)
@@ -360,9 +353,7 @@ def run_permutations_med(endog_arr, exog_vars, medtype, leftvar, rightvar, num_p
 	print("%d permutations took %1.2f seconds." % (num_perm ,(time() - stime)))
 	if return_permutations:
 		np.savetxt('MaxPermutedValues.csv', maxT_arr.T, delimiter=',')
-		return (1 - corrP_arr)
-	else:
-		return (1 - corrP_arr)
+	return (1 - corrP_arr)
 
 
 DESCRIPTION = 'Run linear- and linear-mixed models for now.'
@@ -455,7 +446,7 @@ def run(opts):
 		for int_terms in opts.interactionvars:
 			inteaction_vars = int_terms.split("*")
 			for scale_var in inteaction_vars:
-				var_temp = scalevar(pdCSV[scale_var])
+				var_temp = scalearr(pdCSV[scale_var])
 				var_tempname = '%s_std' % scale_var
 				if var_tempname in opts.exogenousvariables:
 					pass

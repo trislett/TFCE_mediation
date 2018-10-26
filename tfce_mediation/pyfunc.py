@@ -1291,7 +1291,7 @@ def rm_anova(data, output_sig = False):
 		return(F)
 
 
-def rm_anova_onefactor(data, between_factor, output_sig = False):
+def rm_anova_one_bs_factor(data, between_factor, output_sig = False):
 	"""
 	One factor repeated measure ANOVA for longitudinal dependent variables
 	
@@ -1404,7 +1404,8 @@ def rm_anova_onefactor(data, between_factor, output_sig = False):
 	else:
 		return(Fbetween, Ftime, Fint)
 
-def rm_anova_two_factor(data, factor1, factor2, output_sig = False):
+# Slow but safer
+def rm_anova_two_bs_factor(data, factor1, factor2, output_sig = False):
 	"""
 	Two factor repeated measure ANOVA for longitudinal dependent variables
 	
@@ -1424,180 +1425,158 @@ def rm_anova_two_factor(data, factor1, factor2, output_sig = False):
 	
 	Returns
 	-------
-	F_f1 : array
+	F_a : array
 		F-statistics of the between-subject factor1
-	F_f2 : array
+	F_b : array
 		F-statistics of the between-subject factor1
-	F_f1xf2 : array
+	F_ab : array
 		F-statistics of the between-subject interaction of factor1*factor2
-	F_time : array
+	F_s : array
 		F-statistics of the within-subject interval
-	F_f1time : array
+	F_sb : array
 		F-statistics of the factor1*interval interaction
-	F_f2time : array
+	F_sb : array
 		F-statistics of the factor2*interval interaction
-	F_f1xf2xtime : array
+	F_sab : array
 		F-statistics of the factor1*factor2*interval interaction
 	
 	Optional returns
 	-------
 	
-	P_f1 : array
+	P_a : array
 		P-statistics of the between-subject factor1
-	P_f2 : array
+	P_b : array
 		P-statistics of the between-subject factor1
-	P_f1xf2 : array
+	P_ab : array
 		P-statistics of the between-subject interaction of factor1*factor2
-	P_time : array
+	P_s : array
 		P-statistics of the within-subject interval
-	P_f1time : array
+	P_sa : array
 		P-statistics of the factor1*interval interaction
-	P_f2time : array
+	P_sb : array
 		P-statistics of the factor2*interval interaction
-	P_f1xf2xtime : array
+	P_sab : array
 		P-statistics of the factor1*factor2*interval interaction
 	
 	"""
+	if data.ndim == 2:
+		data = data[:,:,np.newaxis]
 
 	# merge the factors for the interaction
 	f1xf2 = np.array(map('_'.join, zip(factor1.astype(np.str),factor2.astype(np.str))))
 
-	k = data.shape[0] # number of intervals
-	Ns =  data.shape[1]	# number of subjects
+	s = data.shape[0]
+	n = data.shape[1]
+	a = len(np.unique(factor1)) 
+	b = len(np.unique(factor2))
 
 	#grand mean
-	mu_grand = 0
-	for i in range(k):
-		mu_grand += np.mean(data[i],0)
-	mu_grand = np.divide(mu_grand,k)
+	mu_grand = np.mean(data,(0,1))
 
 	# Total sum of squares
-	if data.ndim == 3:
-		SStotal = np.sum((data - mu_grand)**2, (0,1))
-	else:
-		SStotal = np.sum((data - mu_grand)**2)
+	SS_Total = np.sum((data - mu_grand)**2, (0,1))
+	SS_BetweenSubjects = np.sum((np.mean(data,0) - mu_grand)**2,0) * s
+	SS_WithinSubjects = SS_Total - SS_BetweenSubjects
 
-	# Sum of squares of the subjects
-	SSsub = np.sum((np.mean(data,0) - mu_grand)**2,0) * k
+	# decomposition matrix
+	DecompMat = np.empty((s*n,7,data.shape[2]))
 
-	# checks fo unequal sizes
-	ni_array = []
+	data_long = data.reshape(s*n,data.shape[2])
+	factor1_long = factor1
+	factor2_long = factor2
+	f1xf2_long = f1xf2
+	for i in range(s-1):
+		factor1_long = np.append(factor1_long,factor1)
+		factor2_long = np.append(factor2_long,factor2)
+		f1xf2_long = np.append(f1xf2_long,f1xf2)
+
+	interval_long = np.zeros_like(factor1_long)
+	for i in range(s):
+		interval_long[(i*n):(i*n+n)] = np.ones((n)) * i
+
+	# BETWEEN SUBJECT EFFECTS
+	#a
 	for factor in np.unique(factor1):
-		ni = data[:,factor1==factor].shape[1]
-		ni_array.append(ni)
-	ni1 = np.divide(np.sum(np.array(ni_array)), k)
-	ni_array = []
-	for factor in np.unique(factor1):
-		ni = data[:,factor2==factor].shape[1]
-		ni_array.append(ni)
-	ni2 = np.divide(np.sum(np.array(ni_array)), k)
-	ni = np.mean((ni1 + ni2))
-
-	# Sum of squares of the groups (factor1 and factor2)
-	SSfac1 = 0
-	for factor in np.unique(factor1):
-		if data.ndim == 3:
-			SSfac1 += (np.mean(data[:,factor1==factor], (0,1)) - mu_grand)**2 * k * data[:,factor1==factor].shape[1]
-		else:
-			SSfac1 += (np.mean(data[:,factor1==factor]) - mu_grand)**2 * k * data[:,factor1==factor].shape[1]
-
-	SSfac2 = 0
+		DecompMat[factor1_long == factor,0,:] = np.mean(data_long[factor1_long==factor,:] - mu_grand,0)
+	#b 
 	for factor in np.unique(factor2):
-		if data.ndim == 3:
-			SSfac2 += (np.mean(data[:,factor2==factor], (0,1)) - mu_grand)**2 * k * data[:,factor2==factor].shape[1]
-		else:
-			SSfac2 += (np.mean(data[:,factor2==factor]) - mu_grand)**2 * k * data[:,factor2==factor].shape[1]
+		DecompMat[factor2_long == factor,1,:] = np.mean(data_long[factor2_long==factor,:] - mu_grand,0)
+	for factor in np.unique(f1xf2_long):
+		DecompMat[f1xf2_long == factor,2,:] = np.mean(data_long[f1xf2_long==factor,:] - mu_grand,0)
+	DecompMat[:,2,:] = DecompMat[:,2,:] - DecompMat[:,0,:] - DecompMat[:,1,:]
 
-	# Sum of squares for cells (factor1xfactor2)
-	SScellsFF = 0
-	for factor in np.unique(f1xf2):
-		if data.ndim == 3:
-			SScellsFF += np.square(np.mean(data[:,f1xf2==factor],(0,1)) - mu_grand) * np.sum((f1xf2 == factor)*1) * k
-		else:
-			SScellsFF += np.square(np.mean(data[:,f1xf2==factor]) - mu_grand) * np.sum((f1xf2 == factor)*1) * k
+	SS_a = np.sum(np.square(DecompMat[:,0,:]),0)
+	SS_b = np.sum(np.square(DecompMat[:,1,:]),0)
+	SS_ab = np.sum(np.square(DecompMat[:,2,:]),0)
+	SS_WithinFactors = SS_BetweenSubjects - SS_a - SS_b - SS_ab
 
-	# Sum of squares for factor1xfactor
-	SSFF = SScellsFF - SSfac2 - SSfac1
 
-	# Sum of squares intervals (i.e., time)
-	if data.ndim == 3:
-		SStime = np.sum((np.mean(data,1) - mu_grand)**2,0) * ni * 2
+	# WITHIN SUBJECT EFFECTS
+	for i in range(s):
+		DecompMat[(i*n):(i*n+n),3,:] = data[i].mean(0) - mu_grand
 
-	# Sum of squares for cells (factor1xinterval)
-	SScellsF1time = 0
-	for factor in np.unique(factor1):
-		SScellsF1time += np.sum(np.square(np.mean(data[:,factor1==factor],1) - mu_grand),0) * data[:,factor1==factor].shape[1]
+	for i in range(s):
+		for factor in np.unique(factor1_long):
+			DecompMat[(i*n):(i*n+n),4,:][factor1 == factor] = np.mean(data_long[(interval_long == i)*(factor1_long == factor),:],0) - mu_grand
+	DecompMat[:,4,:] = DecompMat[:,4,:] - DecompMat[:,0,:] - DecompMat[:,3,:]
 
-	# Sum of squares for factor1xinterval
-	SSF1time = SScellsF1time - SStime - SSfac1
+	for i in range(s):
+		for factor in np.unique(factor2_long):
+			DecompMat[(i*n):(i*n+n),5,:][factor2 == factor] = np.mean(data_long[(interval_long == i)*(factor2_long == factor),:],0) - mu_grand
+	DecompMat[:,5,:] = DecompMat[:,5,:] - DecompMat[:,1,:] - DecompMat[:,3,:]
 
-	# Sum of squares for cells (factor2xinterval)
-	SScellsF2time = 0
-	for factor in np.unique(factor2):
-		SScellsF2time += np.sum(np.square(np.mean(data[:,factor2==factor],1) - mu_grand),0) * data[:,factor2==factor].shape[1]
+	for i in range(s):
+		for factor in np.unique(f1xf2_long):
+			DecompMat[(i*n):(i*n+n),6,:][f1xf2 == factor] = np.mean(data_long[(interval_long == i)*(f1xf2_long == factor),:],0) - mu_grand
+	DecompMat[:,6,:] = DecompMat[:,6,:] - DecompMat[:,0,:] -DecompMat[:,1,:] - DecompMat[:,2,:] - DecompMat[:,3,:] - DecompMat[:,4,:] - DecompMat[:,5,:]
 
-	# Sum of squares for factor2xinterval
-	SSF2time = SScellsF2time - SStime - SSfac2
-
-	# Sum of squares for cells (factor1xfactor2xinterval)
-	SScellsF1F2time = 0
-	for factor in np.unique(f1xf2):
-		SScellsF1F2time += np.sum(np.square(np.mean(data[:,f1xf2==factor],1) - mu_grand),0) * data[:,f1xf2==factor].shape[1]
-
-	# Sum of squares for factor1xfactor2xinterval
-	SSF1F2time = SScellsF1F2time - SSfac1 - SSfac2 - SStime - SSFF - SSF1time - SSF2time
-
-	# "Error" between subjects
-	SSwithingroups = SSsub - SSfac1 - SSfac2 - SSFF
-	# "Total" within subjects
-	SSwithinsub = SStotal - SSsub
-	# "Error" within subjects
-	SStimewithingroups = SSwithinsub - SStime - SSF1time - SSF2time - SSF1F2time
+	SS_s = np.sum(np.square(DecompMat[:,3,:]),0)
+	SS_sa = np.sum(np.square(DecompMat[:,4,:]),0)
+	SS_sb = np.sum(np.square(DecompMat[:,5,:]),0)
+	SS_sab = np.sum(np.square(DecompMat[:,6,:]),0)
+	SS_sWithinFactors = SS_WithinSubjects - SS_s - SS_sa - SS_sb - SS_sab
 
 	# Between subjects df
-	df_BS  = Ns-1
-	df_F1 =  len(np.unique(factor1)) - 1
-	df_F2 =  len(np.unique(factor2)) - 1
-	df_F2F2 =  df_F1 * df_F2
-	df_withingroups = df_BS - df_F1 - df_F2 - df_F2F2
+	df_BetweenSubjects  = n - 1
+	df_a =  a - 1
+	df_b =  b - 1
+	df_ab =  df_a * df_b
+	df_WithinFactors = df_BetweenSubjects - df_a - df_b - df_ab
 
 	# Within subjects df
-#	df_WS = Ns * (len(data) - 1)
-	df_time = len(data) - 1
-	df_F1time = df_F1*df_time
-	df_F2time = df_F2*df_time
-	df_F1F2time = df_F1*df_F2*df_time
-	df_timewithingroups = df_withingroups * df_time
-	# Total df
-#	df_total = Ns*k - 1
+	df_s = s - 1
+	df_sa = df_a * df_s
+	df_sb = df_b * df_s
+	df_sab = df_ab * df_s
+	df_sWithinFactor = df_WithinFactors * df_s
 
 	# F-stats
 	# Between subjects
-	MS_wingroups = np.divide(SSwithingroups, df_withingroups)
-	F_f1 = np.divide(np.divide(SSfac1, df_F1), MS_wingroups)
-	F_f2 = np.divide(np.divide(SSfac2, df_F2), MS_wingroups)
-	F_f1xf2 = np.divide(np.divide(SSFF, df_F2F2), MS_wingroups)
+	ms_WithinFactors = np.divide(SS_WithinFactors, df_WithinFactors)
+	F_a = np.divide(np.divide(SS_a, df_a), ms_WithinFactors)
+	F_b = np.divide(np.divide(SS_b, df_b), ms_WithinFactors)
+	F_ab = np.divide(np.divide(SS_ab, df_ab), ms_WithinFactors)
 
 	# Within subjects
-	MS_timewingroups = np.divide(SStimewithingroups, df_timewithingroups)
-	F_time = np.divide(np.divide(SStime, df_time), MS_timewingroups)
-	F_f1time = np.divide(np.divide(SSF1time, df_F1time), MS_timewingroups)
-	F_f2time = np.divide(np.divide(SSF2time, df_F2time), MS_timewingroups)
-	F_f1xf2xtime = np.divide(np.divide(SSF1F2time, df_F1F2time), MS_timewingroups)
+	ms_sWithinFactor = np.divide(SS_sWithinFactors, df_sWithinFactor)
+	F_s = np.divide(np.divide(SS_s, df_s), ms_sWithinFactor)
+	F_sa = np.divide(np.divide(SS_sa, df_sa), ms_sWithinFactor)
+	F_sb = np.divide(np.divide(SS_sb, df_sb), ms_sWithinFactor)
+	F_sab = np.divide(np.divide(SS_sab, df_sab), ms_sWithinFactor)
 
 	if output_sig:
 		# Between subjects
-		P_f1 = 1 - f.cdf(F_f1,df_F1,df_withingroups)
-		P_f2 = 1 - f.cdf(F_f2,df_F2,df_withingroups)
-		P_f1xf2 = 1 - f.cdf(F_f1xf2,df_F2F2,df_withingroups)
+		P_a = 1 - f.cdf(F_a,df_a,df_WithinFactors)
+		P_b = 1 - f.cdf(F_b,df_b,df_WithinFactors)
+		P_ab = 1 - f.cdf(F_ab,df_ab,df_WithinFactors)
 		# Within subjects
-		P_time = 1 - f.cdf(F_time,df_time,df_timewithingroups)
-		P_f1time = 1 - f.cdf(F_f1time,df_F1time,df_timewithingroups)
-		P_f2time = 1 - f.cdf(F_f2time,df_F2time,df_timewithingroups)
-		P_f1xf2xtime = 1 - f.cdf(F_f1xf2xtime,df_F1F2time,df_timewithingroups)
-		return (F_f1, F_f2, F_f1xf2, F_time, F_f1time, F_f2time, F_f1xf2xtime, P_f1, P_f2, P_f1xf2, P_time, P_f1time, P_f2time, P_f1xf2xtime)
+		P_s = 1 - f.cdf(F_s,df_s,df_sWithinFactor)
+		P_sa = 1 - f.cdf(F_sa,df_sa,df_sWithinFactor)
+		P_sb = 1 - f.cdf(F_sb,df_sb,df_sWithinFactor)
+		P_sab = 1 - f.cdf(F_sab,df_sab,df_sWithinFactor)
+		return (F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab, P_a, P_b, P_ab, P_s, P_sa, P_sb, P_sab)
 	else:
-		return (F_f1, F_f2, F_f1xf2, F_time, F_f1time, F_f2time, F_f1xf2xtime)
+		return (F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab)
 
 def full_glm_results(endog_arr, exog_vars,  only_tvals = False, return_resids = False, return_fitted = False, PCA_whiten = False, ZCA_whiten = False,  orthogonalize = True, orthogNear = False, orthog_GramSchmidt = False):
 	"""

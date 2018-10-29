@@ -1578,7 +1578,7 @@ def rm_anova_two_bs_factor(data, factor1, factor2, output_sig = False):
 	else:
 		return (F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab)
 
-def full_glm_results(endog_arr, exog_vars,  only_tvals = False, return_resids = False, return_fitted = False, PCA_whiten = False, ZCA_whiten = False,  orthogonalize = True, orthogNear = False, orthog_GramSchmidt = False):
+def full_glm_results(endog_arr, exog_vars,  only_tvals = False, return_resids = False, return_fitted = False, PCA_whiten = False, ZCA_whiten = False,  orthogonalize = False, orthogNear = False, orthog_GramSchmidt = False):
 	"""
 	One factor repeated measure ANOVA for longitudinal dependent variables
 	
@@ -1729,5 +1729,218 @@ def calc_indirect(ta, tb, alg = "aroian"):
 		exit()
 	return SobelZ
 
+
+def dummy_code(variable, iscontinous = False, null_var = 0):
+	"""
+	Dummy codes a variable
+	
+	Parameters
+	----------
+	variable : array
+		1D array variable of any type 
+
+	Returns
+	---------
+	dummy_vars : array
+		dummy coded array of shape [(unique variables - 1), (# subjects)]
+	
+	"""
+	if iscontinous:
+		variable -= np.mean(variable)
+		return variable
+	else:
+		unique_vars = np.unique(variable)
+		dummy_vars = []
+		for var in unique_vars:
+			temp_var = np.zeros_like(variable)
+			temp_var[variable == var] = 1
+			dummy_vars.append(temp_var)
+		dummy_vars = np.array(dummy_vars)[1:] # remove the first column as reference variable
+		dummy_vars[dummy_vars == 0] = null_var
+		return np.squeeze(dummy_vars).astype(np.int)
+
+
+def reg_rm_anova_two_bs_factor(data, factor1, factor2, subjects, covariates = None, output_sig = False):
+
+	if data.ndim == 2:
+		data = data[:,:,np.newaxis]
+
+	s = data.shape[0]
+	n = data.shape[1]
+	fa = len(np.unique(factor1)) 
+	fb = len(np.unique(factor2))
+
+	dmy_factor1 = dummy_code(factor1, null_var = 0)
+	dmy_factor2 = dummy_code(factor2, null_var = 0)
+	dmy_interaction = dmy_factor1*dmy_factor2
+	dmy_subjects = dummy_code(subjects)
+
+	data_long = data.reshape(s*n,data.shape[2])
+	dmy_factor1_long = dmy_factor1
+	dmy_factor2_long = dmy_factor2
+	dmy_interaction_long = dmy_interaction
+	dmy_subjects_long = dmy_subjects
+	if covariates is not None:
+		dmy_covars_long = covariates
+	for i in range(s-1):
+		dmy_factor1_long = np.column_stack((dmy_factor1_long,dmy_factor1))
+		dmy_factor2_long = np.column_stack((dmy_factor2_long,dmy_factor2))
+		dmy_interaction_long = np.column_stack((dmy_interaction_long,dmy_interaction))
+		dmy_subjects_long = np.column_stack((dmy_subjects_long,dmy_subjects))
+		if covariates is not None:
+			dmy_covars_long = np.column_stack((dmy_covars_long, covariates))
+
+	# dumb... but works
+	if dmy_factor1_long.shape[0] != s*n:
+		dmy_factor1_long = dmy_factor1_long.reshape(s*n, order='F')
+	if dmy_factor2_long.shape[0] != s*n:
+		dmy_factor2_long = dmy_factor2_long.reshape(s*n, order='F')
+	if dmy_interaction_long.shape[0] != s*n:
+		dmy_interaction_long = dmy_interaction_long.reshape(s*n, order='F')
+	if covariates is not None:
+		if covariates.ndim == 1:
+			dmy_covars_long = dmy_covars_long.reshape(s*n, order='F')
+
+
+	interval_long = np.zeros_like(dmy_factor1_long)
+	for i in range(s):
+		interval_long[(i*n):(i*n+n)] = np.ones((n)) * i
+	dmy_interval_long = dummy_code(interval_long)
+
+	# SS Totals
+	exog_vars = stack_ones(dmy_subjects_long.T)
+	endog_arr = np.squeeze(data_long)
+	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
+	resids = endog_arr - np.dot(exog_vars,a)
+
+	SS_Total = np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0)
+	SS_WithinSubjects = np.sum(resids**2,axis=0)
+	SS_BetweenSubjects = SS_Total - SS_WithinSubjects
+
+	# SS between subject
+	exog_vars = stack_ones(np.array([dmy_factor1_long, dmy_factor2_long, dmy_interaction_long]).T)
+	if covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
+	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
+	resids = endog_arr - np.dot(exog_vars,a)
+	SS_cell_ab = np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0)
+
+	exog_vars = stack_ones(np.array([dmy_factor1_long, dmy_factor2_long]).T)
+	if covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
+	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
+	resids = endog_arr - np.dot(exog_vars,a)
+	SS_ab = SS_cell_ab - (np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0))
+
+	exog_vars = stack_ones(np.array([dmy_factor1_long]).T)
+	if covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
+	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
+	resids = endog_arr - np.dot(exog_vars,a)
+	SS_a = np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0)
+
+	exog_vars = stack_ones(np.array([dmy_factor2_long]).T)
+	if covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
+	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
+	resids = endog_arr - np.dot(exog_vars,a)
+	SS_b = np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0)
+
+	SS_WithinFactors = SS_BetweenSubjects - SS_a - SS_b - SS_ab
+
+	# SS time
+	exog_vars = stack_ones(dmy_interval_long.T)
+	if covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
+	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
+	resids = endog_arr - np.dot(exog_vars,a)
+	SS_s =  np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0)
+
+	exog_vars = stack_ones(np.array([dmy_factor1_long, dmy_factor2_long, dmy_factor1_long*dmy_factor2_long]).T)
+	exog_vars = np.column_stack((exog_vars, dmy_interval_long.T))
+	exog_vars = np.column_stack((exog_vars, (dmy_factor1_long*dmy_interval_long).T))
+	exog_vars = np.column_stack((exog_vars, (dmy_factor2_long*dmy_interval_long).T))
+	exog_vars = np.column_stack((exog_vars, (dmy_interaction_long*dmy_interval_long).T))
+	if covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
+	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
+	resids = endog_arr - np.dot(exog_vars,a)
+	SS_cells_sab = (np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0))
+
+	exog_vars = stack_ones(np.array([dmy_factor1_long, dmy_factor2_long, dmy_factor1_long*dmy_factor2_long]).T)
+	exog_vars = np.column_stack((exog_vars, dmy_interval_long.T))
+	exog_vars = np.column_stack((exog_vars, (dmy_factor1_long*dmy_interval_long).T))
+	exog_vars = np.column_stack((exog_vars, (dmy_factor2_long*dmy_interval_long).T))
+	if covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
+	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
+	resids = endog_arr - np.dot(exog_vars,a)
+	SS_sab = SS_cells_sab - (np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0))
+
+	exog_vars = stack_ones(np.array([dmy_factor1_long, dmy_factor2_long, dmy_factor1_long*dmy_factor2_long]).T)
+	exog_vars = np.column_stack((exog_vars, dmy_interval_long.T))
+	exog_vars = np.column_stack((exog_vars, (dmy_factor1_long*dmy_interval_long).T))
+	if covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
+	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
+	resids = endog_arr - np.dot(exog_vars,a)
+	temp = (np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0))
+
+	exog_vars = stack_ones(np.array([dmy_factor1_long, dmy_factor2_long, dmy_factor1_long*dmy_factor2_long]).T)
+	exog_vars = np.column_stack((exog_vars, dmy_interval_long.T))
+	if covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
+	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
+	resids = endog_arr - np.dot(exog_vars,a)
+	SS_sa = temp - (np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0))
+
+	exog_vars = stack_ones(np.array([dmy_factor1_long, dmy_factor2_long, dmy_factor1_long*dmy_factor2_long]).T)
+	exog_vars = np.column_stack((exog_vars, dmy_interval_long.T))
+	exog_vars = np.column_stack((exog_vars, (dmy_factor2_long*dmy_interval_long).T))
+	if covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
+	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
+	resids = endog_arr - np.dot(exog_vars,a)
+	temp = (np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0))
+
+	exog_vars = stack_ones(np.array([dmy_factor1_long, dmy_factor2_long, dmy_factor1_long*dmy_factor2_long]).T)
+	exog_vars = np.column_stack((exog_vars, dmy_interval_long.T))
+	if covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
+	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
+	resids = endog_arr - np.dot(exog_vars,a)
+	SS_sb = temp - (np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0))
+
+	SS_sWithinFactors = SS_WithinSubjects - SS_s - SS_sa - SS_sb - SS_sab
+
+	# Between subjects df
+	df_BetweenSubjects  = n - 1
+	df_a =  fa - 1
+	df_b =  fb - 1
+	df_ab =  df_a * df_b
+	df_WithinFactors = df_BetweenSubjects - df_a - df_b - df_ab
+
+	# Within subjects df
+	df_s = s - 1
+	df_sa = df_a * df_s
+	df_sb = df_b * df_s
+	df_sab = df_ab * df_s
+	df_sWithinFactor = df_WithinFactors * df_s
+
+	# F-stats
+	# Between subjects
+	ms_WithinFactors = np.divide(SS_WithinFactors, df_WithinFactors)
+	F_a = np.divide(np.divide(SS_a, df_a), ms_WithinFactors)
+	F_b = np.divide(np.divide(SS_b, df_b), ms_WithinFactors)
+	F_ab = np.divide(np.divide(SS_ab, df_ab), ms_WithinFactors)
+
+	# Within subjects
+	ms_sWithinFactor = np.divide(SS_sWithinFactors, df_sWithinFactor)
+	F_s = np.divide(np.divide(SS_s, df_s), ms_sWithinFactor)
+	F_sa = np.divide(np.divide(SS_sa, df_sa), ms_sWithinFactor)
+	F_sb = np.divide(np.divide(SS_sb, df_sb), ms_sWithinFactor)
+	F_sab = np.divide(np.divide(SS_sab, df_sab), ms_sWithinFactor)
+
+	return (F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab)
 
 

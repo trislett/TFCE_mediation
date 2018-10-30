@@ -106,3 +106,7 @@ def calc_gd_fwhm(np.ndarray[int, ndim=2, mode="c"] indices,
       sum_weight[i] += weight
    return sumval / sum_weight
 
+def cy_lin_lstsqr_mat_residual(exog_vars, endog_arr):
+   a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
+   resids = endog_arr - np.dot(exog_vars,a)
+   return (a, np.sum(resids**2,axis=0))

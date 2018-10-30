@@ -31,7 +31,7 @@ import matplotlib.colors as colors
 import matplotlib.patches as mpatches
 from time import time
 
-from tfce_mediation.cynumstats import calc_beta_se, cy_lin_lstsqr_mat, se_of_slope
+from tfce_mediation.cynumstats import calc_beta_se, cy_lin_lstsqr_mat, cy_lin_lstsqr_mat_residual, se_of_slope
 
 # Creation of adjacencty sets for TFCE connectivity
 def create_adjac_vertex(vertices,faces): # basic version
@@ -1404,6 +1404,109 @@ def rm_anova_one_bs_factor(data, between_factor, output_sig = False):
 	else:
 		return(Fbetween, Ftime, Fint)
 
+
+def full_glm_results(endog_arr, exog_vars,  only_tvals = False, return_resids = False, return_fitted = False, PCA_whiten = False, ZCA_whiten = False,  orthogonalize = False, orthogNear = False, orthog_GramSchmidt = False):
+	"""
+	One factor repeated measure ANOVA for longitudinal dependent variables
+	
+	Parameters
+	----------
+	endog_arr : array
+		endogenours variable array (i.e., masked neuroimage dependent variables)
+	exog_vars : array
+		exogenous variable array (i.e., independent variables)
+	
+	Optional Flags
+	----------
+
+	only_tvals : bool
+		Returns only t-values (default = False)
+	return_resids : bool
+		Returns the residuals (default = False)
+	return_fitted : bool
+		Returns the fitted values (default = False)
+	PCA_whiten : bool
+		PCA whiten indendent variables (not recommended) (default = False)
+	PCA_whiten : bool 
+		ZCA whiten indendent variables (not recommended) (default = False)
+	PCA_whiten : bool 
+		ZCA whiten indendent variables (not recommended) (default = False)
+	orthogonalize : bool 
+		Orthogonalize exogenous variables (default = True)
+	orthogNear : bool 
+		Orthogonalize exogenous variables to the nearest orthogonal matrix (default = False)
+	orthog_GramSchmidt : bool
+		Use the Gram–Schmidt process to orthonormalize the exogenous variables.
+		i.e., Type-1 sum of squares (like R).
+		It is particularly useful for assessing interations.
+	
+	Returns
+	-------
+	Fvalues  :array
+		F-statistics of model
+	Tvalues : array
+		T-statistics of factors
+	Pvalues : array
+		P-values of factors
+	R2 : array
+		R-squared of the model
+	R2_adj : array
+		Adjusted R-squared of the model
+	
+	Optional returns
+	-------
+	resids : array
+		The residuals of the model
+	fitted : array
+		The fitted values of the model
+	
+	"""
+	if np.mean(exog_vars[:,0])!=1:
+		print("Warning: the intercept is not included as the first column in your exogenous variable array")
+	n, num_depv = endog_arr.shape
+	k = exog_vars.shape[1]
+
+	if orthogonalize:
+		exog_vars = stack_ones(orthog_columns(exog_vars[:,1:]))
+	if orthogNear:
+		exog_vars = stack_ones(ortho_neareast(exog_vars[:,1:]))
+	if orthog_GramSchmidt: # for when order matters AKA type 2 sum of squares
+		exog_vars = stack_ones(gram_schmidt_orthonorm(exog_vars[:,1:]))
+
+	invXX = np.linalg.inv(np.dot(exog_vars.T, exog_vars))
+
+	DFbetween = k - 1 # aka df model
+	DFwithin = n - k # aka df residuals
+	DFtotal = n - 1
+	if PCA_whiten:
+		endog_arr = PCAwhiten(endog_arr)
+	if ZCA_whiten:
+		endog_arr = ZCAwhiten(endog_arr)
+
+	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
+	sigma2 = np.sum((endog_arr - np.dot(exog_vars,a))**2,axis=0) / (n - k)
+	se = se_of_slope(num_depv,invXX,sigma2,k)
+
+	if only_tvals:
+		return a / se
+	else:
+		resids = endog_arr - np.dot(exog_vars,a)
+		RSS = np.sum(resids**2,axis=0)
+		TSS = np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0)
+		R2 = 1 - (RSS/TSS)
+		R2_adj = 1 - ((1-R2)*DFtotal/(DFwithin))
+		Fvalues = ((TSS-RSS)/(DFbetween))/(RSS/DFwithin)
+		Tvalues = a / se
+		Pvalues = t.sf(np.abs(Tvalues), DFtotal)*2
+		if return_resids:
+			if return_fitted:
+				fitted = np.dot(exog_vars, a)
+				return (Tvalues, Pvalues, Fvalues, R2, R2_adj, np.array(resids), np.array(fitted))
+			else:
+				return (Tvalues, Pvalues, Fvalues, R2, R2_adj, np.array(resids))
+		else:
+			return (Tvalues, Pvalues, Fvalues, R2, R2_adj)
+
 # Slow but safer
 def rm_anova_two_bs_factor(data, factor1, factor2, output_sig = False):
 	"""
@@ -1578,107 +1681,302 @@ def rm_anova_two_bs_factor(data, factor1, factor2, output_sig = False):
 	else:
 		return (F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab)
 
-def full_glm_results(endog_arr, exog_vars,  only_tvals = False, return_resids = False, return_fitted = False, PCA_whiten = False, ZCA_whiten = False,  orthogonalize = False, orthogNear = False, orthog_GramSchmidt = False):
+# convert to require dummy coded variables
+# dmy_factor1 = dummy_code(factor1, null_var = 0)
+# dmy_factor2 = dummy_code(factor2, null_var = 0)
+# dmy_subjects = dummy_code(pdData.SubjID)
+# dmy_covariates = dummy_code(pdData.site)
+def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dmy_covariates = None, output_sig = False):
 	"""
-	One factor repeated measure ANOVA for longitudinal dependent variables
+	Two factor repeated measure ANCOVA for longitudinal dependent variables
 	
 	Parameters
 	----------
-	endog_arr : array
-		endogenours variable array (i.e., masked neuroimage dependent variables)
-	exog_vars : array
-		exogenous variable array (i.e., independent variables)
+	data : array
+		Data array (N_intervals, N_individuals, N_dependent variables)
+	dmy_factor1 : array
+		dummy coded factor 1
+	dmy_factor2 : array
+		dummy coded factor 2
+	dmy_subjects : array
+		dummy coded subjects
+	
+	Optional Parameters
+	----------
+	dmy_covariates : array
+		dummy coded covariates of no interest
 	
 	Optional Flags
 	----------
-
-	only_tvals : bool
-		Returns only t-values (default = False)
-	return_resids : bool
-		Returns the residuals (default = False)
-	return_fitted : bool
-		Returns the fitted values (default = False)
-	PCA_whiten : bool
-		PCA whiten indendent variables (not recommended) (default = False)
-	PCA_whiten : bool 
-		ZCA whiten indendent variables (not recommended) (default = False)
-	PCA_whiten : bool 
-		ZCA whiten indendent variables (not recommended) (default = False)
-	orthogonalize : bool 
-		Orthogonalize exogenous variables (default = True)
-	orthogNear : bool 
-		Orthogonalize exogenous variables to the nearest orthogonal matrix (default = False)
-	orthog_GramSchmidt : bool
-		Use the Gram–Schmidt process to orthonormalize the exogenous variables.
-		i.e., Type-1 sum of squares (like R).
-		It is particularly useful for assessing interations.
+	output_sig : bool
+		outputs p-values of F-statistics
 	
 	Returns
 	-------
-	Fvalues  :array
-		F-statistics of model
-	Tvalues : array
-		T-statistics of factors
-	Pvalues : array
-		P-values of factors
-	R2 : array
-		R-squared of the model
-	R2_adj : array
-		Adjusted R-squared of the model
+	F_a : array
+		F-statistics of the between-subject factor1
+	F_b : array
+		F-statistics of the between-subject factor1
+	F_ab : array
+		F-statistics of the between-subject interaction of factor1*factor2
+	F_s : array
+		F-statistics of the within-subject interval
+	F_sb : array
+		F-statistics of the factor1*interval interaction
+	F_sb : array
+		F-statistics of the factor2*interval interaction
+	F_sab : array
+		F-statistics of the factor1*factor2*interval interaction
 	
 	Optional returns
 	-------
-	resids : array
-		The residuals of the model
-	fitted : array
-		The fitted values of the model
+	
+	P_a : array
+		P-statistics of the between-subject factor1
+	P_b : array
+		P-statistics of the between-subject factor1
+	P_ab : array
+		P-statistics of the between-subject interaction of factor1*factor2
+	P_s : array
+		P-statistics of the within-subject interval
+	P_sa : array
+		P-statistics of the factor1*interval interaction
+	P_sb : array
+		P-statistics of the factor2*interval interaction
+	P_sab : array
+		P-statistics of the factor1*factor2*interval interaction
 	
 	"""
-	if np.mean(exog_vars[:,0])!=1:
-		print("Warning: the intercept is not included as the first column in your exogenous variable array")
-	n, num_depv = endog_arr.shape
-	k = exog_vars.shape[1]
 
-	if orthogonalize:
-		exog_vars = stack_ones(orthog_columns(exog_vars[:,1:]))
-	if orthogNear:
-		exog_vars = stack_ones(ortho_neareast(exog_vars[:,1:]))
-	if orthog_GramSchmidt: # for when order matters AKA type 2 sum of squares
-		exog_vars = stack_ones(gram_schmidt_orthonorm(exog_vars[:,1:]))
+	if data.ndim == 2:
+		data = data[:,:,np.newaxis]
 
-	invXX = np.linalg.inv(np.dot(exog_vars.T, exog_vars))
-
-	DFbetween = k - 1 # aka df model
-	DFwithin = n - k # aka df residuals
-	DFtotal = n - 1
-	if PCA_whiten:
-		endog_arr = PCAwhiten(endog_arr)
-	if ZCA_whiten:
-		endog_arr = ZCAwhiten(endog_arr)
-
-	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
-	sigma2 = np.sum((endog_arr - np.dot(exog_vars,a))**2,axis=0) / (n - k)
-	se = se_of_slope(num_depv,invXX,sigma2,k)
-
-	if only_tvals:
-		return a / se
+	# get shapes for df
+	s = data.shape[0]
+	n = data.shape[1]
+	if dmy_factor1.ndim == 1:
+		fa = 2
 	else:
-		resids = endog_arr - np.dot(exog_vars,a)
-		RSS = np.sum(resids**2,axis=0)
-		TSS = np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0)
-		R2 = 1 - (RSS/TSS)
-		R2_adj = 1 - ((1-R2)*DFtotal/(DFwithin))
-		Fvalues = ((TSS-RSS)/(DFbetween))/(RSS/DFwithin)
-		Tvalues = a / se
-		Pvalues = t.sf(np.abs(Tvalues), DFtotal)*2
-		if return_resids:
-			if return_fitted:
-				fitted = np.dot(exog_vars, a)
-				return (Tvalues, Pvalues, Fvalues, R2, R2_adj, np.array(resids), np.array(fitted))
-			else:
-				return (Tvalues, Pvalues, Fvalues, R2, R2_adj, np.array(resids))
+		fa = dmy_factor1.shape[1] + 1
+	if dmy_factor2.ndim == 1:
+		fb = 2
+	else:
+		fb = dmy_factor2.shape[1] + 1
+
+	# code the interaction
+	dmy_interaction = column_product(dmy_factor1,dmy_factor2)
+
+	# convert to long form
+	data_long = data.reshape(s*n,data.shape[2])
+	interval_long = np.zeros(n)
+	dmy_factor1_long = dmy_factor1
+	dmy_factor2_long = dmy_factor2
+	dmy_interaction_long = dmy_interaction
+	dmy_subjects_long = dmy_subjects
+	if dmy_covariates is not None:
+		dmy_covars_long = dmy_covariates
+
+	for i in range(s-1):
+		dmy_factor1_long = np.concatenate((dmy_factor1_long,dmy_factor1),0)
+		dmy_factor2_long = np.concatenate((dmy_factor2_long,dmy_factor2),0)
+		dmy_interaction_long = np.concatenate((dmy_interaction_long,dmy_interaction),0)
+		dmy_subjects_long = np.concatenate((dmy_subjects_long,dmy_subjects),0)
+		interval_long = np.concatenate((interval_long, np.ones(n)*(i+1)))
+		if dmy_covariates is not None:
+			dmy_covars_long = np.concatenate((dmy_covars_long, dmy_covariates),0)
+	dmy_interval_long = dummy_code(interval_long)
+
+	# SS Totals
+	exog_vars = stack_ones(dmy_subjects_long)
+	endog_arr = np.squeeze(data_long)
+	a, SS_WithinSubjects = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)
+	SS_Total = np.sum((endog_arr - np.mean(endog_arr, axis = 0))**2, axis = 0)
+	SS_BetweenSubjects = SS_Total - SS_WithinSubjects
+
+	# SS between subject
+	exog_vars = stack_ones(dmy_factor1_long)
+	exog_vars = np.column_stack((exog_vars, dmy_factor2_long))
+	exog_vars = np.column_stack((exog_vars, dmy_interaction_long))
+	if dmy_covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
+	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+	SS_cells_ab = SS_Total - residuals
+
+	exog_vars = stack_ones(np.column_stack((dmy_factor1_long, dmy_factor2_long)))
+	if dmy_covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
+	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+	SS_ab = SS_cells_ab - (SS_Total - residuals)
+
+	exog_vars = stack_ones(dmy_factor1_long)
+	if dmy_covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
+	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+	SS_a = SS_Total - residuals
+
+	exog_vars = stack_ones(dmy_factor2_long)
+	if dmy_covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
+	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+	SS_b = SS_Total - residuals
+
+	SS_WithinFactors = SS_BetweenSubjects - SS_a - SS_b - SS_ab
+
+	# SS time
+	exog_vars = stack_ones(dmy_interval_long)
+	if dmy_covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
+		exog_vars = np.column_stack((exog_vars, column_product(dmy_covars_long,dmy_interval_long)))
+	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+	SS_s =  SS_Total - residuals
+
+	# SS cells s*a
+	exog_vars = stack_ones(dmy_factor1_long)
+	exog_vars = np.column_stack((exog_vars, dmy_interval_long))
+	exog_vars = np.column_stack((exog_vars, column_product(dmy_factor1_long,dmy_interval_long)))
+	if dmy_covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
+		exog_vars = np.column_stack((exog_vars, column_product(dmy_covars_long,dmy_interval_long)))
+	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+	SS_cells_sa = (SS_Total - residuals)
+	SS_sa = SS_cells_sa - SS_s - SS_a
+
+	# SS cells s*b
+	exog_vars = stack_ones(dmy_factor2_long)
+	exog_vars = np.column_stack((exog_vars, dmy_interval_long))
+	exog_vars = np.column_stack((exog_vars, column_product(dmy_factor2_long,dmy_interval_long)))
+	if dmy_covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
+		exog_vars = np.column_stack((exog_vars, column_product(dmy_covars_long,dmy_interval_long)))
+	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+	SS_cells_sb = (SS_Total - residuals)
+	SS_sb = SS_cells_sb - SS_s - SS_b
+
+	# SS Cells s*a*b
+	exog_vars = stack_ones(dmy_factor1_long)
+	exog_vars = np.column_stack((exog_vars, dmy_factor2_long))
+	exog_vars = np.column_stack((exog_vars, dmy_interaction_long))
+	exog_vars = np.column_stack((exog_vars, dmy_interval_long))
+	exog_vars = np.column_stack((exog_vars, column_product(dmy_factor1_long,dmy_interval_long)))
+	exog_vars = np.column_stack((exog_vars, column_product(dmy_factor2_long,dmy_interval_long)))
+	exog_vars = np.column_stack((exog_vars, column_product(dmy_interaction_long,dmy_interval_long)))
+	if dmy_covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
+		exog_vars = np.column_stack((exog_vars, column_product(dmy_covars_long,dmy_interval_long)))
+	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+	SS_cells_sab = SS_Total - residuals
+	SS_sab = SS_cells_sab - SS_a - SS_b - SS_s - SS_ab - SS_sa - SS_sb
+
+	SS_sWithinFactors = SS_WithinSubjects - SS_s - SS_sa - SS_sb - SS_sab
+
+	# Between subjects df
+	df_BetweenSubjects  = n - 1
+	df_a =  fa - 1
+	df_b =  fb - 1
+	df_ab =  df_a * df_b
+	df_WithinFactors = df_BetweenSubjects - df_a - df_b - df_ab
+
+	# Within subjects df
+	df_s = s - 1
+	df_sa = df_a * df_s
+	df_sb = df_b * df_s
+	df_sab = df_ab * df_s
+	df_sWithinFactor = df_WithinFactors * df_s
+
+	# F-stats
+	# Between subjects
+	ms_WithinFactors = np.divide(SS_WithinFactors, df_WithinFactors)
+	F_a = np.divide(np.divide(SS_a, df_a), ms_WithinFactors)
+	F_b = np.divide(np.divide(SS_b, df_b), ms_WithinFactors)
+	F_ab = np.divide(np.divide(SS_ab, df_ab), ms_WithinFactors)
+
+	# Within subjects
+	ms_sWithinFactor = np.divide(SS_sWithinFactors, df_sWithinFactor)
+	F_s = np.divide(np.divide(SS_s, df_s), ms_sWithinFactor)
+	F_sa = np.divide(np.divide(SS_sa, df_sa), ms_sWithinFactor)
+	F_sb = np.divide(np.divide(SS_sb, df_sb), ms_sWithinFactor)
+	F_sab = np.divide(np.divide(SS_sab, df_sab), ms_sWithinFactor)
+	if output_sig:
+		# Between subjects
+		P_a = 1 - f.cdf(F_a,df_a,df_WithinFactors)
+		P_b = 1 - f.cdf(F_b,df_b,df_WithinFactors)
+		P_ab = 1 - f.cdf(F_ab,df_ab,df_WithinFactors)
+		# Within subjects
+		P_s = 1 - f.cdf(F_s,df_s,df_sWithinFactor)
+		P_sa = 1 - f.cdf(F_sa,df_sa,df_sWithinFactor)
+		P_sb = 1 - f.cdf(F_sb,df_sb,df_sWithinFactor)
+		P_sab = 1 - f.cdf(F_sab,df_sab,df_sWithinFactor)
+		return (F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab, P_a, P_b, P_ab, P_s, P_sa, P_sb, P_sab)
+	else:
+		return (F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab)
+
+def dummy_code(variable, iscontinous = False, null_var = 0):
+	"""
+	Dummy codes a variable
+	
+	Parameters
+	----------
+	variable : array
+		1D array variable of any type 
+
+	Returns
+	---------
+	dummy_vars : array
+		dummy coded array of shape [(# subjects), (unique variables - 1)]
+	
+	"""
+	if iscontinous:
+		variable -= np.mean(variable)
+		return variable
+	else:
+		unique_vars = np.unique(variable)
+		dummy_vars = []
+		for var in unique_vars:
+			temp_var = np.zeros((len(variable)))
+			temp_var[variable == var] = 1
+			dummy_vars.append(temp_var)
+		dummy_vars = np.array(dummy_vars)[1:] # remove the first column as reference variable
+		dummy_vars[dummy_vars == 0] = null_var
+		return np.squeeze(dummy_vars).astype(np.int).T
+
+def column_product(arr1, arr2):
+	"""
+	Multiply two dummy codes arrays
+	
+	Parameters
+	----------
+	arr1 : array
+		2D array variable dummy coded array (nlength, nvars)
+
+	arr2 : array
+		2D array variable dummy coded array (nlength, nvars)
+
+	Returns
+	---------
+	prod_arr : array
+		dummy coded array [nlength, nvars(arr1)*nvars(arr2)]
+	
+	"""
+	l1 = len(arr1)
+	l2 = len(arr2)
+	if l1 == l2:
+		arr1 = np.array(arr1)
+		arr2 = np.array(arr2)
+		prod_arr = []
+		if arr1.ndim == 1:
+			prod_arr = (arr1*arr2.T).T
+		elif arr2.ndim == 1:
+			prod_arr = (arr2*arr1.T).T
 		else:
-			return (Tvalues, Pvalues, Fvalues, R2, R2_adj)
+			for i in range(arr1.shape[1]):
+				prod_arr.append((arr1[:,i]*arr2.T).T)
+			prod_arr = np.array(prod_arr)
+			if prod_arr.ndim == 3:
+				prod_arr = np.concatenate(prod_arr, axis=1)
+		return prod_arr
+	else:
+		print("Error: Array must be of same length")
+		quit()
 
 def stack_ones(arr):
 	"""
@@ -1728,219 +2026,4 @@ def calc_indirect(ta, tb, alg = "aroian"):
 		print("Unknown indirect test algorithm")
 		exit()
 	return SobelZ
-
-
-def dummy_code(variable, iscontinous = False, null_var = 0):
-	"""
-	Dummy codes a variable
-	
-	Parameters
-	----------
-	variable : array
-		1D array variable of any type 
-
-	Returns
-	---------
-	dummy_vars : array
-		dummy coded array of shape [(unique variables - 1), (# subjects)]
-	
-	"""
-	if iscontinous:
-		variable -= np.mean(variable)
-		return variable
-	else:
-		unique_vars = np.unique(variable)
-		dummy_vars = []
-		for var in unique_vars:
-			temp_var = np.zeros_like(variable)
-			temp_var[variable == var] = 1
-			dummy_vars.append(temp_var)
-		dummy_vars = np.array(dummy_vars)[1:] # remove the first column as reference variable
-		dummy_vars[dummy_vars == 0] = null_var
-		return np.squeeze(dummy_vars).astype(np.int)
-
-
-def reg_rm_anova_two_bs_factor(data, factor1, factor2, subjects, covariates = None, output_sig = False):
-
-	if data.ndim == 2:
-		data = data[:,:,np.newaxis]
-
-	s = data.shape[0]
-	n = data.shape[1]
-	fa = len(np.unique(factor1)) 
-	fb = len(np.unique(factor2))
-
-	dmy_factor1 = dummy_code(factor1, null_var = 0)
-	dmy_factor2 = dummy_code(factor2, null_var = 0)
-	dmy_interaction = dmy_factor1*dmy_factor2
-	dmy_subjects = dummy_code(subjects)
-
-	data_long = data.reshape(s*n,data.shape[2])
-	dmy_factor1_long = dmy_factor1
-	dmy_factor2_long = dmy_factor2
-	dmy_interaction_long = dmy_interaction
-	dmy_subjects_long = dmy_subjects
-	if covariates is not None:
-		dmy_covars_long = covariates
-	for i in range(s-1):
-		dmy_factor1_long = np.column_stack((dmy_factor1_long,dmy_factor1))
-		dmy_factor2_long = np.column_stack((dmy_factor2_long,dmy_factor2))
-		dmy_interaction_long = np.column_stack((dmy_interaction_long,dmy_interaction))
-		dmy_subjects_long = np.column_stack((dmy_subjects_long,dmy_subjects))
-		if covariates is not None:
-			dmy_covars_long = np.column_stack((dmy_covars_long, covariates))
-
-	# dumb... but works
-	if dmy_factor1_long.shape[0] != s*n:
-		dmy_factor1_long = dmy_factor1_long.reshape(s*n, order='F')
-	if dmy_factor2_long.shape[0] != s*n:
-		dmy_factor2_long = dmy_factor2_long.reshape(s*n, order='F')
-	if dmy_interaction_long.shape[0] != s*n:
-		dmy_interaction_long = dmy_interaction_long.reshape(s*n, order='F')
-	if covariates is not None:
-		if covariates.ndim == 1:
-			dmy_covars_long = dmy_covars_long.reshape(s*n, order='F')
-
-
-	interval_long = np.zeros_like(dmy_factor1_long)
-	for i in range(s):
-		interval_long[(i*n):(i*n+n)] = np.ones((n)) * i
-	dmy_interval_long = dummy_code(interval_long)
-
-	# SS Totals
-	exog_vars = stack_ones(dmy_subjects_long.T)
-	endog_arr = np.squeeze(data_long)
-	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
-	resids = endog_arr - np.dot(exog_vars,a)
-
-	SS_Total = np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0)
-	SS_WithinSubjects = np.sum(resids**2,axis=0)
-	SS_BetweenSubjects = SS_Total - SS_WithinSubjects
-
-	# SS between subject
-	exog_vars = stack_ones(np.array([dmy_factor1_long, dmy_factor2_long, dmy_interaction_long]).T)
-	if covariates is not None:
-		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
-	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
-	resids = endog_arr - np.dot(exog_vars,a)
-	SS_cell_ab = np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0)
-
-	exog_vars = stack_ones(np.array([dmy_factor1_long, dmy_factor2_long]).T)
-	if covariates is not None:
-		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
-	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
-	resids = endog_arr - np.dot(exog_vars,a)
-	SS_ab = SS_cell_ab - (np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0))
-
-	exog_vars = stack_ones(np.array([dmy_factor1_long]).T)
-	if covariates is not None:
-		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
-	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
-	resids = endog_arr - np.dot(exog_vars,a)
-	SS_a = np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0)
-
-	exog_vars = stack_ones(np.array([dmy_factor2_long]).T)
-	if covariates is not None:
-		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
-	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
-	resids = endog_arr - np.dot(exog_vars,a)
-	SS_b = np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0)
-
-	SS_WithinFactors = SS_BetweenSubjects - SS_a - SS_b - SS_ab
-
-	# SS time
-	exog_vars = stack_ones(dmy_interval_long.T)
-	if covariates is not None:
-		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
-	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
-	resids = endog_arr - np.dot(exog_vars,a)
-	SS_s =  np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0)
-
-	exog_vars = stack_ones(np.array([dmy_factor1_long, dmy_factor2_long, dmy_factor1_long*dmy_factor2_long]).T)
-	exog_vars = np.column_stack((exog_vars, dmy_interval_long.T))
-	exog_vars = np.column_stack((exog_vars, (dmy_factor1_long*dmy_interval_long).T))
-	exog_vars = np.column_stack((exog_vars, (dmy_factor2_long*dmy_interval_long).T))
-	exog_vars = np.column_stack((exog_vars, (dmy_interaction_long*dmy_interval_long).T))
-	if covariates is not None:
-		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
-	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
-	resids = endog_arr - np.dot(exog_vars,a)
-	SS_cells_sab = (np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0))
-
-	exog_vars = stack_ones(np.array([dmy_factor1_long, dmy_factor2_long, dmy_factor1_long*dmy_factor2_long]).T)
-	exog_vars = np.column_stack((exog_vars, dmy_interval_long.T))
-	exog_vars = np.column_stack((exog_vars, (dmy_factor1_long*dmy_interval_long).T))
-	exog_vars = np.column_stack((exog_vars, (dmy_factor2_long*dmy_interval_long).T))
-	if covariates is not None:
-		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
-	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
-	resids = endog_arr - np.dot(exog_vars,a)
-	SS_sab = SS_cells_sab - (np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0))
-
-	exog_vars = stack_ones(np.array([dmy_factor1_long, dmy_factor2_long, dmy_factor1_long*dmy_factor2_long]).T)
-	exog_vars = np.column_stack((exog_vars, dmy_interval_long.T))
-	exog_vars = np.column_stack((exog_vars, (dmy_factor1_long*dmy_interval_long).T))
-	if covariates is not None:
-		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
-	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
-	resids = endog_arr - np.dot(exog_vars,a)
-	temp = (np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0))
-
-	exog_vars = stack_ones(np.array([dmy_factor1_long, dmy_factor2_long, dmy_factor1_long*dmy_factor2_long]).T)
-	exog_vars = np.column_stack((exog_vars, dmy_interval_long.T))
-	if covariates is not None:
-		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
-	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
-	resids = endog_arr - np.dot(exog_vars,a)
-	SS_sa = temp - (np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0))
-
-	exog_vars = stack_ones(np.array([dmy_factor1_long, dmy_factor2_long, dmy_factor1_long*dmy_factor2_long]).T)
-	exog_vars = np.column_stack((exog_vars, dmy_interval_long.T))
-	exog_vars = np.column_stack((exog_vars, (dmy_factor2_long*dmy_interval_long).T))
-	if covariates is not None:
-		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
-	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
-	resids = endog_arr - np.dot(exog_vars,a)
-	temp = (np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0))
-
-	exog_vars = stack_ones(np.array([dmy_factor1_long, dmy_factor2_long, dmy_factor1_long*dmy_factor2_long]).T)
-	exog_vars = np.column_stack((exog_vars, dmy_interval_long.T))
-	if covariates is not None:
-		exog_vars = np.column_stack((exog_vars, dmy_covars_long.T))
-	a = cy_lin_lstsqr_mat(exog_vars, endog_arr)
-	resids = endog_arr - np.dot(exog_vars,a)
-	SS_sb = temp - (np.sum((endog_arr - np.mean(endog_arr, axis =0))**2, axis = 0) - np.sum(resids**2,axis=0))
-
-	SS_sWithinFactors = SS_WithinSubjects - SS_s - SS_sa - SS_sb - SS_sab
-
-	# Between subjects df
-	df_BetweenSubjects  = n - 1
-	df_a =  fa - 1
-	df_b =  fb - 1
-	df_ab =  df_a * df_b
-	df_WithinFactors = df_BetweenSubjects - df_a - df_b - df_ab
-
-	# Within subjects df
-	df_s = s - 1
-	df_sa = df_a * df_s
-	df_sb = df_b * df_s
-	df_sab = df_ab * df_s
-	df_sWithinFactor = df_WithinFactors * df_s
-
-	# F-stats
-	# Between subjects
-	ms_WithinFactors = np.divide(SS_WithinFactors, df_WithinFactors)
-	F_a = np.divide(np.divide(SS_a, df_a), ms_WithinFactors)
-	F_b = np.divide(np.divide(SS_b, df_b), ms_WithinFactors)
-	F_ab = np.divide(np.divide(SS_ab, df_ab), ms_WithinFactors)
-
-	# Within subjects
-	ms_sWithinFactor = np.divide(SS_sWithinFactors, df_sWithinFactor)
-	F_s = np.divide(np.divide(SS_s, df_s), ms_sWithinFactor)
-	F_sa = np.divide(np.divide(SS_sa, df_sa), ms_sWithinFactor)
-	F_sb = np.divide(np.divide(SS_sb, df_sb), ms_sWithinFactor)
-	F_sab = np.divide(np.divide(SS_sab, df_sab), ms_sWithinFactor)
-
-	return (F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab)
-
 

@@ -48,7 +48,7 @@ def se_of_slope(num_voxel,invXX,sigma2, k):
    cdef int j
    cdef np.ndarray se = np.zeros(shape=(k,num_voxel), dtype=np.float32)
    for j in xrange(num_voxel):
-      se[:,j] = np.sqrt ( np.diag (sigma2[j] * invXX ) )
+      se[:,j] = np.sqrt(np.diag(sigma2[j]*invXX))
    return se
 
 def resid_covars (x_covars, data):

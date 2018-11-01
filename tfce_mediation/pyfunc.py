@@ -1682,13 +1682,15 @@ def rm_anova_two_bs_factor(data, factor1, factor2, output_sig = False):
 		return (F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab)
 
 # convert to require dummy coded variables
-# dmy_factor1 = dummy_code(factor1, null_var = 0)
-# dmy_factor2 = dummy_code(factor2, null_var = 0)
-# dmy_subjects = dummy_code(pdData.SubjID)
-# dmy_covariates = dummy_code(pdData.site)
+# dmy_factor1 = dummy_code(pdData.sexM1)
+# dmy_factor2 = dummy_code(pdData.S4_PRS_GF_noIMAGEN,iscontinous=True, demean=True)
+# dmy_subjects = dummy_code(pdData.SubjID, demean=False)
+# dmy_covariates = dummy_code(pdData.site, demean=True, iscontinous=False)
+# Check if QR orthog is faster... 
 def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dmy_covariates = None, output_sig = False):
 	"""
 	Two factor repeated measure ANCOVA for longitudinal dependent variables
+	Note: Type 1 Sum of Squares is used, therefore order matters
 	
 	Parameters
 	----------
@@ -1716,7 +1718,7 @@ def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 	F_a : array
 		F-statistics of the between-subject factor1
 	F_b : array
-		F-statistics of the between-subject factor1
+		F-statistics of the between-subject factor2
 	F_ab : array
 		F-statistics of the between-subject interaction of factor1*factor2
 	F_s : array
@@ -1734,7 +1736,7 @@ def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 	P_a : array
 		P-statistics of the between-subject factor1
 	P_b : array
-		P-statistics of the between-subject factor1
+		P-statistics of the between-subject factor2
 	P_ab : array
 		P-statistics of the between-subject interaction of factor1*factor2
 	P_s : array
@@ -1784,12 +1786,12 @@ def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 		interval_long = np.concatenate((interval_long, np.ones(n)*(i+1)))
 		if dmy_covariates is not None:
 			dmy_covars_long = np.concatenate((dmy_covars_long, dmy_covariates),0)
-	dmy_interval_long = dummy_code(interval_long)
+	dmy_interval_long = dummy_code(interval_long, demean = False)
 
 	# SS Totals
 	exog_vars = stack_ones(dmy_subjects_long)
 	endog_arr = np.squeeze(data_long)
-	a, SS_WithinSubjects = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)
+	SS_WithinSubjects = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
 	SS_Total = np.sum((endog_arr - np.mean(endog_arr, axis = 0))**2, axis = 0)
 	SS_BetweenSubjects = SS_Total - SS_WithinSubjects
 
@@ -1807,50 +1809,31 @@ def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
 	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
 	SS_ab = SS_cells_ab - (SS_Total - residuals)
+	# correct SS_ab
 
+	if dmy_covariates is not None:
+		exog_vars = stack_ones(dmy_covars_long)
+		residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+		SS_covars =(SS_Total - residuals)
+	else:
+		SS_covars = 0
+
+	# SSb
 	exog_vars = stack_ones(dmy_factor1_long)
 	if dmy_covariates is not None:
 		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
 	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
-	SS_a = SS_Total - residuals
+	SS_a = (SS_Total - residuals) - SS_covars
 
-	exog_vars = stack_ones(dmy_factor2_long)
-	if dmy_covariates is not None:
-		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
-	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
-	SS_b = SS_Total - residuals
+	# SSa
+	SS_b = SS_cells_ab - SS_covars - SS_ab - SS_a
 
-	SS_WithinFactors = SS_BetweenSubjects - SS_a - SS_b - SS_ab
+	SS_WithinFactors = SS_BetweenSubjects - SS_a - SS_b - SS_ab - SS_covars
 
 	# SS time
 	exog_vars = stack_ones(dmy_interval_long)
-	if dmy_covariates is not None:
-		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
-		exog_vars = np.column_stack((exog_vars, column_product(dmy_covars_long,dmy_interval_long)))
 	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
 	SS_s =  SS_Total - residuals
-
-	# SS cells s*a
-	exog_vars = stack_ones(dmy_factor1_long)
-	exog_vars = np.column_stack((exog_vars, dmy_interval_long))
-	exog_vars = np.column_stack((exog_vars, column_product(dmy_factor1_long,dmy_interval_long)))
-	if dmy_covariates is not None:
-		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
-		exog_vars = np.column_stack((exog_vars, column_product(dmy_covars_long,dmy_interval_long)))
-	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
-	SS_cells_sa = (SS_Total - residuals)
-	SS_sa = SS_cells_sa - SS_s - SS_a
-
-	# SS cells s*b
-	exog_vars = stack_ones(dmy_factor2_long)
-	exog_vars = np.column_stack((exog_vars, dmy_interval_long))
-	exog_vars = np.column_stack((exog_vars, column_product(dmy_factor2_long,dmy_interval_long)))
-	if dmy_covariates is not None:
-		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
-		exog_vars = np.column_stack((exog_vars, column_product(dmy_covars_long,dmy_interval_long)))
-	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
-	SS_cells_sb = (SS_Total - residuals)
-	SS_sb = SS_cells_sb - SS_s - SS_b
 
 	# SS Cells s*a*b
 	exog_vars = stack_ones(dmy_factor1_long)
@@ -1865,16 +1848,91 @@ def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 		exog_vars = np.column_stack((exog_vars, column_product(dmy_covars_long,dmy_interval_long)))
 	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
 	SS_cells_sab = SS_Total - residuals
-	SS_sab = SS_cells_sab - SS_a - SS_b - SS_s - SS_ab - SS_sa - SS_sb
 
-	SS_sWithinFactors = SS_WithinSubjects - SS_s - SS_sa - SS_sb - SS_sab
+	# SS Cells s*a*b
+	exog_vars = stack_ones(dmy_factor1_long)
+	exog_vars = np.column_stack((exog_vars, dmy_factor2_long))
+	exog_vars = np.column_stack((exog_vars, dmy_interaction_long))
+	exog_vars = np.column_stack((exog_vars, dmy_interval_long))
+	exog_vars = np.column_stack((exog_vars, column_product(dmy_factor1_long,dmy_interval_long)))
+	exog_vars = np.column_stack((exog_vars, column_product(dmy_factor2_long,dmy_interval_long)))
+	if dmy_covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
+		exog_vars = np.column_stack((exog_vars, column_product(dmy_covars_long,dmy_interval_long)))
+	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+	SS_sab = SS_cells_sab - (SS_Total - residuals)
+
+	# SS covariates (same as above int then minus int)
+	if dmy_covariates is not None:
+		exog_vars = stack_ones(dmy_covars_long)
+		exog_vars = np.column_stack((exog_vars, column_product(dmy_covars_long,dmy_interval_long)))
+		exog_vars = np.column_stack((exog_vars, dmy_interval_long))
+		residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+		residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+		SS_cells_scovars = (SS_Total - residuals)
+		exog_vars = stack_ones(dmy_covars_long)
+		exog_vars = np.column_stack((exog_vars, dmy_interval_long))
+		residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+		residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+		SS_scovars = SS_cells_scovars - (SS_Total - residuals)
+	else:
+		SS_scovars = 0
+
+	# SS Cells s*a
+	exog_vars = stack_ones(dmy_factor1_long)
+	exog_vars = np.column_stack((exog_vars, dmy_interval_long))
+	exog_vars = np.column_stack((exog_vars, column_product(dmy_factor1_long,dmy_interval_long)))
+	if dmy_covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
+		exog_vars = np.column_stack((exog_vars, column_product(dmy_covars_long,dmy_interval_long)))
+	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+	SS_Cells_sa = (SS_Total - residuals)
+
+	exog_vars = stack_ones(dmy_factor1_long)
+	exog_vars = np.column_stack((exog_vars, dmy_interval_long))
+	if dmy_covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
+		exog_vars = np.column_stack((exog_vars, column_product(dmy_covars_long,dmy_interval_long)))
+	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+	SS_sa = SS_Cells_sa - (SS_Total - residuals)
+
+	# SS Cells s*b
+	exog_vars = stack_ones(dmy_factor1_long)
+	exog_vars = np.column_stack((exog_vars, dmy_factor2_long))
+	exog_vars = np.column_stack((exog_vars, dmy_interval_long))
+	exog_vars = np.column_stack((exog_vars, column_product(dmy_factor1_long,dmy_interval_long)))
+	exog_vars = np.column_stack((exog_vars, column_product(dmy_factor2_long,dmy_interval_long)))
+	if dmy_covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
+		exog_vars = np.column_stack((exog_vars, column_product(dmy_covars_long,dmy_interval_long)))
+	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+	SS_Cells_sb = (SS_Total - residuals)
+
+	exog_vars = stack_ones(dmy_factor1_long)
+	exog_vars = np.column_stack((exog_vars, dmy_factor2_long))
+	exog_vars = np.column_stack((exog_vars, dmy_interval_long))
+	exog_vars = np.column_stack((exog_vars, column_product(dmy_factor1_long,dmy_interval_long)))
+	if dmy_covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
+		exog_vars = np.column_stack((exog_vars, column_product(dmy_covars_long,dmy_interval_long)))
+	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+	SS_sb = SS_Cells_sb - (SS_Total - residuals)
+
+	SS_sWithinFactors = SS_WithinSubjects - SS_s - SS_sa - SS_sb - SS_sab - SS_scovars
 
 	# Between subjects df
 	df_BetweenSubjects  = n - 1
 	df_a =  fa - 1
 	df_b =  fb - 1
 	df_ab =  df_a * df_b
-	df_WithinFactors = df_BetweenSubjects - df_a - df_b - df_ab
+	if dmy_covariates is not None:
+		if dmy_covariates.ndim == 1:
+			df_covars = 1
+		else:
+			df_covars = dmy_covariates.shape[1]
+	else:
+		df_covars = 0
+	df_WithinFactors = df_BetweenSubjects - df_a - df_b - df_ab - df_covars
 
 	# Within subjects df
 	df_s = s - 1
@@ -1910,7 +1968,187 @@ def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 	else:
 		return (F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab)
 
-def dummy_code(variable, iscontinous = False, null_var = 0):
+
+# convert to require dummy coded variables
+# dmy_factor1 = dummy_code(pdData.sexM1)
+# dmy_factor2 = dummy_code(pdData.S4_PRS_GF_noIMAGEN,iscontinous=True, demean=True)
+# dmy_subjects = dummy_code(pdData.SubjID, demean=False)
+# dmy_covariates = dummy_code(pdData.site, demean=True, iscontinous=False)
+# Check if QR orthog is faster... 
+def reg_rm_ancova_one_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dmy_covariates = None, output_sig = False):
+	"""
+	One factor repeated measure ANCOVA for longitudinal dependent variables
+	
+	Parameters
+	----------
+	data : array
+		Data array (N_intervals, N_individuals, N_dependent variables)
+	dmy_factor1 : array
+		dummy coded factor 1
+	dmy_subjects : array
+		dummy coded subjects
+	
+	Optional Parameters
+	----------
+	dmy_covariates : array
+		dummy coded covariates of no interest
+	
+	Optional Flags
+	----------
+	output_sig : bool
+		outputs p-values of F-statistics
+	
+	Returns
+	-------
+	F_a : array
+		F-statistics of the between-subject factor1
+	F_s : array
+		F-statistics of the within-subject interval
+	F_sa : array
+		F-statistics of the factor1*interval interaction
+	
+	Optional returns
+	-------
+	
+	P_a : array
+		P-statistics of the between-subject factor1
+	P_s : array
+		P-statistics of the within-subject interval
+	P_sa : array
+		P-statistics of the factor1*interval interaction
+	
+	"""
+
+	if data.ndim == 2:
+		data = data[:,:,np.newaxis]
+
+	# get shapes for df
+	s = data.shape[0]
+	n = data.shape[1]
+	if dmy_factor1.ndim == 1:
+		fa = 2
+	else:
+		fa = dmy_factor1.shape[1] + 1
+
+
+	# convert to long form
+	data_long = data.reshape(s*n,data.shape[2])
+	interval_long = np.zeros(n)
+	dmy_factor1_long = dmy_factor1
+	dmy_subjects_long = dmy_subjects
+	if dmy_covariates is not None:
+		dmy_covars_long = dmy_covariates
+
+	for i in range(s-1):
+		dmy_factor1_long = np.concatenate((dmy_factor1_long,dmy_factor1),0)
+		dmy_subjects_long = np.concatenate((dmy_subjects_long,dmy_subjects),0)
+		interval_long = np.concatenate((interval_long, np.ones(n)*(i+1)))
+		if dmy_covariates is not None:
+			dmy_covars_long = np.concatenate((dmy_covars_long, dmy_covariates),0)
+	dmy_interval_long = dummy_code(interval_long, demean = False)
+
+	# SS Totals
+	exog_vars = stack_ones(dmy_subjects_long)
+	endog_arr = np.squeeze(data_long)
+	SS_WithinSubjects = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+	SS_Total = np.sum((endog_arr - np.mean(endog_arr, axis = 0))**2, axis = 0)
+	SS_BetweenSubjects = SS_Total - SS_WithinSubjects
+
+	# SS between subject
+	exog_vars = stack_ones(dmy_factor1_long)
+	if dmy_covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
+	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+	SS_cells_a = SS_Total - residuals
+
+	if dmy_covariates is not None:
+		exog_vars = stack_ones(dmy_covars_long)
+		residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+		SS_covars =(SS_Total - residuals)
+	else:
+		SS_covars = 0
+
+	SS_a = SS_cells_a - SS_covars
+
+	# SS time
+	exog_vars = stack_ones(dmy_interval_long)
+	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+	SS_s =  SS_Total - residuals
+
+	# SS covariates (same as above int then minus int)
+	if dmy_covariates is not None:
+		exog_vars = stack_ones(dmy_covars_long)
+		exog_vars = np.column_stack((exog_vars, column_product(dmy_covars_long,dmy_interval_long)))
+		exog_vars = np.column_stack((exog_vars, dmy_interval_long))
+		residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+		residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+		SS_cells_scovars = (SS_Total - residuals)
+		exog_vars = stack_ones(dmy_covars_long)
+		exog_vars = np.column_stack((exog_vars, dmy_interval_long))
+		residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+		residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+		SS_scovars = SS_cells_scovars - (SS_Total - residuals)
+	else:
+		SS_scovars = 0
+
+	# SS Cells s*a
+	exog_vars = stack_ones(dmy_factor1_long)
+	exog_vars = np.column_stack((exog_vars, dmy_interval_long))
+	exog_vars = np.column_stack((exog_vars, column_product(dmy_factor1_long,dmy_interval_long)))
+	if dmy_covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
+		exog_vars = np.column_stack((exog_vars, column_product(dmy_covars_long,dmy_interval_long)))
+	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+	SS_Cells_sa = (SS_Total - residuals)
+
+	exog_vars = stack_ones(dmy_factor1_long)
+	exog_vars = np.column_stack((exog_vars, dmy_interval_long))
+	if dmy_covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
+		exog_vars = np.column_stack((exog_vars, column_product(dmy_covars_long,dmy_interval_long)))
+	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+	SS_sa = SS_Cells_sa - (SS_Total - residuals)
+
+	SS_sWithinFactors = SS_WithinSubjects - SS_s - SS_sa - SS_scovars
+
+	# Between subjects df
+	df_BetweenSubjects  = n - 1
+	df_a =  fa - 1
+	if dmy_covariates is not None:
+		if dmy_covariates.ndim == 1:
+			df_covars = 1
+		else:
+			df_covars = dmy_covariates.shape[1]
+	else:
+		df_covars = 0
+	df_WithinFactors = df_BetweenSubjects - df_a - df_covars
+
+	# Within subjects df
+	df_s = s - 1
+	df_sa = df_a * df_s
+	df_sWithinFactor = df_WithinFactors * df_s
+
+	# F-stats
+	# Between subjects
+	ms_WithinFactors = np.divide(SS_WithinFactors, df_WithinFactors)
+	F_a = np.divide(np.divide(SS_a, df_a), ms_WithinFactors)
+
+	# Within subjects
+	ms_sWithinFactor = np.divide(SS_sWithinFactors, df_sWithinFactor)
+	F_s = np.divide(np.divide(SS_s, df_s), ms_sWithinFactor)
+	F_sa = np.divide(np.divide(SS_sa, df_sa), ms_sWithinFactor)
+
+	if output_sig:
+		# Between subjects
+		P_a = 1 - f.cdf(F_a,df_a,df_WithinFactors)
+		# Within subjects
+		P_s = 1 - f.cdf(F_s,df_s,df_sWithinFactor)
+		P_sa = 1 - f.cdf(F_sa,df_sa,df_sWithinFactor)
+		return (F_a, F_s, F_sa, P_a, P_s, P_sa)
+	else:
+		return (F_a, F_s, F_sa)
+
+def dummy_code(variable, iscontinous = False, demean = True):
 	"""
 	Dummy codes a variable
 	
@@ -1926,8 +2164,10 @@ def dummy_code(variable, iscontinous = False, null_var = 0):
 	
 	"""
 	if iscontinous:
-		variable -= np.mean(variable)
-		return variable
+		if demean:
+			dummy_vars = variable - np.mean(variable,0)
+		else:
+			dummy_vars = variable
 	else:
 		unique_vars = np.unique(variable)
 		dummy_vars = []
@@ -1936,8 +2176,10 @@ def dummy_code(variable, iscontinous = False, null_var = 0):
 			temp_var[variable == var] = 1
 			dummy_vars.append(temp_var)
 		dummy_vars = np.array(dummy_vars)[1:] # remove the first column as reference variable
-		dummy_vars[dummy_vars == 0] = null_var
-		return np.squeeze(dummy_vars).astype(np.int).T
+		dummy_vars = np.squeeze(dummy_vars).astype(np.int).T
+		if demean:
+			dummy_vars = dummy_vars - np.mean(dummy_vars,0)
+	return dummy_vars
 
 def column_product(arr1, arr2):
 	"""
@@ -1975,7 +2217,7 @@ def column_product(arr1, arr2):
 				prod_arr = np.concatenate(prod_arr, axis=1)
 		return prod_arr
 	else:
-		print("Error: Array must be of same length")
+		print("Error: arrays must be of same length")
 		quit()
 
 def stack_ones(arr):

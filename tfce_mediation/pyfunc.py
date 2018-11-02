@@ -1868,11 +1868,9 @@ def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 		exog_vars = np.column_stack((exog_vars, column_product(dmy_covars_long,dmy_interval_long)))
 		exog_vars = np.column_stack((exog_vars, dmy_interval_long))
 		residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
-		residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
 		SS_cells_scovars = (SS_Total - residuals)
 		exog_vars = stack_ones(dmy_covars_long)
 		exog_vars = np.column_stack((exog_vars, dmy_interval_long))
-		residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
 		residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
 		SS_scovars = SS_cells_scovars - (SS_Total - residuals)
 	else:
@@ -1975,7 +1973,7 @@ def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 # dmy_subjects = dummy_code(pdData.SubjID, demean=False)
 # dmy_covariates = dummy_code(pdData.site, demean=True, iscontinous=False)
 # Check if QR orthog is faster... 
-def reg_rm_ancova_one_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dmy_covariates = None, output_sig = False):
+def reg_rm_ancova_one_bs_factor(data, dmy_factor1, dmy_subjects, dmy_covariates = None, output_sig = False):
 	"""
 	One factor repeated measure ANCOVA for longitudinal dependent variables
 	
@@ -2069,6 +2067,7 @@ def reg_rm_ancova_one_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 		SS_covars = 0
 
 	SS_a = SS_cells_a - SS_covars
+	SS_WithinFactors = SS_BetweenSubjects - SS_a - SS_covars
 
 	# SS time
 	exog_vars = stack_ones(dmy_interval_long)
@@ -2081,11 +2080,9 @@ def reg_rm_ancova_one_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 		exog_vars = np.column_stack((exog_vars, column_product(dmy_covars_long,dmy_interval_long)))
 		exog_vars = np.column_stack((exog_vars, dmy_interval_long))
 		residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
-		residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
 		SS_cells_scovars = (SS_Total - residuals)
 		exog_vars = stack_ones(dmy_covars_long)
 		exog_vars = np.column_stack((exog_vars, dmy_interval_long))
-		residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
 		residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
 		SS_scovars = SS_cells_scovars - (SS_Total - residuals)
 	else:
@@ -2215,6 +2212,7 @@ def column_product(arr1, arr2):
 			prod_arr = np.array(prod_arr)
 			if prod_arr.ndim == 3:
 				prod_arr = np.concatenate(prod_arr, axis=1)
+		prod_arr[prod_arr==0]=0
 		return prod_arr
 	else:
 		print("Error: arrays must be of same length")

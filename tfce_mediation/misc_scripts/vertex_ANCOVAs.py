@@ -59,24 +59,56 @@ def check_columns(pdData, folders, surface, FWHM):
 				print("Error: Length of %s [%d] does not match number of subjects[%d]" % (temp_img, temp_num_img, num_subjects))
 
 
+def load_vars(pdCSV, variables, exog = [], names = []):
+	if len(variables) % 2 == 1:
+		print("Error: each input must be followed by data type. e.g., -glm age c sex d site d (d = discrete, c = continous)")
+	num_exog = len(variables) / 2
+	for i in range(num_exog):
+		j = i * 2 
+		k = j + 1
+		if variables[k] == 'c':
+			print("Coding %s as continous variable" % variables[j])
+			temp = dummy_code(np.array(pdCSV[variables[j]]), iscontinous = True)
+			temp = temp[:,np.newaxis]
+			exog.append(temp)
+		elif variables[k] == 'd':
+			print("Coding %s as discrete variable" % variables[j])
+			temp = dummy_code(np.array(pdCSV[variables[j]]), iscontinous = False)
+			if temp.ndim == 1:
+				temp = temp[:,np.newaxis]
+			exog.append(temp)
+		else:
+			print("Error: variable type is not understood")
+		names.append(variables[j])
+	return (exog, names)
+
+def load_interactions(intvariables, varnames = [], exog = [], covarnames = [], covars = []):
+	for int_terms in intvariables:
+		interaction_vars = int_terms.split("*")
+		if interaction_vars[0] in varnames:
+			for i, scale_var in enumerate(interaction_vars):
+				if i == 0:
+					int_temp = exog[varnames.index(interaction_vars[i])]
+				else:
+					int_temp = column_product(int_temp, exog[varnames.index(interaction_vars[i])])
+			exog.append(int_temp)
+			varnames.append(int_terms)
+		elif interaction_vars[0] in covarnames:
+			for i, scale_var in enumerate(interaction_vars):
+				if i == 0:
+					int_temp = covars[covarnames.index(interaction_vars[i])]
+				else:
+					int_temp = column_product(int_temp, covars[covarnames.index(interaction_vars[i])])
+			covars.append(int_temp)
+			covarnames.append(int_terms)
+		else:
+			print("Error: interaction variables must be contained in -glm or -c")
+	return (varnames, exog, covarnames, covars)
+
+
 DESCRIPTION = "Vertex-wise GLMs include within-subject interactions with TFCE."
 
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
-
-	ap.add_argument("-si", "--surfaceinputfolder", 
-		nargs='+', 
-		help="Input folder containing each surface interval. -si {folder1} .. {foldern}", 
-		metavar=('PATH/TO/DIR'),
-		required=True)
-	ap.add_argument("-s", "--surface",  
-		nargs=1, 
-		metavar=('area or thickness'), 
-		required=True)
-	ap.add_argument("-f", "--fwhm", 
-		help="Specific all surface file with different smoothing. Default is 03B (recommended)" , 
-		nargs=1, 
-		default=['03B'], 
-		metavar=('??B'))
 
 	ap.add_argument("-i", "--inputcsv", 
 		nargs=1, 
@@ -88,11 +120,25 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=1,
 		default=['SubjID'])
 	ap.add_argument("-on", "--outputcolumnnames", 
-		nargs=1, 
 		help="Outputs the input CSV column names, and check the column length and number of images.", 
 		action='store_true')
 
-	stat = ap.add_mutually_exclusive_group(required=True)
+	ap.add_argument("-si", "--surfaceinputfolder", 
+		nargs='+', 
+		help="Input folder containing each surface interval. -si {folder1} .. {foldern}", 
+		metavar=('PATH/TO/DIR'),
+		required=True)
+	ap.add_argument("-s", "--surface",  
+		nargs=1, 
+		metavar=('{area|thickness}'), 
+		required=True)
+	ap.add_argument("-f", "--fwhm", 
+		help="Specific all surface file with different smoothing. Default is 03B (recommended)" , 
+		nargs=1, 
+		default=['03B'], 
+		metavar=('??B'))
+
+	stat = ap.add_mutually_exclusive_group(required=False)
 	stat.add_argument("-glm","--generalizedlinearmodel",
 		nargs='+',
 		metavar=('exog'))
@@ -162,11 +208,6 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		help="Do not weight each vertex for density of vertices within the specified geodesic distance.", 
 		action="store_true")
 
-	ap.add_argument("-g", "--groupingvariable",
-		help="Select grouping variable for mixed model.",
-		metavar='str',
-		nargs='+')
-
 	return ap
 
 def run(opts):
@@ -174,7 +215,7 @@ def run(opts):
 	scriptwd = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 	surface = opts.surface[0]
 	FWHM = opts.fwhm[0]
-	CSV = opts.inputcsv
+	CSV = opts.inputcsv[0]
 	pdCSV = pd.read_csv(CSV, delimiter=',', index_col=None)
 	folders = opts.surfaceinputfolder
 
@@ -182,6 +223,18 @@ def run(opts):
 	if opts.outputcolumnnames:
 		check_columns(pdCSV, folders, surface, FWHM)
 		quit()
+	else:
+		# secondary required variables
+		if opts.generalizedlinearmodel:
+			pass
+		elif opts.onebetweenssubjectfactor:
+			pass
+		elif opts.twobetweenssubjectfactor:
+			pass
+		else:
+			print("Error: please specify statistical model {-glm | -of | -tw}")
+			quit()
+
 
 	#load surface data
 	data = []
@@ -191,13 +244,13 @@ def run(opts):
 			img_data_lh = nib.freesurfer.mghformat.load("%s/lh.all.%s.%s.mgh" % (sfolder, surface,FWHM))
 			data_full_lh = img_data_lh.get_data()
 			data_lh = np.squeeze(data_full_lh)
-			affine_mask_lh = img_data_lh.get_affine()
+			affine_mask_lh = img_data_lh.affine
 			outdata_mask_lh = np.zeros_like(data_full_lh[:,:,:,1])
 			mask_lh = data_lh.mean(1)!=0
 			img_data_rh = nib.freesurfer.mghformat.load("%s/rh.all.%s.%s.mgh" % (sfolder, surface,FWHM))
 			data_full_rh = img_data_rh.get_data()
 			data_rh = np.squeeze(data_full_rh)
-			affine_mask_rh = img_data_rh.get_affine()
+			affine_mask_rh = img_data_rh.affine
 			outdata_mask_rh = np.zeros_like(data_full_rh[:,:,:,1])
 			mask_rh = data_rh.mean(1)!=0
 			data.append(np.hstack((data_lh[mask_lh].T,data_rh[mask_rh].T)))
@@ -253,77 +306,25 @@ def run(opts):
 	calcTFCE_lh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_lh)
 	calcTFCE_rh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_rh)
 
+
+	exog = varnames = []
 	##### GLM ######
 	if opts.generalizedlinearmodel:
-		variables = opts.generalizedlinearmodel
-		exog = []
-		varnames = []
+		exog, varnames = load_vars(pdCSV, variables = opts.generalizedlinearmodel, exog = [], names = [])
+		data = data[0] # There should only be one interval... 
 
-		if len(variables) % 2 == 1:
-			print("Error: each input must be followed by data type. e.g., -glm age c sex d site d (d = discrete, c = continous)")
-		num_exog = len(variables) / 2
-
-		for i in range(num_exog):
-			j = i * 2 
-			k = j + 1
-			if variables[k] == 'c':
-				temp = dummy_code(np.array(pdCSV[variables[j]]), iscontinous = True)
-				temp = temp[:,np.newaxis]
-				exog.append(temp)
-			elif variables[k] == 'd':
-				temp = dummy_code(np.array(pdCSV[variables[j]]), iscontinous = False)
-				if temp.ndim == 1:
-					temp = temp[:,np.newaxis]
-				exog.append(temp)
-			else:
-				print("Error: variable type is not understood")
-			varnames.append(variables[j])
 		if opts.covariates:
-			covariates = opts.covariates
-			covars = []
-			covarnames = []
-
-			if len(covariates) % 2 == 1:
-				print("Error: each input must be followed by data type. e.g., -c age c sex d site d (d = discrete, c = continous)")
-			num_covariates = len(covariates) / 2
-			for i in range(num_covariates):
-				j = i * 2 
-				k = j + 1
-				if covariates[k] == 'c':
-					temp = dummy_code(np.array(pdCSV[covariates[j]]), iscontinous = True)
-					temp = temp[:,np.newaxis]
-					covars.append(temp)
-				elif covariates[k] == 'd':
-					temp = dummy_code(np.array(pdCSV[covariates[j]]), iscontinous = False)
-					if temp.ndim == 1:
-						temp = temp[:,np.newaxis]
-					covars.append(temp)
-				else:
-					print("Error: variable type is not understood")
-				covarnames.append(covariates[j])
+			covars, covarnames = load_vars(pdCSV, variables = opts.covariates, exog = [], names = [])
+		else:
+			covars = covarnames = []
 
 		if opts.exogenousvariableinteraction:
-			intvariables = opts.exogenousvariableinteraction
-			for int_terms in intvariables:
-				interaction_vars = int_terms.split("*")
-				# check where the variable is located.
-				if interaction_vars[0] in varnames:
-					for i, scale_var in enumerate(interaction_vars):
-						if i == 0:
-							int_temp = exog[varnames.index(interaction_vars[i])]
-						else:
-							int_temp = column_product(int_temp, exog[varnames.index(interaction_vars[i])])
-					exog.append(int_temp)
-					varnames.append(int_terms)
-				elif interaction_vars[0] in covarnames:
-					for i, scale_var in enumerate(interaction_vars):
-						if i == 0:
-							int_temp = exog[covarnames.index(interaction_vars[i])]
-						else:
-							int_temp = column_product(int_temp, exog[covarnames.index(interaction_vars[i])])
-					covars.append(int_temp)
-				else:
-					print("Error: interaction variables must be contained in -glm or -c")
+
+			varnames, exog, covarnames, covars = load_interactions(opts.exogenousvariableinteraction, 
+																	varnames = varnames,
+																	exog = exog,
+																	covarnames = covarnames,
+																	covars = covars)
 
 		if opts.covariates:
 			dmy_covariates = np.concatenate(covars,1)
@@ -371,9 +372,14 @@ def run(opts):
 		if not os.path.exists("outputGLM_%s" % (surface)):
 			os.mkdir("outputGLM_%s" % (surface))
 		os.chdir("outputGLM_%s" % (surface))
-		np.savetxt("dmy_model.csv",
-			stack_ones(np.column_stack((np.concatenate(exog,1), dmy_covariates))),
-			delimiter=",")
+		if opts.covariates:
+			np.savetxt("dmy_model.csv",
+				stack_ones(np.column_stack((np.concatenate(exog,1), dmy_covariates))),
+				delimiter=",")
+		else:
+			np.savetxt("dmy_model.csv",
+				stack_ones(np.concatenate(exog,1)),
+				delimiter=",")
 		if Tvalues is not None:
 			numcon = np.concatenate(exog,1).shape[1]
 			for j in range(numcon):
@@ -420,7 +426,7 @@ def run(opts):
 					vdensity_rh)
 		if Fvalues is not None:
 			write_vertStat_img('Fmodel', 
-				np.sqrt(Fmodel[:num_vertex_lh]),
+				Fmodel[:num_vertex_lh],
 				outdata_mask_lh,
 				affine_mask_lh,
 				surface,
@@ -430,7 +436,7 @@ def run(opts):
 				mask_lh.shape[0],
 				vdensity_lh)
 			write_vertStat_img('Fmodel',
-				np.sqrt(Fmodel[num_vertex_lh:]),
+				Fmodel[num_vertex_lh:],
 				outdata_mask_rh,
 				affine_mask_rh,
 				surface,
@@ -442,7 +448,7 @@ def run(opts):
 			for j in range(len(exog)):
 				conname = 'Fstat_%s' % varnames[j]
 				write_vertStat_img(conname, 
-					np.sqrt(Fvalues[j,:num_vertex_lh]),
+					Fvalues[j,:num_vertex_lh],
 					outdata_mask_lh,
 					affine_mask_lh,
 					surface,
@@ -452,7 +458,7 @@ def run(opts):
 					mask_lh.shape[0],
 					vdensity_lh)
 				write_vertStat_img(conname,
-					np.sqrt(Fvalues[j,num_vertex_lh:]),
+					Fvalues[j,num_vertex_lh:],
 					outdata_mask_rh,
 					affine_mask_rh,
 					surface,
@@ -464,63 +470,31 @@ def run(opts):
 
 	##### RM ANCOVA (one between subject, one within subject) ######
 	if opts.onebetweenssubjectfactor:
-		factor1 = opts.onebetweenssubjectfactor
+		factors = opts.onebetweenssubjectfactor
 		subjects = opts.subjectidcolumns[0]
 
-		if factor1[1] == 'c':
-			dmy_factor1 = dummy_code(np.array(pdCSV[factor1[0]]), iscontinous = True)
+		if factors[1] == 'c':
+			dmy_factor1 = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = True)
+			print("Coding %s as continous variable" % factors[0])
 		else:
-			dmy_factor1 = dummy_code(np.array(pdCSV[factor1[0]]), iscontinous = False)
+			dmy_factor1 = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = False)
+			print("Coding %s as discrete variable" % factors[0])
 		dmy_subjects = dummy_code(np.array(pdCSV[subjects]), demean = False)
 		exog = []
 		varnames = []
 
 		if opts.covariates:
-			covariates = opts.covariates
-			covars = []
-			covarnames = []
-
-			if len(covariates) % 2 == 1:
-				print("Error: each input must be followed by data type. e.g., -c age c sex d site d (d = discrete, c = continous)")
-			num_covariates = len(covariates) / 2
-			for i in range(num_covariates):
-				j = i * 2 
-				k = j + 1
-				if covariates[k] == 'c':
-					temp = dummy_code(np.array(pdCSV[covariates[j]]), iscontinous = True)
-					temp = temp[:,np.newaxis]
-					covars.append(temp)
-				elif covariates[k] == 'd':
-					temp = dummy_code(np.array(pdCSV[covariates[j]]), iscontinous = False)
-					if temp.ndim == 1:
-						temp = temp[:,np.newaxis]
-					covars.append(temp)
-				else:
-					print("Error: variable type is not understood")
-				covarnames.append(covariates[j])
+			covars, covarnames = load_vars(pdCSV, variables = opts.covariates, exog = [], names = [])
+		else:
+			covars = covarnames = []
 
 		if opts.exogenousvariableinteraction:
-			intvariables = opts.exogenousvariableinteraction
-			for int_terms in intvariables:
-				interaction_vars = int_terms.split("*")
-				# check where the variable is located.
-				if interaction_vars[0] in varnames:
-					for i, scale_var in enumerate(interaction_vars):
-						if i == 0:
-							int_temp = exog[varnames.index(interaction_vars[i])]
-						else:
-							int_temp = column_product(int_temp, exog[varnames.index(interaction_vars[i])])
-					exog.append(int_temp)
-					varnames.append(int_terms)
-				elif interaction_vars[0] in covarnames:
-					for i, scale_var in enumerate(interaction_vars):
-						if i == 0:
-							int_temp = exog[covarnames.index(interaction_vars[i])]
-						else:
-							int_temp = column_product(int_temp, exog[covarnames.index(interaction_vars[i])])
-					covars.append(int_temp)
-				else:
-					print("Error: interaction variables must be contained in -glm or -c")
+
+			_, _, covarnames, covars = load_interactions(exogenousvariableinteraction, 
+																	varnames = [],
+																	exog = [],
+																	covarnames = covarnames,
+																	covars = covars)
 
 		if opts.covariates:
 			dmy_covariates = np.concatenate(covars,1)
@@ -559,8 +533,8 @@ def run(opts):
 			os.mkdir("outputANCOVA1BS_%s" % (surface))
 		os.chdir("outputANCOVA1BS_%s" % (surface))
 
-		write_vertStat_img('Fstat_%s' % factor1[0], 
-			np.sqrt(F_a[:num_vertex_lh]),
+		write_vertStat_img('Fstat_%s' % factors[0], 
+			F_a[:num_vertex_lh],
 			outdata_mask_lh,
 			affine_mask_lh,
 			surface,
@@ -569,8 +543,8 @@ def run(opts):
 			calcTFCE_lh,
 			mask_lh.shape[0],
 			vdensity_lh)
-		write_vertStat_img('Fstat_%s' % factor1[0], 
-			np.sqrt(F_a[num_vertex_lh:]),
+		write_vertStat_img('Fstat_%s' % factors[0], 
+			F_a[num_vertex_lh:],
 			outdata_mask_rh,
 			affine_mask_rh,
 			surface,
@@ -580,7 +554,7 @@ def run(opts):
 			mask_rh.shape[0],
 			vdensity_rh)
 		write_vertStat_img('Fstat_time', 
-			np.sqrt(F_s[:num_vertex_lh]),
+			F_s[:num_vertex_lh],
 			outdata_mask_lh,
 			affine_mask_lh,
 			surface,
@@ -590,7 +564,7 @@ def run(opts):
 			mask_lh.shape[0],
 			vdensity_lh)
 		write_vertStat_img('Fstat_time',  
-			np.sqrt(F_s[num_vertex_lh:]),
+			F_s[num_vertex_lh:],
 			outdata_mask_rh,
 			affine_mask_rh,
 			surface,
@@ -599,8 +573,8 @@ def run(opts):
 			calcTFCE_rh,
 			mask_rh.shape[0],
 			vdensity_rh)
-		write_vertStat_img('Fstat_%s*time' % factor1[0], 
-			np.sqrt(F_sa[:num_vertex_lh]),
+		write_vertStat_img('Fstat_%s.X.time' % factors[0], 
+			F_sa[:num_vertex_lh],
 			outdata_mask_lh,
 			affine_mask_lh,
 			surface,
@@ -609,8 +583,8 @@ def run(opts):
 			calcTFCE_lh,
 			mask_lh.shape[0],
 			vdensity_lh)
-		write_vertStat_img('Fstat_%s*time' % factor1[0], 
-			np.sqrt(F_sa[num_vertex_lh:]),
+		write_vertStat_img('Fstat_%s.X.time' % factors[0], 
+			F_sa[num_vertex_lh:],
 			outdata_mask_rh,
 			affine_mask_rh,
 			surface,
@@ -627,65 +601,32 @@ def run(opts):
 		subjects = opts.subjectidcolumns[0]
 
 		if factors[1] == 'c':
-			dmy_factor1 = dummy_code(np.array(pdCSV[factor1[0]]), iscontinous = True)
+			dmy_factor1 = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = True)
+			print("Coding %s as continous variable" % factors[0])
 		else:
-			dmy_factor1 = dummy_code(np.array(pdCSV[factor1[0]]), iscontinous = False)
-
+			dmy_factor1 = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = False)
+			print("Coding %s as discrete variable" % factors[0])
 		if factors[3] == 'c':
-			dmy_factor2 = dummy_code(np.array(pdCSV[factor1[2]]), iscontinous = True)
+			dmy_factor2 = dummy_code(np.array(pdCSV[factors[2]]), iscontinous = True)
+			print("Coding %s as continous variable" % factors[2])
 		else:
-			dmy_factor2 = dummy_code(np.array(pdCSV[factor1[2]]), iscontinous = False)
-
+			dmy_factor2 = dummy_code(np.array(pdCSV[factors[2]]), iscontinous = False)
+			print("Coding %s as discrete variable" % factors[2])
 		dmy_subjects = dummy_code(np.array(pdCSV[subjects]), demean = False)
-		exog = []
-		varnames = []
+
 
 		if opts.covariates:
-			covariates = opts.covariates
-			covars = []
-			covarnames = []
-
-			if len(covariates) % 2 == 1:
-				print("Error: each input must be followed by data type. e.g., -c age c sex d site d (d = discrete, c = continous)")
-			num_covariates = len(covariates) / 2
-			for i in range(num_covariates):
-				j = i * 2 
-				k = j + 1
-				if covariates[k] == 'c':
-					temp = dummy_code(np.array(pdCSV[covariates[j]]), iscontinous = True)
-					temp = temp[:,np.newaxis]
-					covars.append(temp)
-				elif covariates[k] == 'd':
-					temp = dummy_code(np.array(pdCSV[covariates[j]]), iscontinous = False)
-					if temp.ndim == 1:
-						temp = temp[:,np.newaxis]
-					covars.append(temp)
-				else:
-					print("Error: variable type is not understood")
-				covarnames.append(covariates[j])
+			covars, covarnames = load_vars(pdCSV, variables = opts.covariates, exog = [], names = [])
+		else:
+			covars = covarnames = []
 
 		if opts.exogenousvariableinteraction:
-			intvariables = opts.exogenousvariableinteraction
-			for int_terms in intvariables:
-				interaction_vars = int_terms.split("*")
-				# check where the variable is located.
-				if interaction_vars[0] in varnames:
-					for i, scale_var in enumerate(interaction_vars):
-						if i == 0:
-							int_temp = exog[varnames.index(interaction_vars[i])]
-						else:
-							int_temp = column_product(int_temp, exog[varnames.index(interaction_vars[i])])
-					exog.append(int_temp)
-					varnames.append(int_terms)
-				elif interaction_vars[0] in covarnames:
-					for i, scale_var in enumerate(interaction_vars):
-						if i == 0:
-							int_temp = exog[covarnames.index(interaction_vars[i])]
-						else:
-							int_temp = column_product(int_temp, exog[covarnames.index(interaction_vars[i])])
-					covars.append(int_temp)
-				else:
-					print("Error: interaction variables must be contained in -glm or -c")
+
+			_, _, covarnames, covars = load_interactions(opts.exogenousvariableinteraction, 
+																	varnames = [],
+																	exog = [],
+																	covarnames = covarnames,
+																	covars = covars)
 
 		if opts.covariates:
 			dmy_covariates = np.concatenate(covars,1)
@@ -722,13 +663,13 @@ def run(opts):
 								dmy_covariates = dmy_covariates,
 								output_sig = False)
 
-		if not os.path.exists("outputANCOVA1BS_%s" % (surface)):
-			os.mkdir("outputANCOVA1BS_%s" % (surface))
-		os.chdir("outputANCOVA1BS_%s" % (surface))
+		if not os.path.exists("outputANCOVA2BS_%s" % (surface)):
+			os.mkdir("outputANCOVA2BS_%s" % (surface))
+		os.chdir("outputANCOVA2BS_%s" % (surface))
 
 		# Between Subjects
 		write_vertStat_img('Fstat_%s' % factors[0], 
-			np.sqrt(F_a[:num_vertex_lh]),
+			F_a[:num_vertex_lh],
 			outdata_mask_lh,
 			affine_mask_lh,
 			surface,
@@ -738,7 +679,7 @@ def run(opts):
 			mask_lh.shape[0],
 			vdensity_lh)
 		write_vertStat_img('Fstat_%s' % factors[0], 
-			np.sqrt(F_a[num_vertex_lh:]),
+			F_a[num_vertex_lh:],
 			outdata_mask_rh,
 			affine_mask_rh,
 			surface,
@@ -748,7 +689,7 @@ def run(opts):
 			mask_rh.shape[0],
 			vdensity_rh)
 		write_vertStat_img('Fstat_%s' % factors[2], 
-			np.sqrt(F_b[:num_vertex_lh]),
+			F_b[:num_vertex_lh],
 			outdata_mask_lh,
 			affine_mask_lh,
 			surface,
@@ -758,7 +699,7 @@ def run(opts):
 			mask_lh.shape[0],
 			vdensity_lh)
 		write_vertStat_img('Fstat_%s' % factors[2], 
-			np.sqrt(F_b[num_vertex_lh:]),
+			F_b[num_vertex_lh:],
 			outdata_mask_rh,
 			affine_mask_rh,
 			surface,
@@ -767,8 +708,8 @@ def run(opts):
 			calcTFCE_rh,
 			mask_rh.shape[0],
 			vdensity_rh)
-		write_vertStat_img('Fstat_%s*%s' % (factors[0],factors[2]), 
-			np.sqrt(F_ab[:num_vertex_lh]),
+		write_vertStat_img('Fstat_%s.X.%s' % (factors[0],factors[2]), 
+			F_ab[:num_vertex_lh],
 			outdata_mask_lh,
 			affine_mask_lh,
 			surface,
@@ -777,8 +718,8 @@ def run(opts):
 			calcTFCE_lh,
 			mask_lh.shape[0],
 			vdensity_lh)
-		write_vertStat_img('Fstat_%s*%s' % (factors[0],factors[2]), 
-			np.sqrt(F_ab[num_vertex_lh:]),
+		write_vertStat_img('Fstat_%s.X.%s' % (factors[0],factors[2]), 
+			F_ab[num_vertex_lh:],
 			outdata_mask_rh,
 			affine_mask_rh,
 			surface,
@@ -790,7 +731,7 @@ def run(opts):
 
 		# Within Subjects
 		write_vertStat_img('Fstat_time', 
-			np.sqrt(F_s[:num_vertex_lh]),
+			F_s[:num_vertex_lh],
 			outdata_mask_lh,
 			affine_mask_lh,
 			surface,
@@ -800,7 +741,7 @@ def run(opts):
 			mask_lh.shape[0],
 			vdensity_lh)
 		write_vertStat_img('Fstat_time',  
-			np.sqrt(F_s[num_vertex_lh:]),
+			F_s[num_vertex_lh:],
 			outdata_mask_rh,
 			affine_mask_rh,
 			surface,
@@ -810,8 +751,8 @@ def run(opts):
 			mask_rh.shape[0],
 			vdensity_rh)
 
-		write_vertStat_img('Fstat_%s*time' % factors[0], 
-			np.sqrt(F_sa[:num_vertex_lh]),
+		write_vertStat_img('Fstat_%s.X.time' % factors[0], 
+			F_sa[:num_vertex_lh],
 			outdata_mask_lh,
 			affine_mask_lh,
 			surface,
@@ -820,8 +761,8 @@ def run(opts):
 			calcTFCE_lh,
 			mask_lh.shape[0],
 			vdensity_lh)
-		write_vertStat_img('Fstat_%s*time' % factors[0], 
-			np.sqrt(F_sa[num_vertex_lh:]),
+		write_vertStat_img('Fstat_%s.X.time' % factors[0], 
+			F_sa[num_vertex_lh:],
 			outdata_mask_rh,
 			affine_mask_rh,
 			surface,
@@ -830,8 +771,8 @@ def run(opts):
 			calcTFCE_rh,
 			mask_rh.shape[0],
 			vdensity_rh)
-		write_vertStat_img('Fstat_%s*time' % factors[2], 
-			np.sqrt(F_sb[:num_vertex_lh]),
+		write_vertStat_img('Fstat_%s.X.time' % factors[2], 
+			F_sb[:num_vertex_lh],
 			outdata_mask_lh,
 			affine_mask_lh,
 			surface,
@@ -840,8 +781,8 @@ def run(opts):
 			calcTFCE_lh,
 			mask_lh.shape[0],
 			vdensity_lh)
-		write_vertStat_img('Fstat_%s*time' % factors[2], 
-			np.sqrt(F_sb[num_vertex_lh:]),
+		write_vertStat_img('Fstat_%s.X.time' % factors[2], 
+			F_sb[num_vertex_lh:],
 			outdata_mask_rh,
 			affine_mask_rh,
 			surface,
@@ -850,8 +791,8 @@ def run(opts):
 			calcTFCE_rh,
 			mask_rh.shape[0],
 			vdensity_rh)
-		write_vertStat_img('Fstat_%s*%s*time' % (factors[0], factors[2]), 
-			np.sqrt(F_sab[:num_vertex_lh]),
+		write_vertStat_img('Fstat_%s.X.%s.X.time' % (factors[0], factors[2]), 
+			F_sab[:num_vertex_lh],
 			outdata_mask_lh,
 			affine_mask_lh,
 			surface,
@@ -860,8 +801,8 @@ def run(opts):
 			calcTFCE_lh,
 			mask_lh.shape[0],
 			vdensity_lh)
-		write_vertStat_img('Fstat_%s*%s*time' % (factors[0], factors[2]), 
-			np.sqrt(F_sab[num_vertex_lh:]),
+		write_vertStat_img('Fstat_%s.X.%s.X.time' % (factors[0], factors[2]), 
+			F_sab[num_vertex_lh:],
 			outdata_mask_rh,
 			affine_mask_rh,
 			surface,

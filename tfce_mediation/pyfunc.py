@@ -1687,7 +1687,7 @@ def rm_anova_two_bs_factor(data, factor1, factor2, output_sig = False):
 # dmy_subjects = dummy_code(pdData.SubjID, demean=False)
 # dmy_covariates = dummy_code(pdData.site, demean=True, iscontinous=False)
 # Check if QR orthog is faster... 
-def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dmy_covariates = None, output_sig = False):
+def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dmy_covariates = None, output_sig = False, verbose = True, rand_array = None):
 	"""
 	Two factor repeated measure ANCOVA for longitudinal dependent variables
 	Note: Type 1 Sum of Squares is used, therefore order matters
@@ -1764,6 +1764,14 @@ def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 		fb = 2
 	else:
 		fb = dmy_factor2.shape[1] + 1
+
+	if rand_array is not None:
+		dmy_factor1 = dmy_factor1[rand_array]
+		dmy_factor2 = dmy_factor2[rand_array]
+		if dmy_covariates is not None:
+			dmy_covariates = dmy_covariates[rand_array]
+		x, y, z = data.shape
+		data = np.random.permutation(data.reshape(y,x,z)).reshape(x,y,z)
 
 	# code the interaction
 	dmy_interaction = column_product(dmy_factor1,dmy_factor2)
@@ -1952,6 +1960,17 @@ def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 	F_sa = np.divide(np.divide(SS_sa, df_sa), ms_sWithinFactor)
 	F_sb = np.divide(np.divide(SS_sb, df_sb), ms_sWithinFactor)
 	F_sab = np.divide(np.divide(SS_sab, df_sab), ms_sWithinFactor)
+
+	if verbose:
+		print("Source\t\tDF\tF(Max)")
+		print("Factor1\t\t(%d,%d)\t%.2f" % (df_a, df_WithinFactors, F_a.max()))
+		print("Factor2\t\t(%d,%d)\t%.2f" % (df_b, df_WithinFactors, F_b.max()))
+		print("F1*F2\t\t(%d,%d)\t%.2f" % (df_ab, df_WithinFactors, F_ab.max()))
+		print("Time\t\t(%d,%d)\t%.2f" % (df_s, df_sWithinFactor, F_s.max()))
+		print("F1*Time\t\t(%d,%d)\t%.2f" % (df_sa, df_sWithinFactor, F_sa.max()))
+		print("F2*Time\t\t(%d,%d)\t%.2f" % (df_sb, df_sWithinFactor, F_sb.max()))
+		print("F1*F2*Time\t(%d,%d)\t%.2f" % (df_sab, df_sWithinFactor, F_sab.max()))
+
 	if output_sig:
 		# Between subjects
 		P_a = 1 - f.cdf(F_a,df_a,df_WithinFactors)
@@ -1973,7 +1992,7 @@ def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 # dmy_subjects = dummy_code(pdData.SubjID, demean=False)
 # dmy_covariates = dummy_code(pdData.site, demean=True, iscontinous=False)
 # Check if QR orthog is faster... 
-def reg_rm_ancova_one_bs_factor(data, dmy_factor1, dmy_subjects, dmy_covariates = None, output_sig = False):
+def reg_rm_ancova_one_bs_factor(data, dmy_factor1, dmy_subjects, dmy_covariates = None, output_sig = False, verbose = True, rand_array = None):
 	"""
 	One factor repeated measure ANCOVA for longitudinal dependent variables
 	
@@ -2028,6 +2047,12 @@ def reg_rm_ancova_one_bs_factor(data, dmy_factor1, dmy_subjects, dmy_covariates 
 	else:
 		fa = dmy_factor1.shape[1] + 1
 
+	if rand_array is not None:
+		dmy_factor1 = dmy_factor1[rand_array]
+		if dmy_covariates is not None:
+			dmy_covariates = dmy_covariates[rand_array]
+		x, y, z = data.shape
+		data = np.random.permutation(data.reshape(y,x,z)).reshape(x,y,z)
 
 	# convert to long form
 	data_long = data.reshape(s*n,data.shape[2])
@@ -2043,7 +2068,9 @@ def reg_rm_ancova_one_bs_factor(data, dmy_factor1, dmy_subjects, dmy_covariates 
 		interval_long = np.concatenate((interval_long, np.ones(n)*(i+1)))
 		if dmy_covariates is not None:
 			dmy_covars_long = np.concatenate((dmy_covars_long, dmy_covariates),0)
+
 	dmy_interval_long = dummy_code(interval_long, demean = False)
+
 
 	# SS Totals
 	exog_vars = stack_ones(dmy_subjects_long)
@@ -2125,15 +2152,25 @@ def reg_rm_ancova_one_bs_factor(data, dmy_factor1, dmy_subjects, dmy_covariates 
 	df_sa = df_a * df_s
 	df_sWithinFactor = df_WithinFactors * df_s
 
+
+
 	# F-stats
 	# Between subjects
 	ms_WithinFactors = np.divide(SS_WithinFactors, df_WithinFactors)
 	F_a = np.divide(np.divide(SS_a, df_a), ms_WithinFactors)
 
+
 	# Within subjects
 	ms_sWithinFactor = np.divide(SS_sWithinFactors, df_sWithinFactor)
 	F_s = np.divide(np.divide(SS_s, df_s), ms_sWithinFactor)
+
 	F_sa = np.divide(np.divide(SS_sa, df_sa), ms_sWithinFactor)
+
+	if verbose:
+		print("Source\t\tDF\tF(Max)")
+		print("Factor\t\t(%d,%d)\t%.2f" % (df_a, df_WithinFactors, F_a.max()))
+		print("Time\t\t(%d,%d)\t%.2f" % (df_s, df_sWithinFactor, F_s.max()))
+		print("Factor*Time\t(%d,%d)\t%.2f" % (df_sa, df_sWithinFactor, F_sa.max()))
 
 	if output_sig:
 		# Between subjects
@@ -2146,7 +2183,7 @@ def reg_rm_ancova_one_bs_factor(data, dmy_factor1, dmy_subjects, dmy_covariates 
 		return (F_a, F_s, F_sa)
 
 # Type I Sum of Squares (order matters!!!)
-def glm_typeI(endog, exog, dmy_covariates = None, output_fvalues = True, output_tvalues = False, output_pvalues = False):
+def glm_typeI(endog, exog, dmy_covariates = None, output_fvalues = True, output_tvalues = False, output_pvalues = False, verbose = True, rand_array = None):
 	"""
 	Generalized ANCOVA using Type I Sum of Squares
 	
@@ -2179,6 +2216,8 @@ def glm_typeI(endog, exog, dmy_covariates = None, output_fvalues = True, output_
 	if dmy_covariates is not None:
 		exog_vars = np.column_stack((exog_vars, dmy_covariates))
 	exog_vars = np.array(exog_vars)
+	if rand_array is not None:
+		exog_vars = exog_vars[rand_array]
 
 	k = exog_vars.shape[1]
 
@@ -2194,7 +2233,10 @@ def glm_typeI(endog, exog, dmy_covariates = None, output_fvalues = True, output_
 		MS_Residuals = (SS_Residuals/DF_Within)
 		Fvalues = (SS_Between/DF_Between) / MS_Residuals
 
-		print("Model df: %d, %d" % (DF_Between, DF_Within))
+		if verbose:
+			print("Source\t\tDF\tF(Max)")
+			print("Model\t\t(%d,%d)\t%.2f" % (df_a, df_WithinFactors, Fvalues.max()))
+
 		# F value for exog
 		Fvar = []
 		Pvar = []
@@ -2202,12 +2244,14 @@ def glm_typeI(endog, exog, dmy_covariates = None, output_fvalues = True, output_
 		for i, col in enumerate(kvars):
 			stop = start + col
 			SS_model = np.array(SS_Total - cy_lin_lstsqr_mat_residual(np.delete(exog_vars,np.s_[start:stop],1),endog)[1])
-			Fvar.append((SS_Between - SS_model)/MS_Residuals*kvars[i])
-			print("Exog%d df: %d, %d" % ((i+1), col, DF_Within))
+			Ftemp = (SS_Between - SS_model)/(MS_Residuals*kvars[i])
+			Fvar.append(Ftemp)
+			if verbose:
+				print("Exog%d\t\t(%d,%d)\t%.2f" % ((i+1), col, DF_Within, Ftemp.max()))
 			start += col
 			if output_pvalues:
 				Pvar.append(f.sf(Fvar[i],col,DF_Within))
-		print("Total df: %d" % (DF_Total))
+
 	if output_tvalues:
 		sigma2 = np.sum((endog - np.dot(exog_vars,a))**2,axis=0) / (n - k)
 		invXX = np.linalg.inv(np.dot(exog_vars.T, exog_vars))

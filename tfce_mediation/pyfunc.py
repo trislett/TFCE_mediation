@@ -1768,16 +1768,20 @@ def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 	if rand_array is not None:
 		dmy_factor1 = dmy_factor1[rand_array]
 		dmy_factor2 = dmy_factor2[rand_array]
+#		dmy_subjects = dmy_subjects[rand_array]
 		if dmy_covariates is not None:
 			dmy_covariates = dmy_covariates[rand_array]
 		x, y, z = data.shape
-		data = np.random.permutation(data.reshape(y,x,z)).reshape(x,y,z)
+
+		data = np.random.permutation(data.reshape(x, y*z)).reshape(x,y,z) # permute just the timepoint...
+#		data = np.random.permutation(data.reshape(y,x,z)).reshape(x,y,z)
 
 	# code the interaction
 	dmy_interaction = column_product(dmy_factor1,dmy_factor2)
 
 	# convert to long form
 	data_long = data.reshape(s*n,data.shape[2])
+	del data # reduce ram usage
 	interval_long = np.zeros(n)
 	dmy_factor1_long = dmy_factor1
 	dmy_factor2_long = dmy_factor2
@@ -2049,13 +2053,16 @@ def reg_rm_ancova_one_bs_factor(data, dmy_factor1, dmy_subjects, dmy_covariates 
 
 	if rand_array is not None:
 		dmy_factor1 = dmy_factor1[rand_array]
+#		dmy_subjects = dmy_subjects[rand_array]
 		if dmy_covariates is not None:
 			dmy_covariates = dmy_covariates[rand_array]
 		x, y, z = data.shape
-		data = np.random.permutation(data.reshape(y,x,z)).reshape(x,y,z)
+		data = np.random.permutation(data.reshape(x, y*z)).reshape(x,y,z)
+# 		data = np.random.permutation(data.reshape(y,x,z)).reshape(x,y,z)
 
 	# convert to long form
 	data_long = data.reshape(s*n,data.shape[2])
+	del data # reduce ram usage
 	interval_long = np.zeros(n)
 	dmy_factor1_long = dmy_factor1
 	dmy_subjects_long = dmy_subjects
@@ -2152,13 +2159,10 @@ def reg_rm_ancova_one_bs_factor(data, dmy_factor1, dmy_subjects, dmy_covariates 
 	df_sa = df_a * df_s
 	df_sWithinFactor = df_WithinFactors * df_s
 
-
-
 	# F-stats
 	# Between subjects
 	ms_WithinFactors = np.divide(SS_WithinFactors, df_WithinFactors)
 	F_a = np.divide(np.divide(SS_a, df_a), ms_WithinFactors)
-
 
 	# Within subjects
 	ms_sWithinFactor = np.divide(SS_sWithinFactors, df_sWithinFactor)
@@ -2235,7 +2239,7 @@ def glm_typeI(endog, exog, dmy_covariates = None, output_fvalues = True, output_
 
 		if verbose:
 			print("Source\t\tDF\tF(Max)")
-			print("Model\t\t(%d,%d)\t%.2f" % (df_a, df_WithinFactors, Fvalues.max()))
+			print("Model\t\t(%d,%d)\t%.2f" % (DF_Between, DF_Within, Fvalues.max()))
 
 		# F value for exog
 		Fvar = []

@@ -311,7 +311,11 @@ def run(opts):
 	##### GLM ######
 	if opts.generalizedlinearmodel:
 		exog, varnames = load_vars(pdCSV, variables = opts.generalizedlinearmodel, exog = [], names = [])
-		data = data[0] # There should only be one interval... 
+		data = data[0] # There should only be one interval...
+
+		exog_shape = []
+		for i in range(len(varnames)):
+			exog_shape.append(exog[i].shape[1])
 
 		if opts.covariates:
 			covars, covarnames = load_vars(pdCSV, variables = opts.covariates, exog = [], names = [])
@@ -344,12 +348,13 @@ def run(opts):
 		np.save("tmp_tmGLM_%s/adjac_lh" % (surface),adjac_lh)
 		np.save("tmp_tmGLM_%s/adjac_rh" % (surface),adjac_rh)
 		np.save("tmp_tmGLM_%s/data" % (surface),data.astype(np.float32, order = "C"))
-		np.save("tmp_tmGLM_%s/exog" % (surface),exog)
+		np.save("tmp_tmGLM_%s/exog_flat" % (surface),np.concatenate(exog,1))
+		np.save("tmp_tmGLM_%s/exog_shape" % (surface),exog_shape)
 		np.save("tmp_tmGLM_%s/dmy_covariates" % (surface),dmy_covariates)
 		np.save("tmp_tmGLM_%s/optstfce" % (surface), opts.tfce)
 		np.save("tmp_tmGLM_%s/vdensity_lh" % (surface), vdensity_lh)
 		np.save("tmp_tmGLM_%s/vdensity_rh" % (surface), vdensity_rh)
-
+		np.save("tmp_tmGLM_%s/varnames" % (surface), varnames)
 
 		Tvalues = Fmodel = Fvalues = None
 		if opts.glmoutputstatistic[0] == 't':
@@ -490,7 +495,7 @@ def run(opts):
 
 		if opts.exogenousvariableinteraction:
 
-			_, _, covarnames, covars = load_interactions(exogenousvariableinteraction, 
+			_, _, covarnames, covars = load_interactions(opts.exogenousvariableinteraction, 
 																	varnames = [],
 																	exog = [],
 																	covarnames = covarnames,
@@ -521,6 +526,7 @@ def run(opts):
 		np.save("tmp_tmANCOVA1BS_%s/optstfce" % (surface), opts.tfce)
 		np.save("tmp_tmANCOVA1BS_%s/vdensity_lh" % (surface), vdensity_lh)
 		np.save("tmp_tmANCOVA1BS_%s/vdensity_rh" % (surface), vdensity_rh)
+		np.save("tmp_tmANCOVA1BS_%s/factors" % (surface), factors)
 
 		# The stats
 		F_a, F_s, F_sa = reg_rm_ancova_one_bs_factor(data, 
@@ -654,6 +660,7 @@ def run(opts):
 		np.save("tmp_tmANCOVA2BS_%s/optstfce" % (surface), opts.tfce)
 		np.save("tmp_tmANCOVA2BS_%s/vdensity_lh" % (surface), vdensity_lh)
 		np.save("tmp_tmANCOVA2BS_%s/vdensity_rh" % (surface), vdensity_rh)
+		np.save("tmp_tmANCOVA2BS_%s/factors" % (surface), factors)
 
 		# The stats
 		F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab = reg_rm_ancova_two_bs_factor(data, 

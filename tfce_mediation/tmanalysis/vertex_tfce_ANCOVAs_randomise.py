@@ -41,9 +41,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	stat = ap.add_mutually_exclusive_group(required=False)
 	stat.add_argument("-glm","--generalizedlinearmodel",
 		action='store_true')
-	stat.add_argument("-of","--onebetweenssubjectfactor",
+	stat.add_argument("-ofa","--onebetweenssubjectfactor",
 		action='store_true')
-	stat.add_argument("-tf","--twobetweenssubjectfactor",
+	stat.add_argument("-tfa","--twobetweenssubjectfactor",
 		action='store_true')
 
 	return ap
@@ -65,12 +65,14 @@ def run(opts):
 			exog.append(exog_flat[:,count:(count+nc)])
 			count += nc
 		varnames = np.load("%s/varnames.npy" % tempdir)
+		gstat = np.load("%s/gstat.npy" % tempdir)
 	if opts.onebetweenssubjectfactor:
 		tempdir = "tmp_tmANCOVA1BS_%s" % surface
 		outdir = "outputANCOVA1BS_%s/perm_ANCOVA1BS" % surface
 		dmy_factor1 = np.load("%s/dmy_factor1.npy" % tempdir)
 		factors = np.load("%s/factors.npy" % tempdir)
 		dmy_subjects = np.load("%s/dmy_subjects.npy" % tempdir)
+		dformat = np.load("%s/dformat.npy" % tempdir)[0]
 	if opts.twobetweenssubjectfactor:
 		tempdir = "tmp_tmANCOVA2BS_%s" % surface
 		outdir = "outputANCOVA2BS_%s/perm_ANCOVA2BS" % surface
@@ -78,6 +80,7 @@ def run(opts):
 		dmy_factor2 = np.load("%s/dmy_factor2.npy" % tempdir)
 		factors = np.load("%s/factors.npy" % tempdir)
 		dmy_subjects = np.load("%s/dmy_subjects.npy" % tempdir)
+		dformat = np.load("%s/dformat.npy" % tempdir)[0]
 	# common inputs
 	num_vertex_lh = np.load("%s/num_vertex_lh.npy" % tempdir)
 	mask_lh = np.load("%s/mask_lh.npy" % tempdir)
@@ -100,30 +103,58 @@ def run(opts):
 	#permute T values and write max TFCE values
 	if not os.path.exists(outdir):
 		os.mkdir(outdir)
-	os.chdir(outdir) 
+	os.chdir(outdir)
+
+	if opts.generalizedlinearmodel:
+		print("Calculating null distribution for %s statistics" % gstat)
 
 	for iter_perm in range(arg_perm_start,arg_perm_stop):
 		print("Iteration number : %d" % (iter_perm))
 
 		if opts.generalizedlinearmodel:
+			Tvalues = Fvalues = None
 			rand_array = np.random.permutation(list(range(data.shape[0])))
-			Fmodel, Fvalues = glm_typeI(data,
-						exog,
-						dmy_covariates = dmy_covariates,
-						verbose = False,
-						rand_array = rand_array)
+			if gstat == 'f':
+				Fvalues = glm_typeI(data,
+							exog,
+							dmy_covariates = dmy_covariates,
+							verbose = False,
+							rand_array = rand_array)[1]
+			elif gstat == 't':
+				Tvalues = glm_typeI(data,
+							exog,
+							dmy_covariates = dmy_covariates,
+							output_fvalues = False,
+							output_tvalues = True,
+							verbose = False,
+							rand_array = rand_array)
+			else:
+				Fvalues, Tvalues = glm_typeI(data,
+							exog,
+							dmy_covariates = dmy_covariates,
+							output_tvalues =True,
+							verbose = False,
+							rand_array = rand_array)[1:]
 
-			write_perm_maxTFCE_vertex('F_model', Fmodel, num_vertex_lh, mask_lh, mask_rh, calcTFCE_lh, calcTFCE_rh, vdensity_lh, vdensity_rh)
+			#write_perm_maxTFCE_vertex('F_model', Fmodel, num_vertex_lh, mask_lh, mask_rh, calcTFCE_lh, calcTFCE_rh, vdensity_lh, vdensity_rh)
 
-			for j in range(Fvalues.shape[0]):
-				write_perm_maxTFCE_vertex('F_%s' % varnames[j], Fvalues[j], num_vertex_lh, mask_lh, mask_rh, calcTFCE_lh, calcTFCE_rh, vdensity_lh, vdensity_rh)
+			if Tvalues is not None:
+				numcon = np.concatenate(exog,1).shape[1]
+				for j in range(numcon):
+					tnum=j+1
+					write_perm_maxTFCE_vertex('Tstat_con%d' % tnum, Tvalues[tnum], num_vertex_lh, mask_lh, mask_rh, calcTFCE_lh, calcTFCE_rh, vdensity_lh, vdensity_rh)
+					write_perm_maxTFCE_vertex('Tstat_con%d' % tnum, -Tvalues[tnum], num_vertex_lh, mask_lh, mask_rh, calcTFCE_lh, calcTFCE_rh, vdensity_lh, vdensity_rh)
+			if Fvalues is not None:
+				for j in range(Fvalues.shape[0]):
+					write_perm_maxTFCE_vertex('Fstat_%s' % varnames[j], Fvalues[j], num_vertex_lh, mask_lh, mask_rh, calcTFCE_lh, calcTFCE_rh, vdensity_lh, vdensity_rh)
 
 		if opts.onebetweenssubjectfactor:
-			rand_array = np.random.permutation(list(range(data.shape[1])))
+			rand_array = np.random.permutation(list(range(dmy_factor1.shape[0])))
 			F_a, F_s, F_sa = reg_rm_ancova_one_bs_factor(data, 
 									dmy_factor1,
 									dmy_subjects,
 									dmy_covariates = dmy_covariates,
+									data_format = dformat,
 									output_sig = False,
 									verbose = False,
 									rand_array = rand_array)
@@ -132,12 +163,13 @@ def run(opts):
 			write_perm_maxTFCE_vertex("Fstat_%s.X.time" % factors[0], F_sa, num_vertex_lh, mask_lh, mask_rh, calcTFCE_lh, calcTFCE_rh, vdensity_lh, vdensity_rh)
 
 		if opts.twobetweenssubjectfactor:
-			rand_array = np.random.permutation(list(range(data.shape[1])))
+			rand_array = np.random.permutation(list(range(dmy_factor1.shape[0])))
 			F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab = reg_rm_ancova_two_bs_factor(data, 
 									dmy_factor1,
 									dmy_factor2, 
 									dmy_subjects,
 									dmy_covariates = dmy_covariates,
+									data_format = dformat,
 									output_sig = False,
 									verbose = False,
 									rand_array = rand_array)

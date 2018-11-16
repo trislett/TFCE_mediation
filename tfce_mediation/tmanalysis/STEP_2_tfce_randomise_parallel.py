@@ -36,11 +36,23 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		help="Vertex analysis. Input surface: e.g. --vertex [area or thickness]", 
 		nargs=1,
 		metavar=('surface'))
-	ap.add_argument("-m", "--mediation",
+
+	stat = ap.add_mutually_exclusive_group(required=False)
+	stat.add_argument("-m", "--mediation",
 		help="Mediation analysis [M or I or Y]. If not specified, then multiple regression is performed.",
 		nargs=1, 
 		choices = ['I','M','Y'], 
 		metavar=('STR'))
+	stat.add_argument("-glm","--generalizedlinearmodel",
+		help="GLM analysis.",
+		action='store_true')
+	stat.add_argument("-ofa","--onebetweenssubjectfactor",
+		help="One factor repeated measure ANCOVA",
+		action='store_true')
+	stat.add_argument("-tfa","--twobetweenssubjectfactor",
+		help="Two factor repeated measure ANCOVA",
+		action='store_true')
+
 	ap.add_argument("-n", "--numperm", 
 		nargs=1, 
 		type=int, 

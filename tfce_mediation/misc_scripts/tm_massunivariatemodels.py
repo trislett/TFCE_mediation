@@ -14,6 +14,7 @@ from patsy import dmatrix
 from scipy.stats import t, norm
 from statsmodels.stats.multitest import multipletests
 from tfce_mediation.cynumstats import tval_int, cy_lin_lstsqr_mat, se_of_slope
+from scipy.linalg import inv, sqrtm
 
 #naughty
 if not sys.warnoptions:

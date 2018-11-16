@@ -1687,7 +1687,7 @@ def rm_anova_two_bs_factor(data, factor1, factor2, output_sig = False):
 # dmy_subjects = dummy_code(pdData.SubjID, demean=False)
 # dmy_covariates = dummy_code(pdData.site, demean=True, iscontinous=False)
 # Check if QR orthog is faster... 
-def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dmy_covariates = None, output_sig = False, verbose = True, rand_array = None):
+def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dmy_covariates = None, data_format = 'short', output_sig = False, verbose = True, rand_array = None, use_reduced_residuals = False, output_reduced_residuals = False):
 	"""
 	Two factor repeated measure ANCOVA for longitudinal dependent variables
 	Note: Type 1 Sum of Squares is used, therefore order matters
@@ -1707,11 +1707,19 @@ def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 	----------
 	dmy_covariates : array
 		dummy coded covariates of no interest
+	rand_array : arrays
+		randomised shuffled array (used for permutation testing)
 	
 	Optional Flags
 	----------
 	output_sig : bool
 		outputs p-values of F-statistics
+	verbose : bool
+		prints the max F-statistics values and degrees of freedom
+	use_reduced_residuals : bool
+		The residuals after regressing the fixed effect exogenous variable(s) is shuffled for permutations testing.
+	output_reduced_residuals : bool
+		Outputs the residuals array after regressing the fixed effect exogenous variable(s).
 	
 	Returns
 	-------
@@ -1748,14 +1756,28 @@ def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 	P_sab : array
 		P-statistics of the factor1*factor2*interval interaction
 	
+	OR
+	
+	reduced_data : array
+		Residuals array after regressing the fixed effect exogenous variable(s) in long format.
+		
 	"""
-
-	if data.ndim == 2:
-		data = data[:,:,np.newaxis]
-
-	# get shapes for df
-	s = data.shape[0]
-	n = data.shape[1]
+	
+	if data_format == 'short':
+		if data.ndim == 2:
+			data = data[:,:,np.newaxis]
+		# get shapes for df
+		n = data.shape[1]
+		s = data.shape[0]
+		endog_arr = data.reshape(s*n,data.shape[2])
+	elif data_format == 'long':
+		n = len(dmy_factor1)
+		s = len(data)/n
+		endog_arr = data
+	else:
+		print("Error: data format must be short or long.")
+	del data # reduce ram usage
+	
 	if dmy_factor1.ndim == 1:
 		fa = 2
 	else:
@@ -1766,22 +1788,36 @@ def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 		fb = dmy_factor2.shape[1] + 1
 
 	if rand_array is not None:
+		if use_reduced_residuals:
+			r_dmy_factor1_long = dmy_factor1
+			r_dmy_factor2_long = dmy_factor2
+			r_dmy_interaction_long = column_product(dmy_factor1,dmy_factor2)
+			if dmy_covariates is not None:
+				r_dmy_covars_long = dmy_covariates
+			for i in range(s-1):
+				r_dmy_factor1_long = np.concatenate((r_dmy_factor1_long,dmy_factor1),0)
+				r_dmy_factor2_long = np.concatenate((r_dmy_factor2_long,dmy_factor2),0)
+				r_dmy_interaction_long = np.concatenate((r_dmy_interaction_long,column_product(dmy_factor1,dmy_factor2)),0)
+				if dmy_covariates is not None:
+					r_dmy_covars_long = np.concatenate((r_dmy_covars_long, dmy_covariates),0)
+			exog_vars = stack_ones(r_dmy_factor1_long)
+			exog_vars = np.column_stack((exog_vars, r_dmy_factor2_long))
+			exog_vars = np.column_stack((exog_vars, r_dmy_interaction_long))
+			if dmy_covariates is not None:
+				exog_vars = np.column_stack((exog_vars, r_dmy_covars_long))
+			a = cy_lin_lstsqr_mat(exog_vars,endog_arr)
+			endog_arr = endog_arr - np.dot(exog_vars,a)
+			del a
+		np.random.shuffle(endog_arr)
 		dmy_factor1 = dmy_factor1[rand_array]
 		dmy_factor2 = dmy_factor2[rand_array]
-#		dmy_subjects = dmy_subjects[rand_array]
 		if dmy_covariates is not None:
 			dmy_covariates = dmy_covariates[rand_array]
-		x, y, z = data.shape
-
-		data = np.random.permutation(data.reshape(x, y*z)).reshape(x,y,z) # permute just the timepoint...
-#		data = np.random.permutation(data.reshape(y,x,z)).reshape(x,y,z)
 
 	# code the interaction
-	dmy_interaction = column_product(dmy_factor1,dmy_factor2)
+	dmy_interaction = column_product(dmy_factor1, dmy_factor2)
 
 	# convert to long form
-	data_long = data.reshape(s*n,data.shape[2])
-	del data # reduce ram usage
 	interval_long = np.zeros(n)
 	dmy_factor1_long = dmy_factor1
 	dmy_factor2_long = dmy_factor2
@@ -1802,7 +1838,6 @@ def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 
 	# SS Totals
 	exog_vars = stack_ones(dmy_subjects_long)
-	endog_arr = np.squeeze(data_long)
 	SS_WithinSubjects = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
 	SS_Total = np.sum((endog_arr - np.mean(endog_arr, axis = 0))**2, axis = 0)
 	SS_BetweenSubjects = SS_Total - SS_WithinSubjects
@@ -1813,7 +1848,12 @@ def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 	exog_vars = np.column_stack((exog_vars, dmy_interaction_long))
 	if dmy_covariates is not None:
 		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
-	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+	if output_reduced_residuals:
+		a, residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)
+		reduced_data = endog_arr - np.dot(exog_vars,a)
+		del a
+	else:
+		residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
 	SS_cells_ab = SS_Total - residuals
 
 	exog_vars = stack_ones(np.column_stack((dmy_factor1_long, dmy_factor2_long)))
@@ -1987,7 +2027,11 @@ def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 		P_sab = 1 - f.cdf(F_sab,df_sab,df_sWithinFactor)
 		return (F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab, P_a, P_b, P_ab, P_s, P_sa, P_sb, P_sab)
 	else:
-		return (F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab)
+		if output_reduced_residuals:
+			return (F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab, reduced_data)
+		else:
+			return (F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab)
+
 
 
 # convert to require dummy coded variables
@@ -1996,7 +2040,9 @@ def reg_rm_ancova_two_bs_factor(data, dmy_factor1, dmy_factor2, dmy_subjects, dm
 # dmy_subjects = dummy_code(pdData.SubjID, demean=False)
 # dmy_covariates = dummy_code(pdData.site, demean=True, iscontinous=False)
 # Check if QR orthog is faster... 
-def reg_rm_ancova_one_bs_factor(data, dmy_factor1, dmy_subjects, dmy_covariates = None, output_sig = False, verbose = True, rand_array = None):
+#Kherad-Pajouh, S. & Renaud, O. Stat Papers (2015) 56: 947. https://doi.org/10.1007/s00362-014-0617-3
+
+def reg_rm_ancova_one_bs_factor(data, dmy_factor1, dmy_subjects, data_format = 'short', dmy_covariates = None, output_sig = False, verbose = True, rand_array = None, use_reduced_residuals = False, output_reduced_residuals = False):
 	"""
 	One factor repeated measure ANCOVA for longitudinal dependent variables
 	
@@ -2040,48 +2086,64 @@ def reg_rm_ancova_one_bs_factor(data, dmy_factor1, dmy_subjects, dmy_covariates 
 	
 	"""
 
-	if data.ndim == 2:
-		data = data[:,:,np.newaxis]
+	if data_format == 'short':
+		if data.ndim == 2:
+			data = data[:,:,np.newaxis]
+		# get shapes for df
+		s = data.shape[0]
+		n = data.shape[1]
+		endog_arr = data.reshape(s*n,data.shape[2])
+	elif data_format == 'long':
+		n = len(dmy_factor1)
+		s = len(data)/n
+		endog_arr = data
+	else:
+		print("Error: data format must be short or long.")
 
-	# get shapes for df
-	s = data.shape[0]
-	n = data.shape[1]
+	#ram clean-up
+	del data 
+
 	if dmy_factor1.ndim == 1:
 		fa = 2
 	else:
 		fa = dmy_factor1.shape[1] + 1
 
 	if rand_array is not None:
+		if use_reduced_residuals:
+			r_dmy_factor1_long = dmy_factor1
+			if dmy_covariates is not None:
+				r_dmy_covars_long = dmy_covariates
+			for i in range(s-1):
+				r_dmy_factor1_long = np.concatenate((r_dmy_factor1_long,dmy_factor1),0)
+				if dmy_covariates is not None:
+					r_dmy_covars_long = np.concatenate((r_dmy_covars_long, dmy_covariates),0)
+			exog_vars = stack_ones(r_dmy_factor1_long)
+			if dmy_covariates is not None:
+				exog_vars = np.column_stack((exog_vars, r_dmy_covars_long))
+			a = cy_lin_lstsqr_mat(exog_vars,endog_arr)
+			endog_arr = endog_arr - np.dot(exog_vars,a)
+		np.random.shuffle(endog_arr)
 		dmy_factor1 = dmy_factor1[rand_array]
-#		dmy_subjects = dmy_subjects[rand_array]
 		if dmy_covariates is not None:
 			dmy_covariates = dmy_covariates[rand_array]
-		x, y, z = data.shape
-		data = np.random.permutation(data.reshape(x, y*z)).reshape(x,y,z)
-# 		data = np.random.permutation(data.reshape(y,x,z)).reshape(x,y,z)
 
-	# convert to long form
-	data_long = data.reshape(s*n,data.shape[2])
-	del data # reduce ram usage
+	# convert to exogenous variables to long form
 	interval_long = np.zeros(n)
 	dmy_factor1_long = dmy_factor1
 	dmy_subjects_long = dmy_subjects
 	if dmy_covariates is not None:
 		dmy_covars_long = dmy_covariates
-
 	for i in range(s-1):
 		dmy_factor1_long = np.concatenate((dmy_factor1_long,dmy_factor1),0)
 		dmy_subjects_long = np.concatenate((dmy_subjects_long,dmy_subjects),0)
 		interval_long = np.concatenate((interval_long, np.ones(n)*(i+1)))
 		if dmy_covariates is not None:
 			dmy_covars_long = np.concatenate((dmy_covars_long, dmy_covariates),0)
-
 	dmy_interval_long = dummy_code(interval_long, demean = False)
-
 
 	# SS Totals
 	exog_vars = stack_ones(dmy_subjects_long)
-	endog_arr = np.squeeze(data_long)
+	endog_arr = np.squeeze(endog_arr)
 	SS_WithinSubjects = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
 	SS_Total = np.sum((endog_arr - np.mean(endog_arr, axis = 0))**2, axis = 0)
 	SS_BetweenSubjects = SS_Total - SS_WithinSubjects
@@ -2090,7 +2152,12 @@ def reg_rm_ancova_one_bs_factor(data, dmy_factor1, dmy_subjects, dmy_covariates 
 	exog_vars = stack_ones(dmy_factor1_long)
 	if dmy_covariates is not None:
 		exog_vars = np.column_stack((exog_vars, dmy_covars_long))
-	residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
+	if output_reduced_residuals:
+		a, residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)
+		reduced_data = endog_arr - np.dot(exog_vars,a)
+		del a
+	else:
+		residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog_arr)[1]
 	SS_cells_a = SS_Total - residuals
 
 	if dmy_covariates is not None:
@@ -2184,10 +2251,13 @@ def reg_rm_ancova_one_bs_factor(data, dmy_factor1, dmy_subjects, dmy_covariates 
 		P_sa = 1 - f.cdf(F_sa,df_sa,df_sWithinFactor)
 		return (F_a, F_s, F_sa, P_a, P_s, P_sa)
 	else:
-		return (F_a, F_s, F_sa)
+		if output_reduced_residuals:
+			return (F_a, F_s, F_sa, reduced_data)
+		else:
+			return (F_a, F_s, F_sa)
 
 # Type I Sum of Squares (order matters!!!)
-def glm_typeI(endog, exog, dmy_covariates = None, output_fvalues = True, output_tvalues = False, output_pvalues = False, verbose = True, rand_array = None):
+def glm_typeI(endog, exog, dmy_covariates = None, output_fvalues = True, output_tvalues = False, output_pvalues = False, verbose = True, rand_array = None, use_reduced_residuals = False, output_reduced_residuals = False):
 	"""
 	Generalized ANCOVA using Type I Sum of Squares
 	
@@ -2220,8 +2290,16 @@ def glm_typeI(endog, exog, dmy_covariates = None, output_fvalues = True, output_
 	if dmy_covariates is not None:
 		exog_vars = np.column_stack((exog_vars, dmy_covariates))
 	exog_vars = np.array(exog_vars)
+
 	if rand_array is not None:
+		if use_reduced_residuals:
+			a = cy_lin_lstsqr_mat(exog_vars,endog)
+			endog = endog - np.dot(exog_vars,a)
 		exog_vars = exog_vars[rand_array]
+
+	if output_reduced_residuals:
+		a = cy_lin_lstsqr_mat(exog_vars,endog)
+		reduced_data = endog - np.dot(exog_vars,a)
 
 	k = exog_vars.shape[1]
 
@@ -2278,13 +2356,19 @@ def glm_typeI(endog, exog, dmy_covariates = None, output_fvalues = True, output_
 			Pvalues = t.sf(np.abs(Tvalues), DF_Total)*2
 			return (Tvalues, Pvalues)
 		else:
-			return Tvalues
+			if output_reduced_residuals:
+				return (Tvalues, reduced_data)
+			else:
+				return Tvalues
 	elif output_fvalues:
 		if output_pvalues:
 			Pmodel = f.sf(Fvalues,DF_Between,DF_Within)
 			return (Fvalues, np.array(Fvar), Pmodel, np.array(Pvar))
 		else:
-			return (Fvalues, np.array(Fvar))
+			if output_reduced_residuals:
+				return (Fvalues, np.array(Fvar), reduced_data)
+			else:
+				return (Fvalues, np.array(Fvar))
 	else:
 		print("No output has been selected")
 

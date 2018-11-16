@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-#    Multiple regression with TFCE
-#    Copyright (C) 2016  Tristram Lett
+#    GLM models including within-subject effect and TFCE
+#    Copyright (C) 2018  Tristram Lett
 
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -112,8 +112,8 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 
 	ap.add_argument("-i", "--inputcsv", 
 		nargs=1, 
-		help="Input folder containing each surface interval. -si {folder1} .. {foldern}", 
-		metavar=('PATH/TO/DIR'),
+		help="Input folder containing each surface interval. e.g., -sa BL POST FU6 FU12 [-si {folder1} .. {foldern}]", 
+		metavar=('*.csv'),
 		required=True)
 	ap.add_argument("-sc", "--subjectidcolumns",
 		help="Select the subject id column for merging *.csv files. Default: %(default)s)",
@@ -141,27 +141,30 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	stat = ap.add_mutually_exclusive_group(required=False)
 	stat.add_argument("-glm","--generalizedlinearmodel",
 		nargs='+',
-		metavar=('exog'))
-	stat.add_argument("-of","--onebetweenssubjectfactor",
-		nargs=2,
+		help="Generalized linear model that uses type I sum of squares. Each exogenous variable must be specified as either discrete (d) or continous (c). Output metrics can be specified by -gs as either F-statics, T-statistics, or all. Interactions can be specified using -ei. e.g., -glm sex d age c genotype d. [-glm {exogenous_1} {type_1} ... {exogenous_k} {type_k}]",
 		metavar=('exog1', '{d|c}'))
-	stat.add_argument("-tf","--twobetweenssubjectfactor",
+	stat.add_argument("-ofa","--onebetweenssubjectfactor",
+		nargs=2,
+		help="ANCOVA with one between-subject (fixed) factor and neuroimage as the within-subject (random) factor (mixed-effect model). AKA, the repeated-measure ANCOVA. Covariates may also be included. Interactions will be coded automatically (Factor1*Time). ANOVA uses type I sum of squares (order matters). The between-subject factor must be specified as either discrete (d) or continous (c). Additional interactions among the covariates can be specified using -ei. e.g., -ofa genotype d. [-ofa {factor} {type}]",
+		metavar=('exog1', '{d|c}'))
+	stat.add_argument("-tfa","--twobetweenssubjectfactor",
 		nargs=4,
+		help="ANCOVA with two between-subject (fixed) factors and neuroimage as the within-subject (random) factor (mixed-effect model). AKA, the repeated-measure ANCOVA. Covariates may also be included. Interactions will be coded automatically (F1*F2, F1*Time,F2xTime, F1*F2*Time). ANOVA uses type I sum of squares (order matters). The between-subject factor must be specified as either discrete (d) or continous (c). Additional interactions among the covariates can be specified using -ei. e.g., -tfa sex d genotype d. [-tfa {factor1} {type1} {factor2} {type2}]",
 		metavar=('exog1', '{d|c}', 'exog2', '{d|c}'))
-	ap.add_argument("-ei", "--exogenousvariableinteraction",
-		help="Specify interactions. The variables must be exognenous variables in either -c or -glm (e.g.-ei site*scanner sex*age age*age age*age*age) -ei {exogi*exogj}...",
-		nargs='+',
-		metavar=('exogn'),
-		required=False)
+
 	ap.add_argument("-c", "--covariates",
 		help="Covariates of no interest.",
 		nargs='+',
 		metavar=('exogn', '{d|c}'),
 		required=False)
-
-	ap.add_argument("-gstat","--glmoutputstatistic",
+	ap.add_argument("-ei", "--exogenousvariableinteraction",
+		help="Specify interactions. The variables must be exognenous variables in either -c or -glm (e.g.-ei site*scanner sex*age age*age age*age*age) [-ei {exogi*exogj}...]",
+		nargs='+',
+		metavar=('exogn'),
+		required=False)
+	ap.add_argument("-gs","--glmoutputstatistic",
 		default = ['f'],
-		choices = ['f','t', 'both'])
+		choices = ['f','t', 'all'])
 
 	mask = ap.add_mutually_exclusive_group(required=False)
 	mask.add_argument("--fmri", 
@@ -207,7 +210,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	ap.add_argument("--noweight", 
 		help="Do not weight each vertex for density of vertices within the specified geodesic distance.", 
 		action="store_true")
-
+	ap.add_argument("--noreducedmodel", 
+		help="Do not use a reduced model for permutation testing (i.e., the residuals after controlling for between-subject effects).",
+		action="store_true")
 	return ap
 
 def run(opts):
@@ -323,12 +328,11 @@ def run(opts):
 			covars = covarnames = []
 
 		if opts.exogenousvariableinteraction:
-
 			varnames, exog, covarnames, covars = load_interactions(opts.exogenousvariableinteraction, 
-																	varnames = varnames,
-																	exog = exog,
-																	covarnames = covarnames,
-																	covars = covars)
+														varnames = varnames,
+														exog = exog,
+														covarnames = covarnames,
+														covars = covars)
 
 		if opts.covariates:
 			dmy_covariates = np.concatenate(covars,1)
@@ -347,7 +351,6 @@ def run(opts):
 		np.save("tmp_tmGLM_%s/affine_mask_rh" % (surface),affine_mask_rh)
 		np.save("tmp_tmGLM_%s/adjac_lh" % (surface),adjac_lh)
 		np.save("tmp_tmGLM_%s/adjac_rh" % (surface),adjac_rh)
-		np.save("tmp_tmGLM_%s/data" % (surface),data.astype(np.float32, order = "C"))
 		np.save("tmp_tmGLM_%s/exog_flat" % (surface),np.concatenate(exog,1))
 		np.save("tmp_tmGLM_%s/exog_shape" % (surface),exog_shape)
 		np.save("tmp_tmGLM_%s/dmy_covariates" % (surface),dmy_covariates)
@@ -355,23 +358,50 @@ def run(opts):
 		np.save("tmp_tmGLM_%s/vdensity_lh" % (surface), vdensity_lh)
 		np.save("tmp_tmGLM_%s/vdensity_rh" % (surface), vdensity_rh)
 		np.save("tmp_tmGLM_%s/varnames" % (surface), varnames)
+		np.save("tmp_tmGLM_%s/gstat" % (surface), opts.glmoutputstatistic[0])
 
 		Tvalues = Fmodel = Fvalues = None
 		if opts.glmoutputstatistic[0] == 't':
-			Tvalues = glm_typeI(data,
-						exog,
-						dmy_covariates=dmy_covariates,
-						output_fvalues = False,
-						output_tvalues = True)
+			if opts.noreducedmodel:
+				Tvalues = glm_typeI(data,
+							exog,
+							dmy_covariates=dmy_covariates,
+							output_fvalues = False,
+							output_tvalues = True,
+							output_reduced_residuals = False)
+			else:
+				Tvalues, data = glm_typeI(data,
+							exog,
+							dmy_covariates=dmy_covariates,
+							output_fvalues = False,
+							output_tvalues = True,
+							output_reduced_residuals = True)
 		elif opts.glmoutputstatistic[0] == 'f':
-			Fmodel, Fvalues = glm_typeI(data,
-						exog,
-						dmy_covariates = dmy_covariates)
+			if opts.noreducedmodel:
+				Fmodel, Fvalues = glm_typeI(data,
+							exog,
+							dmy_covariates = dmy_covariates,
+							output_reduced_residuals = False)
+			else:
+				Fmodel, Fvalues, data = glm_typeI(data,
+							exog,
+							dmy_covariates = dmy_covariates,
+							output_reduced_residuals = True)
 		else:
-			Fmodel, Fvalues, Tvalues = glm_typeI(data,
-						exog,
-						dmy_covariates = dmy_covariates,
-						output_tvalues =True)
+			if opts.noreducedmodel:
+				Fmodel, Fvalues, Tvalues = glm_typeI(data,
+							exog,
+							dmy_covariates = dmy_covariates,
+							output_tvalues =True,
+							output_reduced_residuals = False)
+			else:
+				Fmodel, Fvalues, Tvalues, data = glm_typeI(data,
+							exog,
+							dmy_covariates = dmy_covariates,
+							output_tvalues =True,
+							output_reduced_residuals = True)
+		# now saves the reduced model.
+		np.save("tmp_tmGLM_%s/data" % (surface),data.astype(np.float32, order = "C"))
 
 		#write TFCE images
 		if not os.path.exists("outputGLM_%s" % (surface)):
@@ -519,7 +549,6 @@ def run(opts):
 		np.save("tmp_tmANCOVA1BS_%s/affine_mask_rh" % (surface),affine_mask_rh)
 		np.save("tmp_tmANCOVA1BS_%s/adjac_lh" % (surface),adjac_lh)
 		np.save("tmp_tmANCOVA1BS_%s/adjac_rh" % (surface),adjac_rh)
-		np.save("tmp_tmANCOVA1BS_%s/data" % (surface),data.astype(np.float32, order = "C"))
 		np.save("tmp_tmANCOVA1BS_%s/dmy_factor1" % (surface),dmy_factor1)
 		np.save("tmp_tmANCOVA1BS_%s/dmy_covariates" % (surface),dmy_covariates)
 		np.save("tmp_tmANCOVA1BS_%s/dmy_subjects" % (surface),dmy_subjects)
@@ -528,12 +557,23 @@ def run(opts):
 		np.save("tmp_tmANCOVA1BS_%s/vdensity_rh" % (surface), vdensity_rh)
 		np.save("tmp_tmANCOVA1BS_%s/factors" % (surface), factors)
 
-		# The stats
-		F_a, F_s, F_sa = reg_rm_ancova_one_bs_factor(data, 
-								dmy_factor1,
-								dmy_subjects,
-								dmy_covariates = dmy_covariates,
-								output_sig = False)
+		if opts.noreducedmodel:
+			np.save("tmp_tmANCOVA1BS_%s/dformat" % (surface),np.array(['short']))
+			F_a, F_s, F_sa = reg_rm_ancova_one_bs_factor(data, 
+									dmy_factor1,
+									dmy_subjects,
+									dmy_covariates = dmy_covariates,
+									output_sig = False)
+		else:
+			np.save("tmp_tmANCOVA1BS_%s/dformat" % (surface),np.array(['long']))
+			F_a, F_s, F_sa, data = reg_rm_ancova_one_bs_factor(data, 
+									dmy_factor1,
+									dmy_subjects,
+									dmy_covariates = dmy_covariates,
+									output_sig = False,
+									output_reduced_residuals = True)
+		np.save("tmp_tmANCOVA1BS_%s/data" % (surface),data.astype(np.float32, order = "C"))
+
 
 		if not os.path.exists("outputANCOVA1BS_%s" % (surface)):
 			os.mkdir("outputANCOVA1BS_%s" % (surface))
@@ -662,13 +702,24 @@ def run(opts):
 		np.save("tmp_tmANCOVA2BS_%s/vdensity_rh" % (surface), vdensity_rh)
 		np.save("tmp_tmANCOVA2BS_%s/factors" % (surface), factors)
 
-		# The stats
-		F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab = reg_rm_ancova_two_bs_factor(data, 
-								dmy_factor1,
-								dmy_factor2, 
-								dmy_subjects,
-								dmy_covariates = dmy_covariates,
-								output_sig = False)
+		if opts.noreducedmodel:
+			np.save("tmp_tmANCOVA2BS_%s/dformat" % (surface),np.array(['short']))
+			F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab = reg_rm_ancova_two_bs_factor(data, 
+									dmy_factor1,
+									dmy_factor2, 
+									dmy_subjects,
+									dmy_covariates = dmy_covariates,
+									output_sig = False)
+		else:
+			np.save("tmp_tmANCOVA2BS_%s/dformat" % (surface),np.array(['long']))
+			F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab, data = reg_rm_ancova_two_bs_factor(data, 
+									dmy_factor1,
+									dmy_factor2, 
+									dmy_subjects,
+									dmy_covariates = dmy_covariates,
+									output_sig = False,
+									output_reduced_residuals = True)
+		np.save("tmp_tmANCOVA2BS_%s/data" % (surface),data.astype(np.float32, order = "C"))
 
 		if not os.path.exists("outputANCOVA2BS_%s" % (surface)):
 			os.mkdir("outputANCOVA2BS_%s" % (surface))

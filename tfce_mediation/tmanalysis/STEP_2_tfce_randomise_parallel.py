@@ -94,6 +94,12 @@ def run(opts):
 			whichScript= "tfce_mediation vertex-regress-randomise -s %s -v %d %d" % (opts.vertex[0], opts.specifyvars[0], opts.specifyvars[1])
 		if opts.mediation:
 			whichScript= "tfce_mediation vertex-mediation-randomise -s %s -m %s" % (opts.vertex[0],opts.mediation[0])
+		if opts.generalizedlinearmodel:
+			whichScript= "tfce_mediation vertex-mixed-randomise -s %s -glm" % (opts.vertex[0])
+		if opts.onebetweenssubjectfactor:
+			whichScript= "tfce_mediation vertex-mixed-randomise -s %s -ofa" % (opts.vertex[0])
+		if opts.twobetweenssubjectfactor:
+			whichScript= "tfce_mediation vertex-mixed-randomise -s %s -tfa" % (opts.vertex[0])
 
 	#round number of permutations to the nearest 200
 	roundperm=int(np.round(opts.numperm[0]/200.0)*100.0)

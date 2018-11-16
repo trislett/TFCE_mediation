@@ -131,7 +131,7 @@ vertex_mediation_randomise = subparsers.add_parser("vertex-mediation-randomise",
 vertex_mediation_randomise.set_defaults(func = tfce_mediation.tmanalysis.vertex_tfce_mediation_randomise.run)
 tfce_mediation.tmanalysis.vertex_tfce_mediation_randomise.getArgumentParser(vertex_mediation_randomise)
 
-vertex_mixed_randomise = subparsers.add_parser("vertex-mediation-randomise", help="Permutation analysis for vertex-based mediation with TFCE")
+vertex_mixed_randomise = subparsers.add_parser("vertex-mixed-randomise", help="Permutation analysis for vertex-based mediation with TFCE")
 vertex_mixed_randomise.set_defaults(func = tfce_mediation.tmanalysis.vertex_tfce_ANCOVAs_randomise.run)
 tfce_mediation.tmanalysis.vertex_tfce_ANCOVAs_randomise.getArgumentParser(vertex_mixed_randomise)
 

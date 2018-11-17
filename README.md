@@ -30,7 +30,7 @@ Additional help:
 17-11-2018
 * version 1.6.0
 * An alpha version of step1-vertex-mixed is now available
-* Features include mixed models (1) a new GLM implementation, (2) one factor repeated measure ANCOVA, (3) two factor repeated measure ANCOVA.
+* Features included in step1-vertex-mixed: (1) a new GLM implementation, (2) one factor repeated measure ANCOVA, (3) two factor repeated measure ANCOVA.
 * step1-vertex-mixed also has a new input interface where just a csv file needs to be read and the variable will be dummy coded automatically.
 * Support for voxel based analyses as well as mmr/tmi will be released shortly.
 

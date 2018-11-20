@@ -55,8 +55,7 @@ def run(opts):
 	if not os.path.isfile(mask_name):
 		print('Error: %s not found. Please use -i or -m option.' % mask_name)
 		quit()
-	img_mask = import_voxel_neuroimage(mask_name)
-	data_mask = img_mask.get_data()
+	img_mask, data_mask = import_voxel_neuroimage(mask_name)
 	affine_mask = img_mask.get_affine()
 	header_mask = img_mask.get_header()
 	mask_index = data_mask > 0.99

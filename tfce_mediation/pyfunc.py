@@ -1226,6 +1226,7 @@ def import_voxel_neuroimage(image_path, mask_index = None):
 				tempname = str(uuid.uuid4().hex) + '.nii'
 				os.system("zcat %s > %s" % (image_path,tempname))
 				image = nib.load(tempname)
+				image_data = image.get_data()
 				os.system("rm %s" % tempname)
 		else:
 			print('Error: filetype for %s is not supported' % image_path)
@@ -1242,7 +1243,7 @@ def import_voxel_neuroimage(image_path, mask_index = None):
 		image_data = image_data[mask_index]
 		return image_data
 	else:
-		return image
+		return image, image_data
 
 def rm_anova(data, output_sig = False):
 	"""

@@ -2351,7 +2351,10 @@ def glm_typeI(endog, exog, dmy_covariates = None, output_fvalues = True, output_
 			Pvalues = t.sf(np.abs(Tvalues), DF_Total)*2
 			return (Fvalues, np.array(Fvar), Tvalues, Pmodel, np.array(Pvar), Pvalues)
 		else:
-			return (Fvalues, np.array(Fvar), Tvalues)
+			if output_reduced_residuals:
+				return (Fvalues, np.array(Fvar), Tvalues, reduced_data)
+			else:
+				return (Fvalues, np.array(Fvar), Tvalues)
 	elif output_tvalues:
 		if output_pvalues:
 			Pvalues = t.sf(np.abs(Tvalues), DF_Total)*2

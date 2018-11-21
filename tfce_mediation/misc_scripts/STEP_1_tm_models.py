@@ -23,9 +23,9 @@ import argparse as ap
 import pandas as pd
 
 from tfce_mediation.tfce import CreateAdjSet
-from tfce_mediation.pyfunc import write_vertStat_img, create_adjac_vertex, reg_rm_ancova_one_bs_factor, reg_rm_ancova_two_bs_factor, glm_typeI, dummy_code, column_product, stack_ones, import_voxel_neuroimage
+from tfce_mediation.pyfunc import write_vertStat_img, write_voxelStat_img, create_adjac_vertex, create_adjac_voxel, reg_rm_ancova_one_bs_factor, reg_rm_ancova_two_bs_factor, glm_typeI, calc_indirect, dummy_code, column_product, stack_ones, import_voxel_neuroimage
 
-def check_columns(pdData, datatype, folders = None, surface = None, FWHM= None, filelists = None, voxloc = None, tmi = None):
+def check_columns(pdData, datatype, folders = None, surface = None, FWHM = None, filelists = None, voximgs = None, tmi = None):
 	for counter, roi in enumerate(pdData.columns):
 		if counter == 0:
 			num_subjects = len(pdData[roi])
@@ -141,9 +141,23 @@ def load_interactions(intvariables, varnames = [], exog = [], covarnames = [], c
 			print("Error: interaction variables must be contained in -glm or -c")
 	return (varnames, exog, covarnames, covars)
 
-
-def save_temporary_files(modality, statmodel):
-
+# statistical models (glm, mediation, rmancova_one, rmancova_two)
+def save_temporary_files(statmodel, modality_type = None, **kwargs):
+	if statmodel == "glm":
+		tempdir = "tmtemp_GLM"
+	if statmodel == "mediation":
+		tempdir = "tmtemp_MEDIATION"
+	if statmodel == "rmancova_one":
+		tempdir = "tmtemp_rmANCOVA1BS"
+	if statmodel == "rmancova_two":
+		tempdir = "tmtemp_rmANCOVA2BS"
+	if modality_type is not None:
+		tempdir += "_%s" % modality_type
+	#save variables
+	if not os.path.exists(tempdir):
+		os.mkdir(tempdir)
+	for save_item in kwargs:
+		np.save("%s/%s" % (tempdir, save_item),kwargs[save_item])
 
 DESCRIPTION = "Vertex-wise GLMs include within-subject interactions with TFCE."
 
@@ -171,7 +185,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs='+', 
 		help="4D input files for each timepoint (nifti, mgh, and minc are supported). -vi {image0} .. {imageN}", 
 		metavar=('PATH/TO/IMAGE_FILE'))
-	imputtypes.add_argument("-vil", "--volumetricinputlist, 
+	imputtypes.add_argument("-vil", "--volumetricinputlist",
 		nargs='+', 
 		help="Input text file(s) contains a list of voxelimages (nifti, mgh, and minc are supported). Each input is consider to be a new interval. -vif {images0.txt} ... {imagesN.txt}", 
 		metavar=('PATH/TO/DIR'))
@@ -183,7 +197,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 
 	ap.add_argument("-s", "--surface",  
 		nargs=1, 
-		metavar=('{area|thickness}'), 
+		metavar=('{surface}'), 
 		required=False)
 
 	ap.add_argument("-f", "--fwhm", 
@@ -206,9 +220,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		help="ANCOVA with two between-subject (fixed) factors and neuroimage as the within-subject (random) factor (mixed-effect model). AKA, the repeated-measure ANCOVA. Covariates may also be included. Interactions will be coded automatically (F1*F2, F1*Time,F2xTime, F1*F2*Time). ANOVA uses type I sum of squares (order matters). The between-subject factor must be specified as either discrete (d) or continous (c). Additional interactions among the covariates can be specified using -ei. e.g., -tfa sex d genotype d. [-tfa {factor1} {type1} {factor2} {type2}]",
 		metavar=('exog1', '{d|c}', 'exog2', '{d|c}'))
 	stat.add_argument("-med","--mediation",
-		nargs=4,
+		nargs=5,
 		help="Mediation. Only one interval is currently supported.",
-		metavar=('left_var', '{d|c}', 'right_var', '{d|c}'))
+		metavar=('{I|M|Y}', 'left_var', '{d|c}', 'right_var', '{d|c}'))
 
 	ap.add_argument("-c", "--covariates",
 		help="Covariates of no interest.",
@@ -238,17 +252,16 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=2, 
 		metavar=('lh.*.label','rh.*.label'))
 
-
 	adjac = ap.add_mutually_exclusive_group(required=False)
+	adjac.add_argument("-a", "--adjfiles", help="Load custom adjacency set. For surface data an adjacent set is required for each hemisphere.", 
+		nargs='+', 
+		metavar=('*.npy'))
 	adjac.add_argument("-d", "--vertexdist", 
 		help="Load supplied adjacency sets geodesic distance in mm. Default is 3 (recommended).", 
 		choices = [1,2,3], 
 		type=int,  
 		nargs=1, 
 		default=[3])
-	adjac.add_argument("-a", "--adjfiles", help="Load custom adjacency set. For surface data an adjacent set is required for each hemisphere.", 
-		nargs='+', 
-		metavar=('*.npy'))
 	adjac.add_argument("-t", "--vertextriangularmesh", 
 		help="Create adjacency based on triangular mesh without specifying distance.",
 		action='store_true')
@@ -274,14 +287,17 @@ def run(opts):
 	scriptwd = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 	CSV = opts.inputcsv[0]
 	pdCSV = pd.read_csv(CSV, delimiter=',', index_col=None)
+	optstfce = opts.tfce
+
+	imgext = '.nii.gz' # temporary
 
 	# output column/variable names.
 	if opts.outputcolumnnames:
 		if opts.surfaceinputfolder:
-			check_columns(pdCSV, datatype = 'surface', folders = opts.surfaceinputfolder, surface = opts.surface[0], opts.fwhm[0])
+			check_columns(pdCSV, datatype = 'surface', folders = opts.surfaceinputfolder, surface = opts.surface[0], FWHM = opts.fwhm[0])
 		if opts.volumetricinputs:
 			check_columns(pdCSV, datatype = 'volumetric', voximgs = opts.volumetricinputs)
-		if opts.voxelinputlist:
+		if opts.volumetricinputlist:
 			check_columns(pdCSV, datatype = 'filelist', filelists = opts.volumetricinputlist)
 		if opts.tmiinputs:
 			check_columns(pdCSV, datatype = 'tmi', tmi = opts.tmiinputs)
@@ -325,17 +341,54 @@ def run(opts):
 				outdata_mask_rh = np.zeros_like(data_full_rh[:,:,:,1])
 				mask_rh = data_rh.mean(1)!=0
 				data.append(np.hstack((data_lh[mask_lh].T,data_rh[mask_rh].T)))
-
 				num_vertex_lh = data_lh[mask_lh].shape[0]
-				num_vertex_rh = data_rh[mask_rh].shape[0]
 				all_vertex = data_full_lh.shape[0]
-
 			else:
 				data_lh = np.squeeze(nib.freesurfer.mghformat.load("%s/lh.all.%s.%s.mgh" % (sfolder, surface,FWHM)).get_data())
 				data_rh = np.squeeze(nib.freesurfer.mghformat.load("%s/rh.all.%s.%s.mgh" % (sfolder, surface,FWHM)).get_data())
 				data.append(np.hstack((data_lh[mask_lh].T,data_rh[mask_rh].T)))
 				data_lh = data_rh = []
 		data = np.array(data)
+
+		#TFCE
+		if opts.vertextriangularmesh:
+			# 3 Neighbour vertex connectity
+			print("Creating adjacency set")
+			if opts.vertexsrf:
+				v_lh, faces_lh = nib.freesurfer.read_geometry(opts.vertexsrf[0])
+				v_rh, faces_rh = nib.freesurfer.read_geometry(opts.vertexsrf[1])
+			else:
+				v_lh, faces_lh = nib.freesurfer.read_geometry("%s/fsaverage/surf/lh.sphere" % os.environ["SUBJECTS_DIR"])
+				v_rh, faces_rh = nib.freesurfer.read_geometry("%s/fsaverage/surf/rh.sphere" % os.environ["SUBJECTS_DIR"])
+			adjac_lh = create_adjac_vertex(v_lh,faces_lh)
+			adjac_rh = create_adjac_vertex(v_rh,faces_rh)
+		elif opts.adjfiles:
+			print("Loading prior adjacency set")
+			arg_adjac_lh = opts.adjfiles[0]
+			arg_adjac_rh = opts.adjfiles[1]
+			adjac_lh = np.load(arg_adjac_lh)
+			adjac_rh = np.load(arg_adjac_rh)
+		elif opts.vertexdist:
+			print("Loading prior adjacency set for %s mm" % opts.vertexdist[0])
+			adjac_lh = np.load("%s/adjacency_sets/lh_adjacency_dist_%s.0_mm.npy" % (scriptwd,str(opts.vertexdist[0])))
+			adjac_rh = np.load("%s/adjacency_sets/rh_adjacency_dist_%s.0_mm.npy" % (scriptwd,str(opts.vertexdist[0])))
+		else:
+			print("Error")
+		if opts.noweight or opts.vertextriangularmesh:
+			vdensity_lh = 1
+			vdensity_rh = 1
+		else:
+			# correction for vertex density
+			vdensity_lh = np.zeros((adjac_lh.shape[0]))
+			vdensity_rh = np.zeros((adjac_rh.shape[0]))
+			for i in range(adjac_lh.shape[0]):
+				vdensity_lh[i] = len(adjac_lh[i])
+			for j in range(adjac_rh.shape[0]): 
+				vdensity_rh[j] = len(adjac_rh[j])
+			vdensity_lh = np.array((1 - (vdensity_lh/vdensity_lh.max()) + (vdensity_lh.mean()/vdensity_lh.max())), dtype=np.float32)
+			vdensity_rh = np.array((1 - (vdensity_rh/vdensity_rh.max()) + (vdensity_rh.mean()/vdensity_rh.max())), dtype=np.float32)
+		calcTFCE_lh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_lh)
+		calcTFCE_rh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_rh)
 
 	if opts.volumetricinputs:
 		images = opts.volumetricinputs
@@ -357,9 +410,17 @@ def run(opts):
 			else:
 				data.append(import_voxel_neuroimage(vimage, mask_index).T)
 		data = np.array(data)
-	if opts.voxelinputlist:
-		img_lists = opts.voxelinputlist
-		for i in range(len(img_lists))
+		#TFCE
+		if opts.adjfiles:
+			print("Loading prior adjacency set")
+			arg_adjac_lh = opts.adjfiles[0]
+			adjac = np.load(arg_adjac_lh)
+		else:
+			adjac = create_adjac_voxel(mask_index, data_mask, len(data_mask[mask_index]), dirtype = opts.tfce[2])
+		calcTFCE = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac) # H=2, E=2, 26 neighbour connectivity
+	if opts.volumetricinputlist:
+		img_lists = opts.volumetricinputlist
+		for i in range(len(img_lists)):
 			if i == 0:
 				if opts.binarymask:
 					img_mask = import_voxel_neuroimage(opts.binarymask[0])
@@ -370,7 +431,7 @@ def run(opts):
 						img_data.append(import_voxel_neuroimage(image_path, mask_index))
 					data.append(img_data[mask_index].T)
 				else:
-					temp, temp_data = import_voxel_neuroimage(np.genfromtxt(opts.voxelinputlist[0], delimiter=',', dtype=str)[0]) # temporarly grab the first img
+					temp, temp_data = import_voxel_neuroimage(np.genfromtxt(opts.volumetricinputlist[0], delimiter=',', dtype=str)[0]) # temporarly grab the first img
 					print("WARNING: only the first image was used to create a mask. It is recommended to use a binary mask (-m) with -vil")
 					affine_mask = temp.affine
 					mask_index = temp_data > 0.99
@@ -388,59 +449,24 @@ def run(opts):
 					img_data.append(import_voxel_neuroimage(image_path, mask_index))
 				data.append(img_data[mask_index].T)
 		data = np.array(data)
+		#TFCE
+		if opts.adjfiles:
+			print("Loading prior adjacency set")
+			arg_adjac_lh = opts.adjfiles[0]
+			adjac = np.load(arg_adjac_lh)
+		else:
+			adjac = create_adjac_voxel(mask_index, data_mask, len(data_mask[mask_index]), dirtype=opts.tfce[2])
+		calcTFCE = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac) # H=2, E=2, 26 neighbour connectivity
 	if opts.tmiinputs:
 		print("TMI not supported yet.")
 		quit()
 
 
 
-	#TFCE
-	if opts.triangularmesh:
-		print("Creating adjacency set")
-		if opts.inputsurfs:
-			# 3 Neighbour vertex connectity
-			v_lh, faces_lh = nib.freesurfer.read_geometry(opts.inputsurfs[0])
-			v_rh, faces_rh = nib.freesurfer.read_geometry(opts.inputsurfs[1])
-		else:
-			v_lh, faces_lh = nib.freesurfer.read_geometry("%s/fsaverage/surf/lh.sphere" % os.environ["SUBJECTS_DIR"])
-			v_rh, faces_rh = nib.freesurfer.read_geometry("%s/fsaverage/surf/rh.sphere" % os.environ["SUBJECTS_DIR"])
-		adjac_lh = create_adjac_vertex(v_lh,faces_lh)
-		adjac_rh = create_adjac_vertex(v_rh,faces_rh)
-	elif opts.adjfiles:
-		print("Loading prior adjacency set")
-		arg_adjac_lh = opts.adjfiles[0]
-		arg_adjac_rh = opts.adjfiles[1]
-		adjac_lh = np.load(arg_adjac_lh)
-		adjac_rh = np.load(arg_adjac_rh)
-	elif opts.dist:
-		print("Loading prior adjacency set for %s mm" % opts.dist[0])
-		adjac_lh = np.load("%s/adjacency_sets/lh_adjacency_dist_%s.0_mm.npy" % (scriptwd,str(opts.dist[0])))
-		adjac_rh = np.load("%s/adjacency_sets/rh_adjacency_dist_%s.0_mm.npy" % (scriptwd,str(opts.dist[0])))
-	else:
-		print("Error")
-	if opts.noweight or opts.triangularmesh:
-		vdensity_lh = 1
-		vdensity_rh = 1
-	else:
-		# correction for vertex density
-		vdensity_lh = np.zeros((adjac_lh.shape[0]))
-		vdensity_rh = np.zeros((adjac_rh.shape[0]))
-		for i in range(adjac_lh.shape[0]):
-			vdensity_lh[i] = len(adjac_lh[i])
-		for j in range(adjac_rh.shape[0]): 
-			vdensity_rh[j] = len(adjac_rh[j])
-		vdensity_lh = np.array((1 - (vdensity_lh/vdensity_lh.max()) + (vdensity_lh.mean()/vdensity_lh.max())), dtype=np.float32)
-		vdensity_rh = np.array((1 - (vdensity_rh/vdensity_rh.max()) + (vdensity_rh.mean()/vdensity_rh.max())), dtype=np.float32)
-	calcTFCE_lh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_lh)
-	calcTFCE_rh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_rh)
-
-
-	exog = varnames = []
 	##### GLM ######
 	if opts.generalizedlinearmodel:
 		exog, varnames = load_vars(pdCSV, variables = opts.generalizedlinearmodel, exog = [], names = [])
 		data = data[0] # There should only be one interval...
-
 		exog_shape = []
 		for i in range(len(varnames)):
 			exog_shape.append(exog[i].shape[1])
@@ -461,27 +487,6 @@ def run(opts):
 			dmy_covariates = np.concatenate(covars,1)
 		else:
 			dmy_covariates = None
-
-		#save variables
-		if not os.path.exists("tmp_tmGLM_%s" % (surface)):
-			os.mkdir("tmp_tmGLM_%s" % (surface))
-		np.save("tmp_tmGLM_%s/all_vertex" % (surface),all_vertex)
-		np.save("tmp_tmGLM_%s/num_vertex_lh" % (surface),num_vertex_lh)
-		np.save("tmp_tmGLM_%s/num_vertex_rh" % (surface),num_vertex_rh)
-		np.save("tmp_tmGLM_%s/mask_lh" % (surface),mask_lh)
-		np.save("tmp_tmGLM_%s/mask_rh" % (surface),mask_rh)
-		np.save("tmp_tmGLM_%s/affine_mask_lh" % (surface),affine_mask_lh)
-		np.save("tmp_tmGLM_%s/affine_mask_rh" % (surface),affine_mask_rh)
-		np.save("tmp_tmGLM_%s/adjac_lh" % (surface),adjac_lh)
-		np.save("tmp_tmGLM_%s/adjac_rh" % (surface),adjac_rh)
-		np.save("tmp_tmGLM_%s/exog_flat" % (surface),np.concatenate(exog,1))
-		np.save("tmp_tmGLM_%s/exog_shape" % (surface),exog_shape)
-		np.save("tmp_tmGLM_%s/dmy_covariates" % (surface),dmy_covariates)
-		np.save("tmp_tmGLM_%s/optstfce" % (surface), opts.tfce)
-		np.save("tmp_tmGLM_%s/vdensity_lh" % (surface), vdensity_lh)
-		np.save("tmp_tmGLM_%s/vdensity_rh" % (surface), vdensity_rh)
-		np.save("tmp_tmGLM_%s/varnames" % (surface), varnames)
-		np.save("tmp_tmGLM_%s/gstat" % (surface), opts.glmoutputstatistic[0])
 
 		Tvalues = Fmodel = Fvalues = None
 		if opts.glmoutputstatistic[0] == 't':
@@ -504,87 +509,336 @@ def run(opts):
 				Fmodel, Fvalues = glm_typeI(data,
 							exog,
 							dmy_covariates = dmy_covariates,
+							output_fvalues = True,
+							output_tvalues = False,
 							output_reduced_residuals = False)
 			else:
 				Fmodel, Fvalues, data = glm_typeI(data,
 							exog,
 							dmy_covariates = dmy_covariates,
+							output_fvalues = True,
+							output_tvalues = False,
 							output_reduced_residuals = True)
 		else:
 			if opts.noreducedmodel:
 				Fmodel, Fvalues, Tvalues = glm_typeI(data,
 							exog,
 							dmy_covariates = dmy_covariates,
-							output_tvalues =True,
+							output_fvalues = True,
+							output_tvalues = True,
 							output_reduced_residuals = False)
 			else:
 				Fmodel, Fvalues, Tvalues, data = glm_typeI(data,
 							exog,
 							dmy_covariates = dmy_covariates,
-							output_tvalues =True,
+							output_fvalues = True,
+							output_tvalues = True,
 							output_reduced_residuals = True)
-		# now saves the reduced model.
-		np.save("tmp_tmGLM_%s/data" % (surface),data.astype(np.float32, order = "C"))
 
-		#write TFCE images
-		if not os.path.exists("outputGLM_%s" % (surface)):
-			os.mkdir("outputGLM_%s" % (surface))
-		os.chdir("outputGLM_%s" % (surface))
-		if opts.covariates:
-			np.savetxt("dmy_model.csv",
-				stack_ones(np.column_stack((np.concatenate(exog,1), dmy_covariates))),
-				delimiter=",")
+		if opts.surfaceinputfolder:
+			save_temporary_files('glm', modality_type = surface,
+				all_vertex = all_vertex,
+				num_vertex_lh = num_vertex_lh,
+				mask_lh = mask_lh,
+				mask_rh = mask_rh,
+				adjac_lh = adjac_lh,
+				adjac_rh = adjac_rh,
+				vdensity_lh = vdensity_lh,
+				vdensity_rh = vdensity_rh,
+				exog_flat = np.concatenate(exog,1),
+				exog_shape = exog_shape,
+				dmy_covariates = dmy_covariates,
+				optstfce = optstfce,
+				varnames = varnames,
+				gstat = opts.glmoutputstatistic[0],
+				data = data.astype(np.float32, order = "C"))
+		if opts.volumetricinputs or opts.volumetricinputlist:
+			save_temporary_files('glm', modality_type = "volume",
+				mask_index = mask_index,
+				data_mask = data_mask,
+				adjac = adjac,
+				exog_flat = np.concatenate(exog,1),
+				exog_shape = exog_shape,
+				dmy_covariates = dmy_covariates,
+				optstfce = optstfce,
+				varnames = varnames,
+				gstat = opts.glmoutputstatistic[0],
+				data = data.astype(np.float32, order = "C"))
+
+		if opts.surfaceinputfolder:
+			outdir = "output_GLM_%s" % (surface)
+			if not os.path.exists(outdir):
+				os.mkdir(outdir)
+			os.chdir(outdir)
+
+			if opts.covariates:
+				np.savetxt("dmy_model.csv",
+					stack_ones(np.column_stack((np.concatenate(exog,1), dmy_covariates))),
+					delimiter=",")
+			else:
+				np.savetxt("dmy_model.csv",
+					stack_ones(np.concatenate(exog,1)),
+					delimiter=",")
+			if Tvalues is not None:
+				numcon = np.concatenate(exog,1).shape[1]
+				for j in range(numcon):
+					tnum=j+1
+					write_vertStat_img('Tstat_con%d' % tnum, 
+						Tvalues[tnum,:num_vertex_lh],
+						outdata_mask_lh,
+						affine_mask_lh,
+						surface,
+						'lh',
+						mask_lh,
+						calcTFCE_lh,
+						mask_lh.shape[0],
+						vdensity_lh)
+					write_vertStat_img('Tstat_con%d' % tnum,
+						Tvalues[tnum,num_vertex_lh:],
+						outdata_mask_rh,
+						affine_mask_rh,
+						surface,
+						'rh',
+						mask_rh,
+						calcTFCE_rh,
+						mask_rh.shape[0],
+						vdensity_rh)
+					write_vertStat_img('negTstat_con%d' % tnum,
+						(Tvalues[tnum,:num_vertex_lh]*-1),
+						outdata_mask_lh,
+						affine_mask_lh,
+						surface,
+						'lh',
+						mask_lh,
+						calcTFCE_lh,
+						mask_lh.shape[0],
+						vdensity_lh)
+					write_vertStat_img('negTstat_con%d' % tnum,
+						(Tvalues[tnum,num_vertex_lh:]*-1),
+						outdata_mask_rh,
+						affine_mask_rh,
+						surface,
+						'rh',
+						mask_rh,
+						calcTFCE_rh,
+						mask_rh.shape[0],
+						vdensity_rh)
+			if Fvalues is not None:
+				write_vertStat_img('Fmodel', 
+					Fmodel[:num_vertex_lh],
+					outdata_mask_lh,
+					affine_mask_lh,
+					surface,
+					'lh',
+					mask_lh,
+					calcTFCE_lh,
+					mask_lh.shape[0],
+					vdensity_lh)
+				write_vertStat_img('Fmodel',
+					Fmodel[num_vertex_lh:],
+					outdata_mask_rh,
+					affine_mask_rh,
+					surface,
+					'rh',
+					mask_rh,
+					calcTFCE_rh,
+					mask_rh.shape[0],
+					vdensity_rh)
+				for j in range(len(exog)):
+					conname = 'Fstat_%s' % varnames[j]
+					write_vertStat_img(conname, 
+						Fvalues[j,:num_vertex_lh],
+						outdata_mask_lh,
+						affine_mask_lh,
+						surface,
+						'lh',
+						mask_lh,
+						calcTFCE_lh,
+						mask_lh.shape[0],
+						vdensity_lh)
+					write_vertStat_img(conname,
+						Fvalues[j,num_vertex_lh:],
+						outdata_mask_rh,
+						affine_mask_rh,
+						surface,
+						'rh',
+						mask_rh,
+						calcTFCE_rh,
+						mask_rh.shape[0],
+						vdensity_rh)
+
+		if opts.volumetricinputs or opts.volumetricinputlist:
+			outdir = "output_GLM_volume"
+			if not os.path.exists(outdir):
+				os.mkdir(outdir)
+			os.chdir(outdir)
+			if opts.covariates:
+				np.savetxt("dmy_model.csv",
+					stack_ones(np.column_stack((np.concatenate(exog,1), dmy_covariates))),
+					delimiter=",")
+			else:
+				np.savetxt("dmy_model.csv",
+					stack_ones(np.concatenate(exog,1)),
+					delimiter=",")
+			if Tvalues is not None:
+				numcon = np.concatenate(exog,1).shape[1]
+				for j in range(numcon):
+					tnum=j+1
+					write_voxelStat_img('Tstat_con%d' % tnum, 
+						Tvalues[tnum,:],
+						data_mask,
+						mask_index,
+						affine_mask,
+						calcTFCE,
+						imgext)
+					write_voxelStat_img('negTstat_con%d' % tnum, 
+						Tvalues[tnum,:],
+						data_mask,
+						mask_index,
+						affine_mask,
+						calcTFCE,
+						imgext)
+			if Fvalues is not None:
+				write_voxelStat_img('Fmodel', 
+					Fmodel,
+					data_mask,
+					mask_index,
+					affine_mask,
+					calcTFCE,
+					imgext)
+				for j in range(len(exog)):
+					conname = 'Fstat_%s' % varnames[j]
+					write_voxelStat_img(conname,
+						Fvalues[j,:],
+						data_mask,
+						mask_index,
+						affine_mask,
+						calcTFCE,
+						imgext)
+
+	if opts.mediation:
+		medtype = opts.mediation[0]
+		factors = opts.mediation[1:]
+		data = data[0] # There should only be one interval...
+
+		if factors[1] == 'c':
+			dmy_leftvar = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = True)
+			print("Coding %s as continous variable" % factors[0])
 		else:
-			np.savetxt("dmy_model.csv",
-				stack_ones(np.concatenate(exog,1)),
-				delimiter=",")
-		if Tvalues is not None:
-			numcon = np.concatenate(exog,1).shape[1]
-			for j in range(numcon):
-				tnum=j+1
-				write_vertStat_img('Tstat_con%d' % tnum, 
-					Tvalues[tnum,:num_vertex_lh],
-					outdata_mask_lh,
-					affine_mask_lh,
-					surface,
-					'lh',
-					mask_lh,
-					calcTFCE_lh,
-					mask_lh.shape[0],
-					vdensity_lh)
-				write_vertStat_img('Tstat_con%d' % tnum,
-					Tvalues[tnum,num_vertex_lh:],
-					outdata_mask_rh,
-					affine_mask_rh,
-					surface,
-					'rh',
-					mask_rh,
-					calcTFCE_rh,
-					mask_rh.shape[0],
-					vdensity_rh)
-				write_vertStat_img('negTstat_con%d' % tnum,
-					(Tvalues[tnum,:num_vertex_lh]*-1),
-					outdata_mask_lh,
-					affine_mask_lh,
-					surface,
-					'lh',
-					mask_lh,
-					calcTFCE_lh,
-					mask_lh.shape[0],
-					vdensity_lh)
-				write_vertStat_img('negTstat_con%d' % tnum,
-					(Tvalues[tnum,num_vertex_lh:]*-1),
-					outdata_mask_rh,
-					affine_mask_rh,
-					surface,
-					'rh',
-					mask_rh,
-					calcTFCE_rh,
-					mask_rh.shape[0],
-					vdensity_rh)
-		if Fvalues is not None:
-			write_vertStat_img('Fmodel', 
-				Fmodel[:num_vertex_lh],
+			dmy_leftvar = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = False)
+			print("Coding %s as discrete variable" % factors[0])
+		if factors[3] == 'c':
+			dmy_rightvar = dummy_code(np.array(pdCSV[factors[2]]), iscontinous = True)
+			print("Coding %s as continous variable" % factors[2])
+		else:
+			dmy_rightvar = dummy_code(np.array(pdCSV[factors[2]]), iscontinous = False)
+			print("Coding %s as discrete variable" % factors[2])
+
+		if opts.covariates:
+			covars, covarnames = load_vars(pdCSV, variables = opts.covariates, exog = [], names = [])
+		else:
+			covars = covarnames = []
+
+		if opts.exogenousvariableinteraction:
+			_, _, covarnames, covars = load_interactions(opts.exogenousvariableinteraction, 
+														varnames = [],
+														exog = [],
+														covarnames = covarnames,
+														covars = covars)
+
+		if opts.covariates:
+			dmy_covariates = np.concatenate(covars,1)
+		else:
+			dmy_covariates = None
+
+		if medtype == 'I':
+			EXOG_A = []
+			EXOG_A.append(dmy_leftvar)
+			EXOG_B = []
+			EXOG_B.append(dmy_leftvar)
+			EXOG_B.append(dmy_rightvar)
+
+			Tvalues_A = glm_typeI(data,
+						EXOG_A,
+						dmy_covariates = dmy_covariates,
+						output_fvalues = False,
+						output_tvalues = True,
+						output_reduced_residuals = False)[1]
+			Tvalues_B = glm_typeI(data,
+						EXOG_B,
+						dmy_covariates=dmy_covariates,
+						output_fvalues = False,
+						output_tvalues = True,
+						output_reduced_residuals = False)[1]
+		elif medtype == 'M':
+			EXOG_A = []
+			EXOG_A.append(dmy_leftvar)
+			EXOG_B = []
+			EXOG_B.append(dmy_rightvar)
+			EXOG_B.append(dmy_leftvar)
+
+			Tvalues_A = glm_typeI(data,
+						EXOG_A,
+						dmy_covariates = dmy_covariates,
+						output_fvalues = False,
+						output_tvalues = True,
+						output_reduced_residuals = False)[1]
+			Tvalues_B = glm_typeI(data,
+						EXOG_B,
+						dmy_covariates=dmy_covariates,
+						output_fvalues = False,
+						output_tvalues = True,
+						output_reduced_residuals = False)[1]
+		elif medtype == 'Y':
+			EXOG_A = []
+			EXOG_A.append(dmy_leftvar)
+			EXOG_B = []
+			EXOG_B.append(dmy_rightvar)
+			EXOG_B.append(dmy_leftvar)
+
+			Tvalues_A = glm_typeI(dmy_rightvar,
+						EXOG_A,
+						dmy_covariates=dmy_covariates,
+						output_fvalues = False,
+						output_tvalues = True,
+						output_reduced_residuals = False)[1]
+
+			Tvalues_B = glm_typeI(data,
+						EXOG_B,
+						dmy_covariates=dmy_covariates,
+						output_fvalues = False,
+						output_tvalues = True,
+						output_reduced_residuals = False)[1]
+		else:
+			print("ERROR: Invalid mediation type: %s" % medtype)
+			quit()
+
+		SobelZ  = calc_indirect(Tvalues_A, Tvalues_B, alg = "aroian")
+
+		if opts.surfaceinputfolder:
+			save_temporary_files('mediation', modality_type = surface,
+				all_vertex = all_vertex,
+				num_vertex_lh = num_vertex_lh,
+				mask_lh = mask_lh,
+				mask_rh = mask_rh,
+				adjac_lh = adjac_lh,
+				adjac_rh = adjac_rh,
+				vdensity_lh = vdensity_lh,
+				vdensity_rh = vdensity_rh,
+				dmy_leftvar = dmy_leftvar,
+				dmy_rightvar = dmy_rightvar,
+				dmy_covariates = dmy_covariates,
+				optstfce = optstfce,
+				medtype = medtype,
+				data = data.astype(np.float32, order = "C"))
+
+			outdir = "output_mediation_%s" % (surface)
+			if not os.path.exists(outdir):
+				os.mkdir(outdir)
+			os.chdir(outdir)
+
+			write_vertStat_img('Zstat_%s' % medtype,
+				SobelZ[:num_vertex_lh],
 				outdata_mask_lh,
 				affine_mask_lh,
 				surface,
@@ -593,8 +847,8 @@ def run(opts):
 				calcTFCE_lh,
 				mask_lh.shape[0],
 				vdensity_lh)
-			write_vertStat_img('Fmodel',
-				Fmodel[num_vertex_lh:],
+			write_vertStat_img('Zstat_%s' % medtype,
+				SobelZ[num_vertex_lh:],
 				outdata_mask_rh,
 				affine_mask_rh,
 				surface,
@@ -603,28 +857,32 @@ def run(opts):
 				calcTFCE_rh,
 				mask_rh.shape[0],
 				vdensity_rh)
-			for j in range(len(exog)):
-				conname = 'Fstat_%s' % varnames[j]
-				write_vertStat_img(conname, 
-					Fvalues[j,:num_vertex_lh],
-					outdata_mask_lh,
-					affine_mask_lh,
-					surface,
-					'lh',
-					mask_lh,
-					calcTFCE_lh,
-					mask_lh.shape[0],
-					vdensity_lh)
-				write_vertStat_img(conname,
-					Fvalues[j,num_vertex_lh:],
-					outdata_mask_rh,
-					affine_mask_rh,
-					surface,
-					'rh',
-					mask_rh,
-					calcTFCE_rh,
-					mask_rh.shape[0],
-					vdensity_rh)
+
+		if opts.volumetricinputs or opts.volumetricinputlist:
+			save_temporary_files('mediation', modality_type = "volume",
+				mask_index = mask_index,
+				data_mask = data_mask,
+				adjac = adjac,
+				dmy_leftvar = dmy_leftvar,
+				dmy_rightvar = dmy_rightvar,
+				dmy_covariates = dmy_covariates,
+				optstfce = optstfce,
+				medtype = medtype,
+				data = data.astype(np.float32, order = "C"))
+
+			outdir = "output_mediation_volume"
+			if not os.path.exists(outdir):
+				os.mkdir(outdir)
+			os.chdir(outdir)
+
+			write_voxelStat_img('Zstat_%s' % medtype,
+				SobelZ,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
+
 
 	##### RM ANCOVA (one between subject, one within subject) ######
 	if opts.onebetweenssubjectfactor:
@@ -638,8 +896,6 @@ def run(opts):
 			dmy_factor1 = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = False)
 			print("Coding %s as discrete variable" % factors[0])
 		dmy_subjects = dummy_code(np.array(pdCSV[subjects]), demean = False)
-		exog = []
-		varnames = []
 
 		if opts.covariates:
 			covars, covarnames = load_vars(pdCSV, variables = opts.covariates, exog = [], names = [])
@@ -647,7 +903,6 @@ def run(opts):
 			covars = covarnames = []
 
 		if opts.exogenousvariableinteraction:
-
 			_, _, covarnames, covars = load_interactions(opts.exogenousvariableinteraction, 
 																	varnames = [],
 																	exog = [],
@@ -659,109 +914,145 @@ def run(opts):
 		else:
 			dmy_covariates = None
 
-
-		#save variables
-		if not os.path.exists("tmp_tmANCOVA1BS_%s" % (surface)):
-			os.mkdir("tmp_tmANCOVA1BS_%s" % (surface))
-		np.save("tmp_tmANCOVA1BS_%s/all_vertex" % (surface),all_vertex)
-		np.save("tmp_tmANCOVA1BS_%s/num_vertex_lh" % (surface),num_vertex_lh)
-		np.save("tmp_tmANCOVA1BS_%s/num_vertex_rh" % (surface),num_vertex_rh)
-		np.save("tmp_tmANCOVA1BS_%s/mask_lh" % (surface),mask_lh)
-		np.save("tmp_tmANCOVA1BS_%s/mask_rh" % (surface),mask_rh)
-		np.save("tmp_tmANCOVA1BS_%s/affine_mask_lh" % (surface),affine_mask_lh)
-		np.save("tmp_tmANCOVA1BS_%s/affine_mask_rh" % (surface),affine_mask_rh)
-		np.save("tmp_tmANCOVA1BS_%s/adjac_lh" % (surface),adjac_lh)
-		np.save("tmp_tmANCOVA1BS_%s/adjac_rh" % (surface),adjac_rh)
-		np.save("tmp_tmANCOVA1BS_%s/dmy_factor1" % (surface),dmy_factor1)
-		np.save("tmp_tmANCOVA1BS_%s/dmy_covariates" % (surface),dmy_covariates)
-		np.save("tmp_tmANCOVA1BS_%s/dmy_subjects" % (surface),dmy_subjects)
-		np.save("tmp_tmANCOVA1BS_%s/optstfce" % (surface), opts.tfce)
-		np.save("tmp_tmANCOVA1BS_%s/vdensity_lh" % (surface), vdensity_lh)
-		np.save("tmp_tmANCOVA1BS_%s/vdensity_rh" % (surface), vdensity_rh)
-		np.save("tmp_tmANCOVA1BS_%s/factors" % (surface), factors)
-
 		if opts.noreducedmodel:
-			np.save("tmp_tmANCOVA1BS_%s/dformat" % (surface),np.array(['short']))
+			dformat = np.array(['short'])
 			F_a, F_s, F_sa = reg_rm_ancova_one_bs_factor(data, 
 									dmy_factor1,
 									dmy_subjects,
 									dmy_covariates = dmy_covariates,
 									output_sig = False)
 		else:
-			np.save("tmp_tmANCOVA1BS_%s/dformat" % (surface),np.array(['long']))
+			dformat = np.array(['long'])
 			F_a, F_s, F_sa, data = reg_rm_ancova_one_bs_factor(data, 
 									dmy_factor1,
 									dmy_subjects,
 									dmy_covariates = dmy_covariates,
 									output_sig = False,
 									output_reduced_residuals = True)
-		np.save("tmp_tmANCOVA1BS_%s/data" % (surface),data.astype(np.float32, order = "C"))
 
+		if opts.surfaceinputfolder:
+			save_temporary_files('rmancova_one', modality_type = surface,
+				all_vertex = all_vertex,
+				num_vertex_lh = num_vertex_lh,
+				mask_lh = mask_lh,
+				mask_rh = mask_rh,
+				adjac_lh = adjac_lh,
+				adjac_rh = adjac_rh,
+				vdensity_lh = vdensity_lh,
+				vdensity_rh = vdensity_rh,
+				dmy_factor1 = dmy_factor1,
+				dmy_subjects = dmy_subjects,
+				dmy_covariates = dmy_covariates,
+				optstfce = optstfce,
+				factors = factors,
+				dformat = dformat,
+				data = data.astype(np.float32, order = "C"))
+		if opts.volumetricinputs or opts.volumetricinputlist:
+			save_temporary_files('rmancova_one', modality_type = "volume",
+				mask_index = mask_index,
+				data_mask = data_mask,
+				adjac = adjac,
+				dmy_factor1 = dmy_factor1,
+				dmy_subjects = dmy_subjects,
+				dmy_covariates = dmy_covariates,
+				optstfce = optstfce,
+				factors = factors,
+				dformat = dformat,
+				data = data.astype(np.float32, order = "C"))
 
-		if not os.path.exists("outputANCOVA1BS_%s" % (surface)):
-			os.mkdir("outputANCOVA1BS_%s" % (surface))
-		os.chdir("outputANCOVA1BS_%s" % (surface))
+		if opts.surfaceinputfolder:
+			outdir = "output_rmANCOVA1BS_%s" % (surface)
+			if not os.path.exists(outdir):
+				os.mkdir(outdir)
+			os.chdir(outdir)
 
-		write_vertStat_img('Fstat_%s' % factors[0], 
-			F_a[:num_vertex_lh],
-			outdata_mask_lh,
-			affine_mask_lh,
-			surface,
-			'lh',
-			mask_lh,
-			calcTFCE_lh,
-			mask_lh.shape[0],
-			vdensity_lh)
-		write_vertStat_img('Fstat_%s' % factors[0], 
-			F_a[num_vertex_lh:],
-			outdata_mask_rh,
-			affine_mask_rh,
-			surface,
-			'rh',
-			mask_rh,
-			calcTFCE_rh,
-			mask_rh.shape[0],
-			vdensity_rh)
-		write_vertStat_img('Fstat_time', 
-			F_s[:num_vertex_lh],
-			outdata_mask_lh,
-			affine_mask_lh,
-			surface,
-			'lh',
-			mask_lh,
-			calcTFCE_lh,
-			mask_lh.shape[0],
-			vdensity_lh)
-		write_vertStat_img('Fstat_time',  
-			F_s[num_vertex_lh:],
-			outdata_mask_rh,
-			affine_mask_rh,
-			surface,
-			'rh',
-			mask_rh,
-			calcTFCE_rh,
-			mask_rh.shape[0],
-			vdensity_rh)
-		write_vertStat_img('Fstat_%s.X.time' % factors[0], 
-			F_sa[:num_vertex_lh],
-			outdata_mask_lh,
-			affine_mask_lh,
-			surface,
-			'lh',
-			mask_lh,
-			calcTFCE_lh,
-			mask_lh.shape[0],
-			vdensity_lh)
-		write_vertStat_img('Fstat_%s.X.time' % factors[0], 
-			F_sa[num_vertex_lh:],
-			outdata_mask_rh,
-			affine_mask_rh,
-			surface,
-			'rh',
-			mask_rh,
-			calcTFCE_rh,
-			mask_rh.shape[0],
-			vdensity_rh)
+			write_vertStat_img('Fstat_%s' % factors[0], 
+				F_a[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh)
+			write_vertStat_img('Fstat_%s' % factors[0], 
+				F_a[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh)
+			write_vertStat_img('Fstat_time',
+				F_s[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh)
+			write_vertStat_img('Fstat_time',
+				F_s[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh)
+			write_vertStat_img('Fstat_%s.X.time' % factors[0], 
+				F_sa[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh)
+			write_vertStat_img('Fstat_%s.X.time' % factors[0], 
+				F_sa[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh)
+
+		if opts.volumetricinputs or opts.volumetricinputlist:
+			outdir = "output_rmANCOVA1BS_volume"
+			if not os.path.exists(outdir):
+				os.mkdir(outdir)
+			os.chdir(outdir)
+			write_voxelStat_img('Fstat_%s' % factors[0], 
+				F_a,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
+			write_voxelStat_img('Fstat_time', 
+				F_s,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
+			write_voxelStat_img('Fstat_%s.X.time' % factors[0], 
+				F_sa,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
 
 
 	##### RM ANCOVA (two between subject, one within subject) ######
@@ -802,31 +1093,8 @@ def run(opts):
 		else:
 			dmy_covariates = None
 
-
-		#save variables
-		if not os.path.exists("tmp_tmANCOVA2BS_%s" % (surface)):
-			os.mkdir("tmp_tmANCOVA2BS_%s" % (surface))
-		np.save("tmp_tmANCOVA2BS_%s/all_vertex" % (surface),all_vertex)
-		np.save("tmp_tmANCOVA2BS_%s/num_vertex_lh" % (surface),num_vertex_lh)
-		np.save("tmp_tmANCOVA2BS_%s/num_vertex_rh" % (surface),num_vertex_rh)
-		np.save("tmp_tmANCOVA2BS_%s/mask_lh" % (surface),mask_lh)
-		np.save("tmp_tmANCOVA2BS_%s/mask_rh" % (surface),mask_rh)
-		np.save("tmp_tmANCOVA2BS_%s/affine_mask_lh" % (surface),affine_mask_lh)
-		np.save("tmp_tmANCOVA2BS_%s/affine_mask_rh" % (surface),affine_mask_rh)
-		np.save("tmp_tmANCOVA2BS_%s/adjac_lh" % (surface),adjac_lh)
-		np.save("tmp_tmANCOVA2BS_%s/adjac_rh" % (surface),adjac_rh)
-		np.save("tmp_tmANCOVA2BS_%s/data" % (surface),data.astype(np.float32, order = "C"))
-		np.save("tmp_tmANCOVA2BS_%s/dmy_factor1" % (surface),dmy_factor1)
-		np.save("tmp_tmANCOVA2BS_%s/dmy_factor2" % (surface),dmy_factor2)
-		np.save("tmp_tmANCOVA2BS_%s/dmy_covariates" % (surface),dmy_covariates)
-		np.save("tmp_tmANCOVA2BS_%s/dmy_subjects" % (surface),dmy_subjects)
-		np.save("tmp_tmANCOVA2BS_%s/optstfce" % (surface), opts.tfce)
-		np.save("tmp_tmANCOVA2BS_%s/vdensity_lh" % (surface), vdensity_lh)
-		np.save("tmp_tmANCOVA2BS_%s/vdensity_rh" % (surface), vdensity_rh)
-		np.save("tmp_tmANCOVA2BS_%s/factors" % (surface), factors)
-
 		if opts.noreducedmodel:
-			np.save("tmp_tmANCOVA2BS_%s/dformat" % (surface),np.array(['short']))
+			dformat = np.array(['short'])
 			F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab = reg_rm_ancova_two_bs_factor(data, 
 									dmy_factor1,
 									dmy_factor2, 
@@ -834,7 +1102,7 @@ def run(opts):
 									dmy_covariates = dmy_covariates,
 									output_sig = False)
 		else:
-			np.save("tmp_tmANCOVA2BS_%s/dformat" % (surface),np.array(['long']))
+			dformat = np.array(['long'])
 			F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab, data = reg_rm_ancova_two_bs_factor(data, 
 									dmy_factor1,
 									dmy_factor2, 
@@ -842,156 +1110,246 @@ def run(opts):
 									dmy_covariates = dmy_covariates,
 									output_sig = False,
 									output_reduced_residuals = True)
-		np.save("tmp_tmANCOVA2BS_%s/data" % (surface),data.astype(np.float32, order = "C"))
 
-		if not os.path.exists("outputANCOVA2BS_%s" % (surface)):
-			os.mkdir("outputANCOVA2BS_%s" % (surface))
-		os.chdir("outputANCOVA2BS_%s" % (surface))
+		if opts.surfaceinputfolder:
+			save_temporary_files('rmancova_one', modality_type = surface,
+				all_vertex = all_vertex,
+				num_vertex_lh = num_vertex_lh,
+				mask_lh = mask_lh,
+				mask_rh = mask_rh,
+				adjac_lh = adjac_lh,
+				adjac_rh = adjac_rh,
+				vdensity_lh = vdensity_lh,
+				vdensity_rh = vdensity_rh,
+				dmy_factor1 = dmy_factor1,
+				dmy_factor2 = dmy_factor2,
+				dmy_subjects = dmy_subjects,
+				dmy_covariates = dmy_covariates,
+				optstfce = optstfce,
+				factors = factors,
+				dformat = dformat,
+				data = data.astype(np.float32, order = "C"))
+		if opts.volumetricinputs or opts.volumetricinputlist:
+			save_temporary_files('rmancova_one', modality_type = "volume",
+				mask_index = mask_index,
+				data_mask = data_mask,
+				adjac = adjac,
+				dmy_factor1 = dmy_factor1,
+				dmy_factor2 = dmy_factor2,
+				dmy_subjects = dmy_subjects,
+				dmy_covariates = dmy_covariates,
+				optstfce = optstfce,
+				factors = factors,
+				dformat = dformat,
+				data = data.astype(np.float32, order = "C"))
 
-		# Between Subjects
-		write_vertStat_img('Fstat_%s' % factors[0], 
-			F_a[:num_vertex_lh],
-			outdata_mask_lh,
-			affine_mask_lh,
-			surface,
-			'lh',
-			mask_lh,
-			calcTFCE_lh,
-			mask_lh.shape[0],
-			vdensity_lh)
-		write_vertStat_img('Fstat_%s' % factors[0], 
-			F_a[num_vertex_lh:],
-			outdata_mask_rh,
-			affine_mask_rh,
-			surface,
-			'rh',
-			mask_rh,
-			calcTFCE_rh,
-			mask_rh.shape[0],
-			vdensity_rh)
-		write_vertStat_img('Fstat_%s' % factors[2], 
-			F_b[:num_vertex_lh],
-			outdata_mask_lh,
-			affine_mask_lh,
-			surface,
-			'lh',
-			mask_lh,
-			calcTFCE_lh,
-			mask_lh.shape[0],
-			vdensity_lh)
-		write_vertStat_img('Fstat_%s' % factors[2], 
-			F_b[num_vertex_lh:],
-			outdata_mask_rh,
-			affine_mask_rh,
-			surface,
-			'rh',
-			mask_rh,
-			calcTFCE_rh,
-			mask_rh.shape[0],
-			vdensity_rh)
-		write_vertStat_img('Fstat_%s.X.%s' % (factors[0],factors[2]), 
-			F_ab[:num_vertex_lh],
-			outdata_mask_lh,
-			affine_mask_lh,
-			surface,
-			'lh',
-			mask_lh,
-			calcTFCE_lh,
-			mask_lh.shape[0],
-			vdensity_lh)
-		write_vertStat_img('Fstat_%s.X.%s' % (factors[0],factors[2]), 
-			F_ab[num_vertex_lh:],
-			outdata_mask_rh,
-			affine_mask_rh,
-			surface,
-			'rh',
-			mask_rh,
-			calcTFCE_rh,
-			mask_rh.shape[0],
-			vdensity_rh)
+		if opts.surfaceinputfolder:
+			outdir = "output_rmANCOVA2BS_%s" % (surface)
+			if not os.path.exists(outdir):
+				os.mkdir(outdir)
+			os.chdir(outdir)
 
-		# Within Subjects
-		write_vertStat_img('Fstat_time', 
-			F_s[:num_vertex_lh],
-			outdata_mask_lh,
-			affine_mask_lh,
-			surface,
-			'lh',
-			mask_lh,
-			calcTFCE_lh,
-			mask_lh.shape[0],
-			vdensity_lh)
-		write_vertStat_img('Fstat_time',  
-			F_s[num_vertex_lh:],
-			outdata_mask_rh,
-			affine_mask_rh,
-			surface,
-			'rh',
-			mask_rh,
-			calcTFCE_rh,
-			mask_rh.shape[0],
-			vdensity_rh)
+			# Between Subjects
+			write_vertStat_img('Fstat_%s' % factors[0], 
+				F_a[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh)
+			write_vertStat_img('Fstat_%s' % factors[0], 
+				F_a[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh)
+			write_vertStat_img('Fstat_%s' % factors[2], 
+				F_b[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh)
+			write_vertStat_img('Fstat_%s' % factors[2], 
+				F_b[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh)
+			write_vertStat_img('Fstat_%s.X.%s' % (factors[0],factors[2]), 
+				F_ab[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh)
+			write_vertStat_img('Fstat_%s.X.%s' % (factors[0],factors[2]), 
+				F_ab[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh)
 
-		write_vertStat_img('Fstat_%s.X.time' % factors[0], 
-			F_sa[:num_vertex_lh],
-			outdata_mask_lh,
-			affine_mask_lh,
-			surface,
-			'lh',
-			mask_lh,
-			calcTFCE_lh,
-			mask_lh.shape[0],
-			vdensity_lh)
-		write_vertStat_img('Fstat_%s.X.time' % factors[0], 
-			F_sa[num_vertex_lh:],
-			outdata_mask_rh,
-			affine_mask_rh,
-			surface,
-			'rh',
-			mask_rh,
-			calcTFCE_rh,
-			mask_rh.shape[0],
-			vdensity_rh)
-		write_vertStat_img('Fstat_%s.X.time' % factors[2], 
-			F_sb[:num_vertex_lh],
-			outdata_mask_lh,
-			affine_mask_lh,
-			surface,
-			'lh',
-			mask_lh,
-			calcTFCE_lh,
-			mask_lh.shape[0],
-			vdensity_lh)
-		write_vertStat_img('Fstat_%s.X.time' % factors[2], 
-			F_sb[num_vertex_lh:],
-			outdata_mask_rh,
-			affine_mask_rh,
-			surface,
-			'rh',
-			mask_rh,
-			calcTFCE_rh,
-			mask_rh.shape[0],
-			vdensity_rh)
-		write_vertStat_img('Fstat_%s.X.%s.X.time' % (factors[0], factors[2]), 
-			F_sab[:num_vertex_lh],
-			outdata_mask_lh,
-			affine_mask_lh,
-			surface,
-			'lh',
-			mask_lh,
-			calcTFCE_lh,
-			mask_lh.shape[0],
-			vdensity_lh)
-		write_vertStat_img('Fstat_%s.X.%s.X.time' % (factors[0], factors[2]), 
-			F_sab[num_vertex_lh:],
-			outdata_mask_rh,
-			affine_mask_rh,
-			surface,
-			'rh',
-			mask_rh,
-			calcTFCE_rh,
-			mask_rh.shape[0],
-			vdensity_rh)
+			# Within Subjects
+			write_vertStat_img('Fstat_time', 
+				F_s[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh)
+			write_vertStat_img('Fstat_time',  
+				F_s[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh)
+
+			write_vertStat_img('Fstat_%s.X.time' % factors[0], 
+				F_sa[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh)
+			write_vertStat_img('Fstat_%s.X.time' % factors[0], 
+				F_sa[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh)
+			write_vertStat_img('Fstat_%s.X.time' % factors[2], 
+				F_sb[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh)
+			write_vertStat_img('Fstat_%s.X.time' % factors[2], 
+				F_sb[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh)
+			write_vertStat_img('Fstat_%s.X.%s.X.time' % (factors[0], factors[2]), 
+				F_sab[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh)
+			write_vertStat_img('Fstat_%s.X.%s.X.time' % (factors[0], factors[2]), 
+				F_sab[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh)
+
+		if opts.volumetricinputs or opts.volumetricinputlist:
+
+			outdir = "output_rmANCOVA2BS_volume"
+			if not os.path.exists(outdir):
+				os.mkdir(outdir)
+			os.chdir(outdir)
+
+			write_voxelStat_img('Fstat_%s' % factors[0], 
+				F_a,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
+			write_voxelStat_img('Fstat_%s' % factors[2], 
+				F_b,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
+			write_voxelStat_img('Fstat_%s.X.%s' % (factors[0],factors[2]),
+				F_ab,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
+			write_voxelStat_img('Fstat_time',
+				F_s,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
+			write_voxelStat_img('Fstat_%s.X.time' % factors[0],
+				F_sa,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
+			write_voxelStat_img('Fstat_%s.X.time' % factors[2],
+				F_sb,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
+			write_voxelStat_img('Fstat_%s.X.%s.X.time' % (factors[0], factors[2]),
+				F_sb,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

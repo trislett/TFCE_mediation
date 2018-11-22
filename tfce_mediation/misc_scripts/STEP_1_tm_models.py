@@ -146,7 +146,7 @@ def save_temporary_files(statmodel, modality_type = None, **kwargs):
 	if statmodel == "glm":
 		tempdir = "tmtemp_GLM"
 	if statmodel == "mediation":
-		tempdir = "tmtemp_MEDIATION"
+		tempdir = "tmtemp_mediation"
 	if statmodel == "rmancova_one":
 		tempdir = "tmtemp_rmANCOVA1BS"
 	if statmodel == "rmancova_two":
@@ -496,14 +496,16 @@ def run(opts):
 							dmy_covariates=dmy_covariates,
 							output_fvalues = False,
 							output_tvalues = True,
-							output_reduced_residuals = False)
+							output_reduced_residuals = False,
+							exog_names = varnames)
 			else:
 				Tvalues, data = glm_typeI(data,
 							exog,
 							dmy_covariates=dmy_covariates,
 							output_fvalues = False,
 							output_tvalues = True,
-							output_reduced_residuals = True)
+							output_reduced_residuals = True,
+							exog_names = varnames)
 		elif opts.glmoutputstatistic[0] == 'f':
 			if opts.noreducedmodel:
 				Fmodel, Fvalues = glm_typeI(data,
@@ -518,7 +520,8 @@ def run(opts):
 							dmy_covariates = dmy_covariates,
 							output_fvalues = True,
 							output_tvalues = False,
-							output_reduced_residuals = True)
+							output_reduced_residuals = True,
+							exog_names = varnames)
 		else:
 			if opts.noreducedmodel:
 				Fmodel, Fvalues, Tvalues = glm_typeI(data,
@@ -533,7 +536,8 @@ def run(opts):
 							dmy_covariates = dmy_covariates,
 							output_fvalues = True,
 							output_tvalues = True,
-							output_reduced_residuals = True)
+							output_reduced_residuals = True,
+							exog_names = varnames)
 
 		if opts.surfaceinputfolder:
 			save_temporary_files('glm', modality_type = surface,

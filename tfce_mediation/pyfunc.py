@@ -2258,7 +2258,7 @@ def reg_rm_ancova_one_bs_factor(data, dmy_factor1, dmy_subjects, data_format = '
 			return (F_a, F_s, F_sa)
 
 # Type I Sum of Squares (order matters!!!)
-def glm_typeI(endog, exog, dmy_covariates = None, output_fvalues = True, output_tvalues = False, output_pvalues = False, verbose = True, rand_array = None, use_reduced_residuals = False, output_reduced_residuals = False):
+def glm_typeI(endog, exog, dmy_covariates = None, output_fvalues = True, output_tvalues = False, output_pvalues = False, verbose = True, rand_array = None, use_reduced_residuals = False, output_reduced_residuals = False, exog_names = None):
 	"""
 	Generalized ANCOVA using Type I Sum of Squares
 	
@@ -2330,7 +2330,10 @@ def glm_typeI(endog, exog, dmy_covariates = None, output_fvalues = True, output_
 			Ftemp = (SS_Between - SS_model)/(MS_Residuals*kvars[i])
 			Fvar.append(Ftemp)
 			if verbose:
-				print("Exog%d\t\t(%d,%d)\t%.2f" % ((i+1), col, DF_Within, Ftemp.max()))
+				if exog_names is not None:
+					print("%s\t\t(%d,%d)\t%.2f" % (exog_names[i], col, DF_Within, Ftemp.max()))
+				else:
+					print("Exog%d\t\t(%d,%d)\t%.2f" % ((i+1), col, DF_Within, Ftemp.max()))
 			start += col
 			if output_pvalues:
 				Pvar.append(f.sf(Fvar[i],col,DF_Within))

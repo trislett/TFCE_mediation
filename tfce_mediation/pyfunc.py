@@ -1222,6 +1222,7 @@ def import_voxel_neuroimage(image_path, mask_index = None):
 		if file_ext == '.nii':
 			if os.path.getsize(image_path) < 50000000:
 				image = nib.load(image_path)
+				image_data = image.get_data()
 			else:
 				tempname = str(uuid.uuid4().hex) + '.nii'
 				os.system("zcat %s > %s" % (image_path,tempname))
@@ -1232,14 +1233,15 @@ def import_voxel_neuroimage(image_path, mask_index = None):
 			print('Error: filetype for %s is not supported' % image_path)
 	elif file_ext == '.nii':
 		image = nib.load(image_path)
+		image_data = image.get_data()
 	elif file_ext == '.mnc':
 		image = nib.load(image_path)
+		image_data = image.get_data()
 	else:
 		print('Error filetype for %s is not supported' % file_ext)
 		quit()
 	print("Imported:\t%s" % image_path)
 	if mask_index is not None:
-		image_data = image.get_data()
 		image_data = image_data[mask_index]
 		return image_data
 	else:

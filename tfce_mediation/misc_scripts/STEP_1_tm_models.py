@@ -271,9 +271,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		metavar=('lh.*.srf', 'rh.*.srf'))
 	ap.add_argument("--tfce", 
 		help="TFCE settings. H (i.e., height raised to power H), E (i.e., extent raised to power E). Default: %(default)s). H=2, E=2/3 is the point at which the cummulative density function is approximately Gaussian distributed.", 
-		nargs=2, 
-		default=[2,0.67], 
-		metavar=('H', 'E'))
+		nargs=3, 
+		default=[2, 0.67, 26], 
+		metavar=('H', 'E', 'Adj'))
 	ap.add_argument("--noweight", 
 		help="Do not weight each vertex for density of vertices within the specified geodesic distance.", 
 		action="store_true")
@@ -410,6 +410,8 @@ def run(opts):
 			else:
 				data.append(import_voxel_neuroimage(vimage, mask_index).T)
 		data = np.array(data)
+		nonzero = np.zeros_like(data)
+		nonzero[:] = np.copy(data)
 		#TFCE
 		if opts.adjfiles:
 			print("Loading prior adjacency set")
@@ -421,41 +423,44 @@ def run(opts):
 	if opts.volumetricinputlist:
 		img_lists = opts.volumetricinputlist
 		for i in range(len(img_lists)):
+			img_data = []
 			if i == 0:
 				if opts.binarymask:
-					img_mask = import_voxel_neuroimage(opts.binarymask[0])
-					data_mask = img_mask.get_data()
+					img_mask, data_mask = import_voxel_neuroimage(opts.binarymask[0])
 					affine_mask = img_mask.affine
 					mask_index = data_mask > 0.99
 					for image_path in np.genfromtxt(img_lists[i], delimiter=',', dtype=str):
 						img_data.append(import_voxel_neuroimage(image_path, mask_index))
-					data.append(img_data[mask_index].T)
+					data.append(np.array(img_data))
+					del img_data
 				else:
-					temp, temp_data = import_voxel_neuroimage(np.genfromtxt(opts.volumetricinputlist[0], delimiter=',', dtype=str)[0]) # temporarly grab the first img
+					temp, temp_data = import_voxel_neuroimage(np.genfromtxt(img_lists[i], delimiter=',', dtype=str)[0]) # temporarly grab the first img
 					print("WARNING: only the first image was used to create a mask. It is recommended to use a binary mask (-m) with -vil")
 					affine_mask = temp.affine
 					mask_index = temp_data > 0.99
-					img_data = []
 					for image_path in np.genfromtxt(img_lists[i], delimiter=',', dtype=str):
 						img_data.append(import_voxel_neuroimage(image_path, mask_index))
 					img_data = np.array(img_data)
 					data_mask = np.zeros_like(temp_data)
 					data_mask[mask_index] = 1
-					data.append(img_data.T)
+					data.append(np.array(img_data))
 					del temp_data
 					del img_data
 			else:
 				for image_path in np.genfromtxt(img_lists[i], delimiter=',', dtype=str):
 					img_data.append(import_voxel_neuroimage(image_path, mask_index))
-				data.append(img_data[mask_index].T)
+				data.append(np.array(img_data))
 		data = np.array(data)
+		nonzero = np.empty_like(data)
+		nonzero[:] = np.copy(data)
+		print ("Voxel data loaded [%d intervals, %d subjects, %d voxels]" % (data.shape[0], data.shape[1], data.shape[2]))
 		#TFCE
 		if opts.adjfiles:
 			print("Loading prior adjacency set")
 			arg_adjac_lh = opts.adjfiles[0]
 			adjac = np.load(arg_adjac_lh)
 		else:
-			adjac = create_adjac_voxel(mask_index, data_mask, len(data_mask[mask_index]), dirtype=opts.tfce[2])
+			adjac = create_adjac_voxel(mask_index, data_mask, data.shape[2], dirtype=opts.tfce[2])
 		calcTFCE = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac) # H=2, E=2, 26 neighbour connectivity
 	if opts.tmiinputs:
 		print("TMI not supported yet.")
@@ -567,6 +572,7 @@ def run(opts):
 				optstfce = optstfce,
 				varnames = varnames,
 				gstat = opts.glmoutputstatistic[0],
+				nonzero = data.astype(np.float32, order = "C"),
 				data = data.astype(np.float32, order = "C"))
 
 		if opts.surfaceinputfolder:

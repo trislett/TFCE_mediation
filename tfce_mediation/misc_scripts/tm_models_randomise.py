@@ -119,11 +119,11 @@ def run(opts):
 		adjac_rh = np.load("%s/adjac_rh.npy" % tempdir)
 		vdensity_lh = np.load("%s/vdensity_lh.npy" % tempdir)
 		vdensity_rh = np.load("%s/vdensity_rh.npy" % tempdir)
-		calcTFCE_lh = CreateAdjSet(float(optstfce[0]), float(optstfce[1]), adjac_lh) # H=2, E=1
-		calcTFCE_rh = CreateAdjSet(float(optstfce[0]), float(optstfce[1]), adjac_rh) # H=2, E=1
+		calcTFCE_lh = CreateAdjSet(float(optstfce[0]), float(optstfce[1]), adjac_lh)
+		calcTFCE_rh = CreateAdjSet(float(optstfce[0]), float(optstfce[1]), adjac_rh)
 	else:
 		adjac = np.load("%s/adjac.npy" % tempdir)
-		calcTFCE = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac) # H=2, E=2, 26 neighbour connectivity
+		calcTFCE = CreateAdjSet(float(optstfce[0]), float(optstfce[1]), adjac)
 
 	if np.all(dmy_covariates) is None:
 		dmy_covariates = None
@@ -208,7 +208,7 @@ def run(opts):
 												vdensity_lh,
 												vdensity_rh)
 					else:
-						write_perm_maxTFCE_voxel('Fstat_con%d' % varnames[j],
+						write_perm_maxTFCE_voxel('Fstat_%s' % varnames[j],
 												Fvalues[j],
 												calcTFCE)
 

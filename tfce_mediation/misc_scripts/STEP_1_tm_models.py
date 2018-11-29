@@ -25,7 +25,7 @@ import pandas as pd
 from tfce_mediation.tfce import CreateAdjSet
 from tfce_mediation.pyfunc import write_vertStat_img, write_voxelStat_img, create_adjac_vertex, create_adjac_voxel, reg_rm_ancova_one_bs_factor, reg_rm_ancova_two_bs_factor, glm_typeI, calc_indirect, dummy_code, column_product, stack_ones, import_voxel_neuroimage
 
-def check_columns(pdData, datatype, folders = None, surface = None, FWHM = None, filelists = None, voximgs = None, tmi = None):
+def check_columns(pdData, datatype, folders = None, surface = None, FWHM = None, filelists = None, voximgs = None, tmi = None, tempdir = None):
 	for counter, roi in enumerate(pdData.columns):
 		if counter == 0:
 			num_subjects = len(pdData[roi])
@@ -92,6 +92,14 @@ def check_columns(pdData, datatype, folders = None, surface = None, FWHM = None,
 				print ("Error: %d image not found in %s." % (num_missing,filelist))
 	if datatype == 'tmi':
 		print("TMI not supported yet.")
+	if datatype == 'tmp_folder':
+		data = np.load("%s/nonzero.npy" % tempdir)
+		temp_num_img = data.shape[1]
+		if temp_num_img == num_subjects:
+			print("%s/nonzero.npy ...OK" % tempdir)
+		else:
+			print data.shape
+			print("Error: Length of nonzero.npy [%d] does not match number of subjects[%d]" % (temp_num_img, num_subjects))
 
 
 def load_vars(pdCSV, variables, exog = [], names = []):
@@ -193,7 +201,10 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs='+', 
 		help="Input folder containing each surface interval. -si {folder1} .. {foldern}", 
 		metavar=('PATH/TO/data.tmi'))
-
+	imputtypes.add_argument("-tmp", "--usetemporaryfolder", 
+		nargs=1, 
+		help="Import data from an existing temporary folder. This skips the need to re-import the data files while performing other statistical analyses.", 
+		metavar=('PATH/TO/tmtemp_{*}'))
 
 	ap.add_argument("-s", "--surface",  
 		nargs=1, 
@@ -301,6 +312,8 @@ def run(opts):
 			check_columns(pdCSV, datatype = 'filelist', filelists = opts.volumetricinputlist)
 		if opts.tmiinputs:
 			check_columns(pdCSV, datatype = 'tmi', tmi = opts.tmiinputs)
+		if opts.usetemporaryfolder:
+			check_columns(pdCSV, datatype = 'tmp_folder', tempdir = opts.usetemporaryfolder[0])
 		quit()
 	else:
 		# secondary required variables
@@ -349,6 +362,8 @@ def run(opts):
 				data.append(np.hstack((data_lh[mask_lh].T,data_rh[mask_rh].T)))
 				data_lh = data_rh = []
 		data = np.array(data)
+		nonzero = np.empty_like(data)
+		nonzero[:] = np.copy(data)
 
 		#TFCE
 		if opts.vertextriangularmesh:
@@ -395,23 +410,27 @@ def run(opts):
 		for i, vimage in enumerate(images):
 			if i == 0:
 				if opts.binarymask:
-					img_mask = import_voxel_neuroimage(opts.binarymask[0])
-					data_mask = img_mask.get_data()
+					img_mask, data_mask = import_voxel_neuroimage(opts.binarymask[0])
 					affine_mask = img_mask.affine
 					mask_index = data_mask > 0.99
-					data.append(import_voxel_neuroimage(vimage, mask_index).T)
+					tempdata = import_voxel_neuroimage(vimage, mask_index)
+					data.append(tempdata.T)
 				else:
 					img, img_data = import_voxel_neuroimage(vimage)
 					affine_mask = img.affine
 					data_mask = np.zeros_like(img_data[:,:,:,1])
 					mask_index = img_data.mean(3)!=0
 					data_mask[mask_index] = 1
-					data.append(img_data[mask_index].T)
+					tempdata = img_data[mask_index]
+					data.append(tempdata.T)
 			else:
-				data.append(import_voxel_neuroimage(vimage, mask_index).T)
+				tempdata = import_voxel_neuroimage(vimage, mask_index)
+				data.append(tempdata.T)
 		data = np.array(data)
+		print data.shape
 		nonzero = np.zeros_like(data)
 		nonzero[:] = np.copy(data)
+		print nonzero.shape
 		#TFCE
 		if opts.adjfiles:
 			print("Loading prior adjacency set")
@@ -465,33 +484,73 @@ def run(opts):
 	if opts.tmiinputs:
 		print("TMI not supported yet.")
 		quit()
+	if opts.usetemporaryfolder:
+		tempdir = opts.usetemporaryfolder[0]
+		tempfolder = os.path.basename(tempdir)
+		if not os.path.exists(tempdir):
+			print("ERROR: %s does not exist" % tempdir)
+			quit()
+		if tempfolder == "":
+			tempfolder = tempdir
 
+		_, _, modtype = tempfolder.split('_')
+		if modtype[-1] == "/":
+			# should never happen...
+			modtype = modtype[:-1]
+
+		if os.path.exists("%s/nonzero.npy" % tempdir):
+			data = np.load("%s/nonzero.npy" % tempdir)
+			nonzero = np.load("%s/nonzero.npy" % tempdir)
+		else:
+			print("ERROR: %s/nonzero.py does not exist. Please re-import the data using {-si|-vi|-vil|-ti}.")
+		print("Data loaded [%d intervals, %d subjects, %d voxels]" % (data.shape[0], data.shape[1], data.shape[2]))
+		if modtype == 'volume':
+			adjac = np.load("%s/adjac.npy" % tempdir)
+			data_mask = np.load("%s/data_mask.npy" % tempdir)
+			mask_index = np.load("%s/mask_index.npy" % tempdir)
+			affine_mask = np.load("%s/affine_mask.npy" % tempdir)
+			calcTFCE = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac)
+			opts.volumetricinputs = True
+		elif modtype == 'tmi':
+			pass
+		else:
+			surface = modtype
+			opts.surfaceinputfolder = True
+			num_vertex_lh = np.load("%s/num_vertex_lh.npy" % tempdir)
+			mask_lh = np.load("%s/mask_lh.npy" % tempdir)
+			mask_rh = np.load("%s/mask_rh.npy" % tempdir)
+			adjac_lh = np.load("%s/adjac_lh.npy" % tempdir)
+			adjac_rh = np.load("%s/adjac_rh.npy" % tempdir)
+			vdensity_lh = np.load("%s/vdensity_lh.npy" % tempdir)
+			vdensity_rh = np.load("%s/vdensity_rh.npy" % tempdir)
+			calcTFCE_lh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_lh)
+			calcTFCE_rh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_rh)
 
 
 	##### GLM ######
 	if opts.generalizedlinearmodel:
 		exog, varnames = load_vars(pdCSV, variables = opts.generalizedlinearmodel, exog = [], names = [])
 		data = data[0] # There should only be one interval...
-		exog_shape = []
-		for i in range(len(varnames)):
-			exog_shape.append(exog[i].shape[1])
+
 
 		if opts.covariates:
 			covars, covarnames = load_vars(pdCSV, variables = opts.covariates, exog = [], names = [])
 		else:
 			covars = covarnames = []
-
 		if opts.exogenousvariableinteraction:
 			varnames, exog, covarnames, covars = load_interactions(opts.exogenousvariableinteraction, 
 														varnames = varnames,
 														exog = exog,
 														covarnames = covarnames,
 														covars = covars)
-
 		if opts.covariates:
 			dmy_covariates = np.concatenate(covars,1)
 		else:
 			dmy_covariates = None
+
+		exog_shape = []
+		for i in range(len(varnames)):
+			exog_shape.append(exog[i].shape[1])
 
 		Tvalues = Fmodel = Fvalues = None
 		if opts.glmoutputstatistic[0] == 't':
@@ -560,11 +619,13 @@ def run(opts):
 				optstfce = optstfce,
 				varnames = varnames,
 				gstat = opts.glmoutputstatistic[0],
+				nonzero = nonzero.astype(np.float32, order = "C"),
 				data = data.astype(np.float32, order = "C"))
 		if opts.volumetricinputs or opts.volumetricinputlist:
 			save_temporary_files('glm', modality_type = "volume",
 				mask_index = mask_index,
 				data_mask = data_mask,
+				affine_mask = affine_mask,
 				adjac = adjac,
 				exog_flat = np.concatenate(exog,1),
 				exog_shape = exog_shape,
@@ -572,7 +633,7 @@ def run(opts):
 				optstfce = optstfce,
 				varnames = varnames,
 				gstat = opts.glmoutputstatistic[0],
-				nonzero = data.astype(np.float32, order = "C"),
+				nonzero = nonzero.astype(np.float32, order = "C"),
 				data = data.astype(np.float32, order = "C"))
 
 		if opts.surfaceinputfolder:
@@ -702,7 +763,7 @@ def run(opts):
 						calcTFCE,
 						imgext)
 					write_voxelStat_img('negTstat_con%d' % tnum, 
-						Tvalues[tnum,:],
+						-Tvalues[tnum,:],
 						data_mask,
 						mask_index,
 						affine_mask,
@@ -840,6 +901,7 @@ def run(opts):
 				dmy_covariates = dmy_covariates,
 				optstfce = optstfce,
 				medtype = medtype,
+				nonzero = nonzero.astype(np.float32, order = "C"),
 				data = data.astype(np.float32, order = "C"))
 
 			outdir = "output_mediation_%s" % (surface)
@@ -872,12 +934,14 @@ def run(opts):
 			save_temporary_files('mediation', modality_type = "volume",
 				mask_index = mask_index,
 				data_mask = data_mask,
+				affine_mask = affine_mask,
 				adjac = adjac,
 				dmy_leftvar = dmy_leftvar,
 				dmy_rightvar = dmy_rightvar,
 				dmy_covariates = dmy_covariates,
 				optstfce = optstfce,
 				medtype = medtype,
+				nonzero = nonzero.astype(np.float32, order = "C"),
 				data = data.astype(np.float32, order = "C"))
 
 			outdir = "output_mediation_volume"
@@ -956,11 +1020,13 @@ def run(opts):
 				optstfce = optstfce,
 				factors = factors,
 				dformat = dformat,
+				nonzero = nonzero.astype(np.float32, order = "C"),
 				data = data.astype(np.float32, order = "C"))
 		if opts.volumetricinputs or opts.volumetricinputlist:
 			save_temporary_files('rmancova_one', modality_type = "volume",
 				mask_index = mask_index,
 				data_mask = data_mask,
+				affine_mask = affine_mask,
 				adjac = adjac,
 				dmy_factor1 = dmy_factor1,
 				dmy_subjects = dmy_subjects,
@@ -968,6 +1034,7 @@ def run(opts):
 				optstfce = optstfce,
 				factors = factors,
 				dformat = dformat,
+				nonzero = nonzero.astype(np.float32, order = "C"),
 				data = data.astype(np.float32, order = "C"))
 
 		if opts.surfaceinputfolder:
@@ -1138,11 +1205,13 @@ def run(opts):
 				optstfce = optstfce,
 				factors = factors,
 				dformat = dformat,
+				nonzero = nonzero.astype(np.float32, order = "C"),
 				data = data.astype(np.float32, order = "C"))
 		if opts.volumetricinputs or opts.volumetricinputlist:
 			save_temporary_files('rmancova_one', modality_type = "volume",
 				mask_index = mask_index,
 				data_mask = data_mask,
+				affine_mask = affine_mask,
 				adjac = adjac,
 				dmy_factor1 = dmy_factor1,
 				dmy_factor2 = dmy_factor2,
@@ -1151,6 +1220,7 @@ def run(opts):
 				optstfce = optstfce,
 				factors = factors,
 				dformat = dformat,
+				nonzero = nonzero.astype(np.float32, order = "C"),
 				data = data.astype(np.float32, order = "C"))
 
 		if opts.surfaceinputfolder:

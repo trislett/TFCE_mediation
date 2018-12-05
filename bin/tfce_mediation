@@ -16,9 +16,8 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-import argparse as ap
 
+import argparse as ap
 import tfce_mediation
 from tfce_mediation.version import __version__
 import sys
@@ -47,7 +46,7 @@ class _Usage(ap._HelpAction):
 		splist.append(voxel_step1_mediation)
 		splist.append(vertex_step1_regression)
 		splist.append(vertex_step1_mediation)
-		splist.append(vertex_step1_mixed)
+		splist.append(tm_models)
 		splist.append(voxel_step2)
 		splist.append(calculate_fweP_voxel)
 		splist.append(calculate_fweP_vertex)
@@ -55,7 +54,7 @@ class _Usage(ap._HelpAction):
 		splist.append(voxel_mediation_randomise)
 		splist.append(vertex_regression_randomise)
 		splist.append(vertex_mediation_randomise)
-		splist.append(vertex_mixed_randomise)
+		splist.append(tm_models_randomise)
 
 		helps = []
 		helps.append(parser.format_usage())
@@ -99,9 +98,9 @@ vertex_step1_mediation = subparsers.add_parser("step1-vertex-mediation", help="V
 vertex_step1_mediation.set_defaults(func = tfce_mediation.tmanalysis.STEP_1_vertex_tfce_mediation.run)
 tfce_mediation.tmanalysis.STEP_1_vertex_tfce_mediation.getArgumentParser(vertex_step1_mediation)
 
-vertex_step1_mixed = subparsers.add_parser("step1-vertex-mixed", help="Vertex-based mixed-effect analysis with TFCE")
-vertex_step1_mixed.set_defaults(func = tfce_mediation.tmanalysis.STEP_1_vertex_tfce_ANCOVAs.run)
-tfce_mediation.tmanalysis.STEP_1_vertex_tfce_ANCOVAs.getArgumentParser(vertex_step1_mixed)
+tm_models = subparsers.add_parser("step1-tm-models", help="Surface or volumentric statistical models for GLM, mediation, and longitudinal analyses with TFCE")
+tm_models.set_defaults(func = tfce_mediation.tmanalysis.STEP_1_tm_models.run)
+tfce_mediation.tmanalysis.STEP_1_tm_models.getArgumentParser(tm_models)
 
 voxel_step2 = subparsers.add_parser("step2-randomise-parallel", help="Parallel processing of permutation analyses.")
 voxel_step2.set_defaults(func = tfce_mediation.tmanalysis.STEP_2_tfce_randomise_parallel.run)
@@ -131,9 +130,9 @@ vertex_mediation_randomise = subparsers.add_parser("vertex-mediation-randomise",
 vertex_mediation_randomise.set_defaults(func = tfce_mediation.tmanalysis.vertex_tfce_mediation_randomise.run)
 tfce_mediation.tmanalysis.vertex_tfce_mediation_randomise.getArgumentParser(vertex_mediation_randomise)
 
-vertex_mixed_randomise = subparsers.add_parser("vertex-mixed-randomise", help="Permutation analysis for vertex-based mediation with TFCE")
-vertex_mixed_randomise.set_defaults(func = tfce_mediation.tmanalysis.vertex_tfce_ANCOVAs_randomise.run)
-tfce_mediation.tmanalysis.vertex_tfce_ANCOVAs_randomise.getArgumentParser(vertex_mixed_randomise)
+tm_models_randomise = subparsers.add_parser("tm-models-randomise", help="Permutation analysis for tm-models")
+tm_models_randomise.set_defaults(func = tfce_mediation.tmanalysis.tm_models_randomise.run)
+tfce_mediation.tmanalysis.tm_models_randomise.getArgumentParser(tm_models_randomise)
 
 parser.add_argument('--verbosehelp', action=_HelpAction, help='Display help for each sub-command.')  # add custom help
 parser.add_argument('--usage', action=_Usage, help='Display usage for sub-command.')  # add printout usage

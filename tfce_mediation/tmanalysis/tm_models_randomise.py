@@ -27,6 +27,48 @@ from tfce_mediation.pyfunc import reg_rm_ancova_one_bs_factor, reg_rm_ancova_two
 DESCRIPTION = "Vertex-wise stastical models including mediation, within-subject designs, and GLMs with TFCE."
 start_time = time()
 
+
+def rand_blocks(block_list, equal_sizes = None):
+	"""
+	Output permutation index array based on blocks.
+	Note: if equal size is not specified, the size of each block will be checked.
+	
+	Parameters
+	----------
+	block_list : array
+	equal_sizes : bool, optional
+	
+	Returns
+	-------
+	rand_array : array
+	
+	OR 
+	
+	equal_sizes : bool
+	"""
+	unique_blocks = np.unique(block_list)
+	if equal_sizes is None:
+		block_sizes = []
+		for block in unique_blocks:
+			block_sizes.append(len(block_list[block_list == block]))
+		equal_sizes = all(x==block_sizes[0] for x in list(block_sizes))
+		if equal_sizes == False:
+			print("Warning: blocks are not equal. Swaping with only occur within blocks, but not among blocks.")
+		return equal_sizes
+	else:
+		indexer = np.array(range(len(block_list)))
+		if equal_sizes is True:
+			randindex = []
+			for block in np.random.permutation(list(np.unique(block_list))):
+				randindex.append(np.random.permutation(indexer[block_list==block]))
+			rand_array = np.concatenate(np.array(randindex))
+		else:
+			randindex = []
+			for block in np.unique(block_list):
+				randindex.append(np.random.permutation(indexer[block_list==block]))
+			rand_array = np.concatenate(np.array(randindex))
+		return rand_array
+
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	ap.add_argument("-r", "--range", 
 		nargs = 2, 
@@ -135,7 +177,8 @@ def run(opts):
 
 	if opts.exchangeblock:
 		block_list = np.genfromtxt(opts.exchangeblock[0], dtype=np.str)
-		indexer = np.array(range(len(block_list)))
+		equal_sizes = rand_blocks(block_list)
+
 
 	#permute T values and write max TFCE values
 	if not os.path.exists(outdir):
@@ -153,10 +196,7 @@ def run(opts):
 			Tvalues = Fvalues = None
 
 			if opts.exchangeblock:
-				randindex = []
-				for block in np.random.permutation(list(np.unique(block_list))):
-					randindex.append(np.random.permutation(indexer[block_list==block]))
-				rand_array = np.concatenate(np.array(randindex))
+				rand_array = rand_blocks(block_list, equal_sizes)
 			else:
 				rand_array = np.random.permutation(list(range(data.shape[0])))
 
@@ -232,11 +272,9 @@ def run(opts):
 		# MEDIATION
 		if opts.mediation:
 
+
 			if opts.exchangeblock:
-				randindex = []
-				for block in np.random.permutation(list(np.unique(block_list))):
-					randindex.append(np.random.permutation(indexer[block_list==block]))
-				rand_array = np.concatenate(np.array(randindex))
+				rand_array = rand_blocks(block_list, equal_sizes)
 			else:
 				rand_array = np.random.permutation(list(range(dmy_leftvar.shape[0])))
 
@@ -329,10 +367,7 @@ def run(opts):
 		if opts.onebetweenssubjectfactor:
 
 			if opts.exchangeblock:
-				randindex = []
-				for block in np.random.permutation(list(np.unique(block_list))):
-					randindex.append(np.random.permutation(indexer[block_list==block]))
-				rand_array = np.concatenate(np.array(randindex))
+				rand_array = rand_blocks(block_list, equal_sizes)
 			else:
 				rand_array = np.random.permutation(list(range(dmy_factor1.shape[0])))
 
@@ -387,10 +422,7 @@ def run(opts):
 		if opts.twobetweenssubjectfactor:
 
 			if opts.exchangeblock:
-				randindex = []
-				for block in np.random.permutation(list(np.unique(block_list))):
-					randindex.append(np.random.permutation(indexer[block_list==block]))
-				rand_array = np.concatenate(np.array(randindex))
+				rand_array = rand_blocks(block_list, equal_sizes)
 			else:
 				rand_array = np.random.permutation(list(range(dmy_factor1.shape[0])))
 

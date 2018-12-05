@@ -11,5 +11,5 @@ from . import STEP_1_vertex_tfce_multiple_regression
 from . import vertex_tfce_multiple_regression_randomise
 from . import vertex_tfce_mediation_randomise
 from . import calculate_fweP_vertex
-from . import STEP_1_vertex_tfce_ANCOVAs
-from . import vertex_tfce_ANCOVAs_randomise
+from . import STEP_1_tm_models
+from . import tm_models_randomise

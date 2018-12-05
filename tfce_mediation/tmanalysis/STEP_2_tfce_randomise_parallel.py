@@ -44,14 +44,18 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		choices = ['I','M','Y'], 
 		metavar=('STR'))
 	stat.add_argument("-glm","--generalizedlinearmodel",
-		help="GLM analysis.",
+		help="GLM analysis with tm-models.",
+		action='store_true')
+	stat.add_argument("-med","--modelmediation",
+		help="Mediation with tm-models",
 		action='store_true')
 	stat.add_argument("-ofa","--onebetweenssubjectfactor",
-		help="One factor repeated measure ANCOVA",
+		help="One factor repeated measure ANCOVA with tm-models",
 		action='store_true')
 	stat.add_argument("-tfa","--twobetweenssubjectfactor",
-		help="Two factor repeated measure ANCOVA",
+		help="Two factor repeated measure ANCOVA with tm-models",
 		action='store_true')
+
 
 	ap.add_argument("-n", "--numperm", 
 		nargs=1, 
@@ -63,6 +67,11 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=2, type=int, 
 		help="Optional for multiple regression. Specify which regressors are permuted [first] [last]. For one variable, first=last.", 
 		metavar=('INT','INT'))
+	ap.add_argument("-e", "--exchangeblock", 
+		nargs=1, 
+		help="Exchangability blocks", 
+		metavar=('*.csv'), 
+		required=False)
 	group = ap.add_mutually_exclusive_group(required=False)
 	group.add_argument("-p","--gnuparallel", 
 		nargs=1, 
@@ -88,18 +97,32 @@ def run(opts):
 			whichScript="tfce_mediation voxel-regress-randomise -v %d %d" % (opts.specifyvars[0], opts.specifyvars[1])
 		if opts.mediation:
 			whichScript= "tfce_mediation voxel-mediation-randomise -m %s" % (opts.mediation[0])
+		if opts.generalizedlinearmodel:
+			whichScript= "tfce_mediation tm_models_randomise -v -glm" % (opts.vertex[0])
+		if opts.onebetweenssubjectfactor:
+			whichScript= "tfce_mediation tm_models_randomise -v -ofa" % (opts.vertex[0])
+		if opts.twobetweenssubjectfactor:
+			whichScript= "tfce_mediation tm_models_randomise -v -tfa" % (opts.vertex[0])
+		if opts.modelmediation:
+			whichScript= "tfce_mediation tm_models_randomise -v -med" % (opts.vertex[0])
 	else:
 		whichScript= "tfce_mediation vertex-regress-randomise -s %s" % (opts.vertex[0])
 		if opts.specifyvars:
 			whichScript= "tfce_mediation vertex-regress-randomise -s %s -v %d %d" % (opts.vertex[0], opts.specifyvars[0], opts.specifyvars[1])
 		if opts.mediation:
-			whichScript= "tfce_mediation vertex-mediation-randomise -s %s -m %s" % (opts.vertex[0],opts.mediation[0])
+			whichScript = "tfce_mediation vertex-mediation-randomise -s %s -m %s" % (opts.vertex[0],opts.mediation[0])
 		if opts.generalizedlinearmodel:
-			whichScript= "tfce_mediation vertex-mixed-randomise -s %s -glm" % (opts.vertex[0])
+			whichScript = "tfce_mediation tm_models_randomise -s %s -glm" % (opts.vertex[0])
 		if opts.onebetweenssubjectfactor:
-			whichScript= "tfce_mediation vertex-mixed-randomise -s %s -ofa" % (opts.vertex[0])
+			whichScript = "tfce_mediation tm_models_randomise -s %s -ofa" % (opts.vertex[0])
 		if opts.twobetweenssubjectfactor:
-			whichScript= "tfce_mediation vertex-mixed-randomise -s %s -tfa" % (opts.vertex[0])
+			whichScript = "tfce_mediation tm_models_randomise -s %s -tfa" % (opts.vertex[0])
+		if opts.modelmediation:
+			whichScript = "tfce_mediation tm_models_randomise -s %s -med" % (opts.vertex[0])
+
+	if opts.exchangeblock:
+		whichScript = "%s -e %s" % (whichScript, opts.exchangeblock[0])
+
 
 	#round number of permutations to the nearest 200
 	roundperm=int(np.round(opts.numperm[0]/200.0)*100.0)

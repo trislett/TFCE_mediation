@@ -30,10 +30,10 @@ def get_script_path():
 def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	datatype = ap.add_mutually_exclusive_group(required=True)
 	datatype.add_argument("--voxel", 
-		help="Voxel analysis", 
+		help="Voxel analysis.", 
 		action="store_true")
 	datatype.add_argument("--vertex", 
-		help="Vertex analysis. Input surface: e.g. --vertex [area or thickness]", 
+		help="Vertex analysis. Input surface: e.g. --vertex {surface}", 
 		nargs=1,
 		metavar=('surface'))
 

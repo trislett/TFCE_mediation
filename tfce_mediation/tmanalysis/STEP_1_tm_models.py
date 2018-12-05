@@ -526,13 +526,16 @@ def run(opts):
 			all_vertex = np.load("%s/all_vertex.npy" % tempdir)
 			mask_lh = np.load("%s/mask_lh.npy" % tempdir)
 			mask_rh = np.load("%s/mask_rh.npy" % tempdir)
+			outdata_mask_lh = np.load("%s/outdata_mask_lh.npy" % tempdir)
+			outdata_mask_rh = np.load("%s/outdata_mask_rh.npy" % tempdir)
+			affine_mask_lh = np.load("%s/affine_mask_lh.npy" % tempdir)
+			affine_mask_rh = np.load("%s/affine_mask_rh.npy" % tempdir)
 			adjac_lh = np.load("%s/adjac_lh.npy" % tempdir)
 			adjac_rh = np.load("%s/adjac_rh.npy" % tempdir)
 			vdensity_lh = np.load("%s/vdensity_lh.npy" % tempdir)
 			vdensity_rh = np.load("%s/vdensity_rh.npy" % tempdir)
 			calcTFCE_lh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_lh)
 			calcTFCE_rh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_rh)
-
 
 	##### GLM ######
 	if opts.generalizedlinearmodel:
@@ -616,6 +619,10 @@ def run(opts):
 				num_vertex_lh = num_vertex_lh,
 				mask_lh = mask_lh,
 				mask_rh = mask_rh,
+				outdata_mask_lh = outdata_mask_lh,
+				outdata_mask_rh = outdata_mask_rh,
+				affine_mask_lh = affine_mask_lh,
+				affine_mask_rh = affine_mask_rh,
 				adjac_lh = adjac_lh,
 				adjac_rh = adjac_rh,
 				vdensity_lh = vdensity_lh,
@@ -899,6 +906,10 @@ def run(opts):
 				num_vertex_lh = num_vertex_lh,
 				mask_lh = mask_lh,
 				mask_rh = mask_rh,
+				outdata_mask_lh = outdata_mask_lh,
+				outdata_mask_rh = outdata_mask_rh,
+				affine_mask_lh = affine_mask_lh,
+				affine_mask_rh = affine_mask_rh,
 				adjac_lh = adjac_lh,
 				adjac_rh = adjac_rh,
 				vdensity_lh = vdensity_lh,
@@ -1017,6 +1028,10 @@ def run(opts):
 				num_vertex_lh = num_vertex_lh,
 				mask_lh = mask_lh,
 				mask_rh = mask_rh,
+				outdata_mask_lh = outdata_mask_lh,
+				outdata_mask_rh = outdata_mask_rh,
+				affine_mask_lh = affine_mask_lh,
+				affine_mask_rh = affine_mask_rh,
 				adjac_lh = adjac_lh,
 				adjac_rh = adjac_rh,
 				vdensity_lh = vdensity_lh,
@@ -1201,6 +1216,10 @@ def run(opts):
 				num_vertex_lh = num_vertex_lh,
 				mask_lh = mask_lh,
 				mask_rh = mask_rh,
+				outdata_mask_lh = outdata_mask_lh,
+				outdata_mask_rh = outdata_mask_rh,
+				affine_mask_lh = affine_mask_lh,
+				affine_mask_rh = affine_mask_rh,
 				adjac_lh = adjac_lh,
 				adjac_rh = adjac_rh,
 				vdensity_lh = vdensity_lh,

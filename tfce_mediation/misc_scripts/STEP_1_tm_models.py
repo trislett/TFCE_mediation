@@ -102,7 +102,7 @@ def check_columns(pdData, datatype, folders = None, surface = None, FWHM = None,
 			print("Error: Length of nonzero.npy [%d] does not match number of subjects[%d]" % (temp_num_img, num_subjects))
 
 
-def load_vars(pdCSV, variables, exog = [], names = []):
+def load_vars(pdCSV, variables, exog = [], names = [], demean_flag = True):
 	if len(variables) % 2 == 1:
 		print("Error: each input must be followed by data type. e.g., -glm age c sex d site d (d = discrete, c = continous)")
 	num_exog = len(variables) / 2
@@ -111,12 +111,12 @@ def load_vars(pdCSV, variables, exog = [], names = []):
 		k = j + 1
 		if variables[k] == 'c':
 			print("Coding %s as continous variable" % variables[j])
-			temp = dummy_code(np.array(pdCSV[variables[j]]), iscontinous = True)
+			temp = dummy_code(np.array(pdCSV[variables[j]]), iscontinous = True, demean = demean_flag)
 			temp = temp[:,np.newaxis]
 			exog.append(temp)
 		elif variables[k] == 'd':
 			print("Coding %s as discrete variable" % variables[j])
-			temp = dummy_code(np.array(pdCSV[variables[j]]), iscontinous = False)
+			temp = dummy_code(np.array(pdCSV[variables[j]]), iscontinous = False, demean = demean_flag)
 			if temp.ndim == 1:
 				temp = temp[:,np.newaxis]
 			exog.append(temp)
@@ -291,6 +291,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	ap.add_argument("--noreducedmodel", 
 		help="Do not use a reduced model for permutation testing (i.e., the residuals after controlling for between-subject effects).",
 		action="store_true")
+	ap.add_argument("-nmc", "--nomeancentering", 
+		help="Do not mean center the exogenous variables.",
+		action="store_true")
 	return ap
 
 def run(opts):
@@ -301,6 +304,9 @@ def run(opts):
 	optstfce = opts.tfce
 
 	imgext = '.nii.gz' # temporary
+	demean_flag = True
+	if opts.nomeancentering:
+		demean_flag = False
 
 	# output column/variable names.
 	if opts.outputcolumnnames:
@@ -517,6 +523,7 @@ def run(opts):
 			surface = modtype
 			opts.surfaceinputfolder = True
 			num_vertex_lh = np.load("%s/num_vertex_lh.npy" % tempdir)
+			all_vertex = np.load("%s/all_vertex.npy" % tempdir)
 			mask_lh = np.load("%s/mask_lh.npy" % tempdir)
 			mask_rh = np.load("%s/mask_rh.npy" % tempdir)
 			adjac_lh = np.load("%s/adjac_lh.npy" % tempdir)
@@ -529,12 +536,12 @@ def run(opts):
 
 	##### GLM ######
 	if opts.generalizedlinearmodel:
-		exog, varnames = load_vars(pdCSV, variables = opts.generalizedlinearmodel, exog = [], names = [])
+		exog, varnames = load_vars(pdCSV, variables = opts.generalizedlinearmodel, exog = [], names = [], demean_flag = demean_flag)
 		data = data[0] # There should only be one interval...
 
 
 		if opts.covariates:
-			covars, covarnames = load_vars(pdCSV, variables = opts.covariates, exog = [], names = [])
+			covars, covarnames = load_vars(pdCSV, variables = opts.covariates, exog = [], names = [], demean_flag = demean_flag)
 		else:
 			covars = covarnames = []
 		if opts.exogenousvariableinteraction:
@@ -793,20 +800,20 @@ def run(opts):
 		data = data[0] # There should only be one interval...
 
 		if factors[1] == 'c':
-			dmy_leftvar = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = True)
+			dmy_leftvar = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = True, demean = demean_flag)
 			print("Coding %s as continous variable" % factors[0])
 		else:
-			dmy_leftvar = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = False)
+			dmy_leftvar = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = False, demean = demean_flag)
 			print("Coding %s as discrete variable" % factors[0])
 		if factors[3] == 'c':
-			dmy_rightvar = dummy_code(np.array(pdCSV[factors[2]]), iscontinous = True)
+			dmy_rightvar = dummy_code(np.array(pdCSV[factors[2]]), iscontinous = True, demean = demean_flag)
 			print("Coding %s as continous variable" % factors[2])
 		else:
-			dmy_rightvar = dummy_code(np.array(pdCSV[factors[2]]), iscontinous = False)
+			dmy_rightvar = dummy_code(np.array(pdCSV[factors[2]]), iscontinous = False, demean = demean_flag)
 			print("Coding %s as discrete variable" % factors[2])
 
 		if opts.covariates:
-			covars, covarnames = load_vars(pdCSV, variables = opts.covariates, exog = [], names = [])
+			covars, covarnames = load_vars(pdCSV, variables = opts.covariates, exog = [], names = [], demean_flag = demean_flag)
 		else:
 			covars = covarnames = []
 
@@ -964,15 +971,15 @@ def run(opts):
 		subjects = opts.subjectidcolumns[0]
 
 		if factors[1] == 'c':
-			dmy_factor1 = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = True)
+			dmy_factor1 = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = True, demean = demean_flag)
 			print("Coding %s as continous variable" % factors[0])
 		else:
-			dmy_factor1 = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = False)
+			dmy_factor1 = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = False, demean = demean_flag)
 			print("Coding %s as discrete variable" % factors[0])
 		dmy_subjects = dummy_code(np.array(pdCSV[subjects]), demean = False)
 
 		if opts.covariates:
-			covars, covarnames = load_vars(pdCSV, variables = opts.covariates, exog = [], names = [])
+			covars, covarnames = load_vars(pdCSV, variables = opts.covariates, exog = [], names = [], demean_flag = demean_flag)
 		else:
 			covars = covarnames = []
 
@@ -1138,22 +1145,22 @@ def run(opts):
 		subjects = opts.subjectidcolumns[0]
 
 		if factors[1] == 'c':
-			dmy_factor1 = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = True)
+			dmy_factor1 = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = True, demean = demean_flag)
 			print("Coding %s as continous variable" % factors[0])
 		else:
-			dmy_factor1 = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = False)
+			dmy_factor1 = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = False, demean = demean_flag)
 			print("Coding %s as discrete variable" % factors[0])
 		if factors[3] == 'c':
-			dmy_factor2 = dummy_code(np.array(pdCSV[factors[2]]), iscontinous = True)
+			dmy_factor2 = dummy_code(np.array(pdCSV[factors[2]]), iscontinous = True, demean = demean_flag)
 			print("Coding %s as continous variable" % factors[2])
 		else:
-			dmy_factor2 = dummy_code(np.array(pdCSV[factors[2]]), iscontinous = False)
+			dmy_factor2 = dummy_code(np.array(pdCSV[factors[2]]), iscontinous = False, demean = demean_flag)
 			print("Coding %s as discrete variable" % factors[2])
 		dmy_subjects = dummy_code(np.array(pdCSV[subjects]), demean = False)
 
 
 		if opts.covariates:
-			covars, covarnames = load_vars(pdCSV, variables = opts.covariates, exog = [], names = [])
+			covars, covarnames = load_vars(pdCSV, variables = opts.covariates, exog = [], names = [], demean_flag = demean_flag)
 		else:
 			covars = covarnames = []
 

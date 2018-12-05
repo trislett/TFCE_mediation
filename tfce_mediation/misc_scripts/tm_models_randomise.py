@@ -55,6 +55,11 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		action='store_true')
 	stat.add_argument("-tfa","--twobetweenssubjectfactor",
 		action='store_true')
+	ap.add_argument("-e", "--exchangeblock", 
+		nargs=1, 
+		help="Exchangability blocks", 
+		metavar=('*.csv'), 
+		required=False)
 
 	return ap
 
@@ -128,6 +133,10 @@ def run(opts):
 	if np.all(dmy_covariates) is None:
 		dmy_covariates = None
 
+	if opts.exchangeblock:
+		block_list = np.genfromtxt(opts.exchangeblock[0], dtype=np.str)
+		indexer = np.array(range(len(block_list)))
+
 	#permute T values and write max TFCE values
 	if not os.path.exists(outdir):
 		os.mkdir(outdir)
@@ -142,7 +151,15 @@ def run(opts):
 		# GLM
 		if opts.generalizedlinearmodel:
 			Tvalues = Fvalues = None
-			rand_array = np.random.permutation(list(range(data.shape[0])))
+
+			if opts.exchangeblock:
+				randindex = []
+				for block in np.random.permutation(list(np.unique(block_list))):
+					randindex.append(np.random.permutation(indexer[block_list==block]))
+				rand_array = np.concatenate(np.array(randindex))
+			else:
+				rand_array = np.random.permutation(list(range(data.shape[0])))
+
 			if gstat == 'f':
 				Fvalues = glm_typeI(data,
 							exog,
@@ -214,7 +231,15 @@ def run(opts):
 
 		# MEDIATION
 		if opts.mediation:
-			rand_array = np.random.permutation(list(range(dmy_leftvar.shape[0])))
+
+			if opts.exchangeblock:
+				randindex = []
+				for block in np.random.permutation(list(np.unique(block_list))):
+					randindex.append(np.random.permutation(indexer[block_list==block]))
+				rand_array = np.concatenate(np.array(randindex))
+			else:
+				rand_array = np.random.permutation(list(range(dmy_leftvar.shape[0])))
+
 			if (medtype == 'I'):
 				dmy_leftvar = dmy_leftvar[rand_array]
 
@@ -302,7 +327,15 @@ def run(opts):
 
 		# One between-subject, one within-subject ANCOVA
 		if opts.onebetweenssubjectfactor:
-			rand_array = np.random.permutation(list(range(dmy_factor1.shape[0])))
+
+			if opts.exchangeblock:
+				randindex = []
+				for block in np.random.permutation(list(np.unique(block_list))):
+					randindex.append(np.random.permutation(indexer[block_list==block]))
+				rand_array = np.concatenate(np.array(randindex))
+			else:
+				rand_array = np.random.permutation(list(range(dmy_factor1.shape[0])))
+
 			F_a, F_s, F_sa = reg_rm_ancova_one_bs_factor(data, 
 									dmy_factor1,
 									dmy_subjects,
@@ -352,7 +385,15 @@ def run(opts):
 
 		# Two between-subject, one within-subject ANCOVA
 		if opts.twobetweenssubjectfactor:
-			rand_array = np.random.permutation(list(range(dmy_factor1.shape[0])))
+
+			if opts.exchangeblock:
+				randindex = []
+				for block in np.random.permutation(list(np.unique(block_list))):
+					randindex.append(np.random.permutation(indexer[block_list==block]))
+				rand_array = np.concatenate(np.array(randindex))
+			else:
+				rand_array = np.random.permutation(list(range(dmy_factor1.shape[0])))
+
 			F_a, F_b, F_ab, F_s, F_sa, F_sb, F_sab = reg_rm_ancova_two_bs_factor(data, 
 									dmy_factor1,
 									dmy_factor2, 

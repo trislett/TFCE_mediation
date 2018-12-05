@@ -40,12 +40,20 @@ def getArgumentParser(ap = ap.ArgumentParser(description=DESCRIPTION)):
 		type=int,
 		help="Optional. Specify which regressors are permuted [first] [last]. For one variable, first=last.", 
 		metavar=('INT','INT'))
+	ap.add_argument("-e", "--exchangeblock", 
+		nargs=1, 
+		help="Exchangability blocks", 
+		metavar=('*.csv'), 
+		required=False)
 	return ap
 
 
 def run(opts):
 	arg_perm_start = int(opts.range[0])
 	arg_perm_stop = int(opts.range[1]) + 1
+	if opts.exchangeblock:
+		block_list = np.genfromtxt(opts.exchangeblock[0], dtype=np.str)
+		indexer = np.array(range(len(block_list)))
 
 	np.seterr(divide="ignore", invalid="ignore") #only necessary for ANTS skeleton
 
@@ -88,6 +96,12 @@ def run(opts):
 				stop=opts.specifyvars[1]+1
 				nx = X
 				nx[:,start:stop]=X[:,start:stop][np.random.permutation(list(range(n)))]
+			elif opts.exchangeblock:
+				randindex = []
+				for block in np.random.permutation(list(np.unique(block_list))):
+					randindex.append(np.random.permutation(indexer[block_list==block]))
+				randindex = np.concatenate(np.array(randindex))
+				nx = X[randindex]
 			else:
 				nx = X[np.random.permutation(list(range(n)))]
 			invXX = np.linalg.inv(np.dot(nx.T, nx))

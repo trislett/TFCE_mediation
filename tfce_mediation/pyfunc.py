@@ -1408,7 +1408,7 @@ def rm_anova_one_bs_factor(data, between_factor, output_sig = False):
 		return(Fbetween, Ftime, Fint)
 
 
-def full_glm_results(endog_arr, exog_vars,  only_tvals = False, return_resids = False, return_fitted = False, PCA_whiten = False, ZCA_whiten = False,  orthogonalize = False, orthogNear = False, orthog_GramSchmidt = False):
+def full_glm_results(endog_arr, exog_vars, only_tvals = False, return_resids = False, return_fitted = False, PCA_whiten = False, ZCA_whiten = False,  orthogonalize = False, orthogNear = False, orthog_GramSchmidt = False):
 	"""
 	One factor repeated measure ANOVA for longitudinal dependent variables
 	
@@ -1439,7 +1439,7 @@ def full_glm_results(endog_arr, exog_vars,  only_tvals = False, return_resids = 
 	orthogNear : bool 
 		Orthogonalize exogenous variables to the nearest orthogonal matrix (default = False)
 	orthog_GramSchmidt : bool
-		Use the Gram–Schmidt process to orthonormalize the exogenous variables.
+		Use the Gram-Schmidt process to orthonormalize the exogenous variables.
 		i.e., Type-1 sum of squares (like R).
 		It is particularly useful for assessing interations.
 	
@@ -2381,6 +2381,108 @@ def glm_typeI(endog, exog, dmy_covariates = None, output_fvalues = True, output_
 	else:
 		print("No output has been selected")
 
+
+# https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3991883/
+def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, init_covars = None, rand_array = None, period = 24.0):
+	"""
+	COSINOR model using GLM
+	
+	Parameters
+	----------
+	endog : array
+		Endogenous (dependent) variable array (Nsubjects, Nvariables)
+	time_var : array
+		Time variable [0-23.99] (Nsubjects).
+	exog : array
+		Exogenous (independent) dummy coded variables
+		exog is an array of arrays (Nvariables, Nsubjects, Kvariable).
+	dmy_covariates : array
+		Dummy coded array of covariates of no interest.
+	init_covars : array
+		Dummy coded array of covariates for two-step regression.
+	rand_array : array
+		randomized array for permutations (Nsubjects).
+	period : float
+		Period for cosinor model.
+	Returns
+	---------
+	To-do
+	"""
+
+	n = endog.shape[0]
+	# create beta/gamma terms
+	cosT = np.cos(2*np.pi*time_var/period)
+	sinT = np.sin(2*np.pi*time_var/period)
+
+	# init_covars allows for two step regression which is useful removing the effect of subject
+	if init_covars is not None:
+		# init_covars = stack_ones(dummy_code(pdCSV.Subject, iscontinous = False, demean = False))
+		a = cy_lin_lstsqr_mat(init_covars,endog)
+		endog = endog - np.dot(init_covars,a)
+
+	# add cosinor terms
+	exog_vars = np.ones((n))
+	exog_vars = np.column_stack((exog_vars,cosT))
+	exog_vars = np.column_stack((exog_vars,sinT))
+
+	# add other exogenous variables to the model (currently not implemented)
+	if exog is not None:
+		for var in exog:
+			var = np.array(var)
+			if var.ndim == 1:
+				kvars.append((1))
+			else:
+				kvars.append((var.shape[1]))
+			exog_vars = np.column_stack((exog_vars,var))
+
+	# add covariates (i.e., exogenous variables that will not be outputed)
+	if dmy_covariates is not None:
+		exog_vars = np.column_stack((exog_vars, dmy_covariates))
+	exog_vars = np.array(exog_vars)
+
+	if rand_array is not None:
+		exog_vars = exog_vars[rand_array]
+
+	# calculate model fit (Fvalues and R-sqr)
+	k = exog_vars.shape[1]
+	DF_Between = k - 1 # aka df model
+	DF_Within = n - k # aka df residuals
+	DF_Total = n - 1
+	SS_Total = np.sum((endog - np.mean(endog,0))**2,0)
+	a, SS_Residuals = cy_lin_lstsqr_mat_residual(exog_vars,endog)
+	SS_Between = SS_Total - SS_Residuals
+	MS_Residuals = (SS_Residuals/DF_Within)
+
+	R2 = 1 - (SS_Residuals/SS_Total)
+	Fvalues = (SS_Between/DF_Between) / MS_Residuals
+
+
+	# Calculates sigma sqr and T-value (intercept) for MESOR
+	sigma2 = SS_Residuals / DF_Within
+	invXX = np.linalg.inv(np.dot(exog_vars.T, exog_vars))
+	if endog.ndim == 1:
+		se = np.sqrt(np.diag(sigma2 * invXX))
+	else:
+		num_depv = endog.shape[1]
+		se = se_of_slope(num_depv,invXX,sigma2,k)
+	Tvalues = a / se
+
+	MESOR = a[0,:]
+	betaSIN = a[1,:]
+	betaCOS = a[2,:]
+
+	AMPLITUDE = np.sqrt((betaSIN**2) + (betaCOS**2))
+	ACROPHASE = np.arctan(np.divide(betaCOS, betaSIN))
+	SE_AMPLITUDE = np.sqrt(sigma2) * np.sqrt((invXX[1,1]*np.cos(ACROPHASE)**2) - (2*invXX[1,2]*np.sin(ACROPHASE)*np.cos(ACROPHASE)) + (invXX[2,2]*np.sin(ACROPHASE)**2))
+	SE_ACROPHASE = np.sqrt(sigma2) * np.sqrt((invXX[1,1]*np.sin(ACROPHASE)**2) - (2*invXX[1,2]*np.sin(ACROPHASE)*np.cos(ACROPHASE)) + (invXX[2,2]*np.cos(ACROPHASE)**2)) / AMPLITUDE
+
+	tMESOR = Tvalues[0,:]
+	tAMPLITUDE = np.divide(AMPLITUDE,SE_AMPLITUDE)
+	tACROPHASE = np.divide(ACROPHASE,SE_ACROPHASE)
+	return R2, Fvalues, MESOR, AMPLITUDE, ACROPHASE, tMESOR, tAMPLITUDE, tACROPHASE
+
+
+
 def dummy_code(variable, iscontinous = False, demean = True):
 	"""
 	Dummy codes a variable
@@ -2413,6 +2515,8 @@ def dummy_code(variable, iscontinous = False, demean = True):
 		if demean:
 			dummy_vars = dummy_vars - np.mean(dummy_vars,0)
 	return dummy_vars
+
+
 
 def column_product(arr1, arr2):
 	"""
@@ -2503,45 +2607,53 @@ def calc_indirect(ta, tb, alg = "aroian"):
 		exit()
 	return SobelZ
 
-def rand_blocks(block_list, equal_sizes = None):
+def check_blocks(block_list):
 	"""
-	Output permutation index array based on blocks.
-	Note: if equal size is not specified, the size of each block will be checked.
+	Checks if blocks are equal sizes for permutation testing.
 	
 	Parameters
 	----------
 	block_list : array
-	equal_sizes : bool, optional
+	
+	Returns
+	-------
+	is_equal_sizes : bool
+	"""
+	
+	unique_blocks = np.unique(block_list)
+	block_sizes = []
+	for block in unique_blocks:
+		block_sizes.append(len(block_list[block_list == block]))
+	is_equal_sizes = all(x==block_sizes[0] for x in list(block_sizes))
+	if is_equal_sizes == False:
+		print("Warning: blocks are not equal. Swaping with only occur within blocks, but not among blocks.")
+	return is_equal_sizes
+
+def rand_blocks(block_list, is_equal_sizes):
+	"""
+	Output permutation index array based on blocks.
+	
+	Parameters
+	----------
+	block_list : array
+	is_equal_sizes : bool
 	
 	Returns
 	-------
 	rand_array : array
-	
-	OR 
-	
-	equal_sizes : bool
 	"""
+	
 	unique_blocks = np.unique(block_list)
-	if equal_sizes is None:
-		block_sizes = []
-		for block in unique_blocks:
-			block_sizes.append(len(block_list[block_list == block]))
-		equal_sizes = all(x==block_sizes[0] for x in list(block_sizes))
-		if equal_sizes == False:
-			print("Warning: blocks are not equal. Swaping with only occur within blocks, but not among blocks.")
-		return equal_sizes
+	indexer = np.array(range(len(block_list)))
+	randindex = []
+	if is_equal_sizes is True:
+		for block in np.random.permutation(list(np.unique(block_list))):
+			randindex.append(np.random.permutation(indexer[block_list==block]))
+		rand_array = np.concatenate(np.array(randindex))
 	else:
-		indexer = np.array(range(len(block_list)))
-		if equal_sizes is True:
-			randindex = []
-			for block in np.random.permutation(list(np.unique(block_list))):
-				randindex.append(np.random.permutation(indexer[block_list==block]))
-			rand_array = np.concatenate(np.array(randindex))
-		else:
-			randindex = []
-			for block in np.unique(block_list):
-				randindex.append(np.random.permutation(indexer[block_list==block]))
-			rand_array = np.concatenate(np.array(randindex))
-		return rand_array
+		for block in np.unique(block_list):
+			randindex.append(np.random.permutation(indexer[block_list==block]))
+		rand_array = np.concatenate(np.array(randindex))
+	return rand_array
 
 

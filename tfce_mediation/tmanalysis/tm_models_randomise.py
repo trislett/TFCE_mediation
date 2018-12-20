@@ -22,7 +22,7 @@ import argparse as ap
 from time import time
 
 from tfce_mediation.tfce import CreateAdjSet
-from tfce_mediation.pyfunc import reg_rm_ancova_one_bs_factor, reg_rm_ancova_two_bs_factor, glm_typeI, write_perm_maxTFCE_vertex, write_perm_maxTFCE_voxel, calc_indirect, rand_blocks
+from tfce_mediation.pyfunc import reg_rm_ancova_one_bs_factor, reg_rm_ancova_two_bs_factor, glm_typeI, write_perm_maxTFCE_vertex, write_perm_maxTFCE_voxel, calc_indirect, check_blocks, rand_blocks
 
 DESCRIPTION = "Vertex-wise stastical models including mediation, within-subject designs, and GLMs with TFCE."
 start_time = time()
@@ -135,7 +135,7 @@ def run(opts):
 
 	if opts.exchangeblock:
 		block_list = np.genfromtxt(opts.exchangeblock[0], dtype=np.str)
-		equal_sizes = rand_blocks(block_list)
+		is_equal_sizes = check_blocks(block_list)
 
 
 	#permute T values and write max TFCE values
@@ -154,7 +154,7 @@ def run(opts):
 			Tvalues = Fvalues = None
 
 			if opts.exchangeblock:
-				rand_array = rand_blocks(block_list, equal_sizes)
+				rand_array = rand_blocks(block_list, is_equal_sizes)
 			else:
 				rand_array = np.random.permutation(list(range(data.shape[0])))
 
@@ -232,7 +232,7 @@ def run(opts):
 
 
 			if opts.exchangeblock:
-				rand_array = rand_blocks(block_list, equal_sizes)
+				rand_array = rand_blocks(block_list, is_equal_sizes)
 			else:
 				rand_array = np.random.permutation(list(range(dmy_leftvar.shape[0])))
 
@@ -325,7 +325,7 @@ def run(opts):
 		if opts.onebetweenssubjectfactor:
 
 			if opts.exchangeblock:
-				rand_array = rand_blocks(block_list, equal_sizes)
+				rand_array = rand_blocks(block_list, is_equal_sizes)
 			else:
 				rand_array = np.random.permutation(list(range(dmy_factor1.shape[0])))
 
@@ -380,7 +380,7 @@ def run(opts):
 		if opts.twobetweenssubjectfactor:
 
 			if opts.exchangeblock:
-				rand_array = rand_blocks(block_list, equal_sizes)
+				rand_array = rand_blocks(block_list, is_equal_sizes)
 			else:
 				rand_array = np.random.permutation(list(range(dmy_factor1.shape[0])))
 

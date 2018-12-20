@@ -2383,7 +2383,7 @@ def glm_typeI(endog, exog, dmy_covariates = None, output_fvalues = True, output_
 
 
 # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3991883/
-def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, init_covars = None, rand_array = None, period = 24.0):
+def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array = None, period = 24.0):
 	"""
 	COSINOR model using GLM
 	
@@ -2413,12 +2413,6 @@ def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, init_covars
 	# create beta/gamma terms
 	cosT = np.cos(2*np.pi*time_var/period)
 	sinT = np.sin(2*np.pi*time_var/period)
-
-	# init_covars allows for two step regression which is useful removing the effect of subject
-	if init_covars is not None:
-		# init_covars = stack_ones(dummy_code(pdCSV.Subject, iscontinous = False, demean = False))
-		a = cy_lin_lstsqr_mat(init_covars,endog)
-		endog = endog - np.dot(init_covars,a)
 
 	# add cosinor terms
 	exog_vars = np.ones((n))
@@ -2472,14 +2466,14 @@ def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, init_covars
 	betaCOS = a[2,:]
 
 	AMPLITUDE = np.sqrt((betaSIN**2) + (betaCOS**2))
-	ACROPHASE = np.arctan(np.divide(betaCOS, betaSIN))
+	ACROPHASE = np.arctan(np.divide(-betaCOS, betaSIN))
 	SE_AMPLITUDE = np.sqrt(sigma2) * np.sqrt((invXX[1,1]*np.cos(ACROPHASE)**2) - (2*invXX[1,2]*np.sin(ACROPHASE)*np.cos(ACROPHASE)) + (invXX[2,2]*np.sin(ACROPHASE)**2))
-	SE_ACROPHASE = np.sqrt(sigma2) * np.sqrt((invXX[1,1]*np.sin(ACROPHASE)**2) - (2*invXX[1,2]*np.sin(ACROPHASE)*np.cos(ACROPHASE)) + (invXX[2,2]*np.cos(ACROPHASE)**2)) / AMPLITUDE
+	SE_ACROPHASE = np.sqrt(sigma2) * np.sqrt((invXX[1,1]*np.sin(ACROPHASE)**2) + (2*invXX[1,2]*np.sin(ACROPHASE)*np.cos(ACROPHASE)) + (invXX[2,2]*np.cos(ACROPHASE)**2)) / AMPLITUDE
 
 	tMESOR = Tvalues[0,:]
 	tAMPLITUDE = np.divide(AMPLITUDE,SE_AMPLITUDE)
 	tACROPHASE = np.divide(ACROPHASE,SE_ACROPHASE)
-	return R2, Fvalues, MESOR, AMPLITUDE, ACROPHASE, tMESOR, tAMPLITUDE, tACROPHASE
+	return R2, Fvalues, MESOR, AMPLITUDE, ACROPHASE, np.abs(tMESOR), np.abs(tAMPLITUDE), np.abs(tACROPHASE)
 
 
 
@@ -2656,4 +2650,14 @@ def rand_blocks(block_list, is_equal_sizes):
 		rand_array = np.concatenate(np.array(randindex))
 	return rand_array
 
+def lm_residuals(endog, exog):
+	"""
+	"""
+	if exog.ndim == 1:
+		exog = stack_ones(exog)
+	if np.mean(exog[:,0]) != 1:
+		exog = stack_ones(exog)
+	a = cy_lin_lstsqr_mat(exog,endog)
+	endog = endog - np.dot(exog,a)
+	return endog
 

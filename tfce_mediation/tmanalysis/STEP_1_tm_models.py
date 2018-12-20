@@ -23,7 +23,7 @@ import argparse as ap
 import pandas as pd
 
 from tfce_mediation.tfce import CreateAdjSet
-from tfce_mediation.pyfunc import write_vertStat_img, write_voxelStat_img, create_adjac_vertex, create_adjac_voxel, reg_rm_ancova_one_bs_factor, reg_rm_ancova_two_bs_factor, glm_typeI, calc_indirect, dummy_code, column_product, stack_ones, import_voxel_neuroimage
+from tfce_mediation.pyfunc import write_vertStat_img, write_voxelStat_img, create_adjac_vertex, create_adjac_voxel, reg_rm_ancova_one_bs_factor, reg_rm_ancova_two_bs_factor, glm_typeI, glm_cosinor, calc_indirect, dummy_code, column_product, stack_ones, import_voxel_neuroimage, lm_residuals
 
 def check_columns(pdData, datatype, folders = None, surface = None, FWHM = None, filelists = None, voximgs = None, tmi = None, tempdir = None):
 	for counter, roi in enumerate(pdData.columns):
@@ -159,6 +159,8 @@ def save_temporary_files(statmodel, modality_type = None, **kwargs):
 		tempdir = "tmtemp_rmANCOVA1BS"
 	if statmodel == "rmancova_two":
 		tempdir = "tmtemp_rmANCOVA2BS"
+	if statmodel == "cosinor":
+		tempdir = "tmtemp_cosinor"
 	if modality_type is not None:
 		tempdir += "_%s" % modality_type
 	#save variables
@@ -218,25 +220,34 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		metavar=('??B'))
 
 	stat = ap.add_mutually_exclusive_group(required=False)
-	stat.add_argument("-glm","--generalizedlinearmodel",
+	stat.add_argument("-glm", "--generalizedlinearmodel",
 		nargs='+',
 		help="Generalized linear model that uses type I sum of squares. Each exogenous variable must be specified as either discrete (d) or continous (c). Output metrics can be specified by -gs as either F-statics, T-statistics, or all. Interactions can be specified using -ei. Only one interval is supported. e.g., -glm sex d age c genotype d. [-glm {exogenous_1} {type_1} ... {exogenous_k} {type_k}]",
 		metavar=('exog1', '{d|c}'))
-	stat.add_argument("-ofa","--onebetweenssubjectfactor",
+	stat.add_argument("-ofa", "--onebetweenssubjectfactor",
 		nargs=2,
 		help="ANCOVA with one between-subject (fixed) factor and neuroimage as the within-subject (random) factor (mixed-effect model). AKA, the repeated-measure ANCOVA. Covariates may also be included. Interactions will be coded automatically (Factor1*Time). ANOVA uses type I sum of squares (order matters). The between-subject factor must be specified as either discrete (d) or continous (c). Additional interactions among the covariates can be specified using -ei. e.g., -ofa genotype d. [-ofa {factor} {type}]",
 		metavar=('exog1', '{d|c}'))
-	stat.add_argument("-tfa","--twobetweenssubjectfactor",
+	stat.add_argument("-tfa", "--twobetweenssubjectfactor",
 		nargs=4,
 		help="ANCOVA with two between-subject (fixed) factors and neuroimage as the within-subject (random) factor (mixed-effect model). AKA, the repeated-measure ANCOVA. Covariates may also be included. Interactions will be coded automatically (F1*F2, F1*Time,F2xTime, F1*F2*Time). ANOVA uses type I sum of squares (order matters). The between-subject factor must be specified as either discrete (d) or continous (c). Additional interactions among the covariates can be specified using -ei. e.g., -tfa sex d genotype d. [-tfa {factor1} {type1} {factor2} {type2}]",
 		metavar=('exog1', '{d|c}', 'exog2', '{d|c}'))
-	stat.add_argument("-med","--mediation",
+	stat.add_argument("-med", "--mediation",
 		nargs=5,
 		help="Mediation. Only one interval is currently supported.",
 		metavar=('{I|M|Y}', 'left_var', '{d|c}', 'right_var', '{d|c}'))
+	stat.add_argument("-cos", "--cosinor",
+		nargs=2,
+		help="Cosinor model. Input the time variable, and the period. -cm {time} {period}",
+		metavar=('time_variable', 'period'))
 
 	ap.add_argument("-c", "--covariates",
 		help="Covariates of no interest.",
+		nargs='+',
+		metavar=('exogn', '{d|c}'),
+		required=False)
+	ap.add_argument("-ic", "--initcovar",
+		help="Covariates of no interest for two step analyses (useful for --cosinor).",
 		nargs='+',
 		metavar=('exogn', '{d|c}'),
 		required=False)
@@ -330,6 +341,8 @@ def run(opts):
 		elif opts.twobetweenssubjectfactor:
 			pass
 		elif opts.mediation:
+			pass
+		elif opts.cosinor:
 			pass
 		else:
 			print("ERROR: please specify statistical model {-glm | -of | -tw | -med}")
@@ -1456,6 +1469,316 @@ def run(opts):
 				affine_mask,
 				calcTFCE,
 				imgext)
+
+	if opts.cosinor:
+		data = data[0] # There should only be one interval...
+		time_var = pdCSV["%s" % opts.cosinor[0]]
+		period = float(opts.cosinor[1])
+
+		if opts.initcovar:
+			init_covars, init_covarsnames = load_vars(pdCSV, variables = opts.initcovar, exog = [], names = [], demean_flag = False)
+			dmy_init_covars = np.concatenate(init_covars,1)
+			data = lm_residuals(data, dmy_init_covars)
+
+		if opts.covariates:
+			covars, covarnames = load_vars(pdCSV, variables = opts.covariates, exog = [], names = [], demean_flag = demean_flag)
+		else:
+			covars = covarnames = []
+
+		if opts.covariates:
+			dmy_covariates = np.concatenate(covars,1)
+		else:
+			dmy_covariates = None
+
+		R2, Fvalues, MESOR, AMPLITUDE, ACROPHASE, tMESOR, tAMPLITUDE, tACROPHASE = glm_cosinor(endog = data, 
+																					time_var = time_var,
+																					exog = None,
+																					dmy_covariates = dmy_covariates,
+																					rand_array = None,
+																					period = period)
+
+		if opts.surfaceinputfolder:
+			save_temporary_files('cosinor', modality_type = surface,
+				all_vertex = all_vertex,
+				num_vertex_lh = num_vertex_lh,
+				mask_lh = mask_lh,
+				mask_rh = mask_rh,
+				outdata_mask_lh = outdata_mask_lh,
+				outdata_mask_rh = outdata_mask_rh,
+				affine_mask_lh = affine_mask_lh,
+				affine_mask_rh = affine_mask_rh,
+				adjac_lh = adjac_lh,
+				adjac_rh = adjac_rh,
+				vdensity_lh = vdensity_lh,
+				vdensity_rh = vdensity_rh,
+				time_var = time_var,
+				period = period,
+				dmy_covariates = dmy_covariates,
+				optstfce = optstfce,
+				nonzero = nonzero.astype(np.float32, order = "C"),
+				data = data.astype(np.float32, order = "C"))
+		if opts.volumetricinputs or opts.volumetricinputlist:
+			save_temporary_files('cosinor', modality_type = "volume",
+				mask_index = mask_index,
+				data_mask = data_mask,
+				affine_mask = affine_mask,
+				adjac = adjac,
+				time_var = time_var,
+				period = period,
+				dmy_covariates = dmy_covariates,
+				optstfce = optstfce,
+				nonzero = nonzero.astype(np.float32, order = "C"),
+				data = data.astype(np.float32, order = "C"))
+
+
+		if opts.surfaceinputfolder:
+			outdir = "output_cosinor_%s" % (surface)
+			if not os.path.exists(outdir):
+				os.mkdir(outdir)
+			os.chdir(outdir)
+
+			# Between Subjects
+			write_vertStat_img('Fstat_model',
+				Fvalues[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh)
+			write_vertStat_img('Fstat_model',
+				Fvalues[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh)
+			write_vertStat_img('Tstat_mesor',
+				tMESOR[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh)
+			write_vertStat_img('Tstat_mesor',
+				tMESOR[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh)
+			write_vertStat_img('Tstat_amplitude',
+				tAMPLITUDE[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh)
+			write_vertStat_img('Tstat_amplitude',
+				tAMPLITUDE[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh)
+			write_vertStat_img('Tstat_acrophase',
+				tACROPHASE[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh)
+			write_vertStat_img('Tstat_acrophase',
+				tACROPHASE[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh)
+
+			# write R2, betas
+			write_vertStat_img('R2_model',
+				R2[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh,
+				TFCE = False)
+			write_vertStat_img('R2_model',
+				R2[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh,
+				TFCE = False)
+			write_vertStat_img('mesor',
+				MESOR[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh,
+				TFCE = False)
+			write_vertStat_img('mesor',
+				MESOR[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh,
+				TFCE = False)
+			write_vertStat_img('amplitude',
+				AMPLITUDE[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh,
+				TFCE = False)
+			write_vertStat_img('amplitude',
+				AMPLITUDE[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh,
+				TFCE = False)
+			write_vertStat_img('acrophase',
+				ACROPHASE[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh,
+				TFCE = False)
+			write_vertStat_img('acrophase',
+				ACROPHASE[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh,
+				TFCE = False)
+
+
+		if opts.volumetricinputs or opts.volumetricinputlist:
+
+			outdir = "output_cosinor_volume"
+			if not os.path.exists(outdir):
+				os.mkdir(outdir)
+			os.chdir(outdir)
+
+			write_voxelStat_img('Fstat_model',
+				Fvalues,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
+			write_voxelStat_img('Tstat_mesor',
+				tMESOR,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
+			write_voxelStat_img('Tstat_amplitude',
+				tAMPLITUDE,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
+			write_voxelStat_img('Tstat_acrophase',
+				tACROPHASE,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
+
+			# R2 and betas
+			write_voxelStat_img('R2_model',
+				R2,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext,
+				TFCE = False)
+			write_voxelStat_img('mesor',
+				MESOR,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext,
+				TFCE = False)
+			write_voxelStat_img('amplitude',
+				AMPLITUDE,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext,
+				TFCE = False)
+			write_voxelStat_img('acrophase',
+				ACROPHASE,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext,
+				TFCE = False)
 
 if __name__ == "__main__":
 	parser = getArgumentParser()

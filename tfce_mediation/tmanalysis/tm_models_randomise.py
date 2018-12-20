@@ -22,7 +22,7 @@ import argparse as ap
 from time import time
 
 from tfce_mediation.tfce import CreateAdjSet
-from tfce_mediation.pyfunc import reg_rm_ancova_one_bs_factor, reg_rm_ancova_two_bs_factor, glm_typeI, write_perm_maxTFCE_vertex, write_perm_maxTFCE_voxel, calc_indirect, check_blocks, rand_blocks
+from tfce_mediation.pyfunc import reg_rm_ancova_one_bs_factor, reg_rm_ancova_two_bs_factor, glm_typeI, glm_cosinor, write_perm_maxTFCE_vertex, write_perm_maxTFCE_voxel, calc_indirect, check_blocks, rand_blocks
 
 DESCRIPTION = "Vertex-wise stastical models including mediation, within-subject designs, and GLMs with TFCE."
 start_time = time()
@@ -54,6 +54,8 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	stat.add_argument("-ofa","--onebetweenssubjectfactor",
 		action='store_true')
 	stat.add_argument("-tfa","--twobetweenssubjectfactor",
+		action='store_true')
+	stat.add_argument("-cos","--cosinor",
 		action='store_true')
 	ap.add_argument("-e", "--exchangeblock", 
 		nargs=1, 
@@ -96,6 +98,15 @@ def run(opts):
 		dmy_leftvar = np.load("%s/dmy_leftvar.npy" % tempdir)
 		dmy_rightvar = np.load("%s/dmy_rightvar.npy" % tempdir)
 		medtype = np.load("%s/medtype.npy" % tempdir)
+	if opts.cosinor:
+		if opts.surface:
+			tempdir = "tmtemp_cosinor_%s" % surface
+			outdir = "output_cosinor_%s/perm_cosinor" % surface
+		else:
+			tempdir = "tmtemp_cosinor_volume"
+			outdir = "output_cosinor_volume/perm_cosinor"
+		time_var = np.load("%s/time_var.npy" % tempdir)
+		period = np.load("%s/period.npy" % tempdir)
 	if opts.onebetweenssubjectfactor:
 		tempdir = "tmtemp_rmANCOVA1BS_%s" % surface
 		outdir = "output_rmANCOVA1BS_%s/perm_rmANCOVA1BS" % surface
@@ -227,10 +238,71 @@ def run(opts):
 												Fvalues[j],
 												calcTFCE)
 
+		# cosinor model
+		if opts.cosinor:
+			if opts.exchangeblock:
+				rand_array = rand_blocks(block_list, is_equal_sizes)
+			else:
+				rand_array = np.random.permutation(list(range(data.shape[0])))
+			_, Fvalues, _, _, _, tMESOR, tAMPLITUDE, tACROPHASE = glm_cosinor(endog = data, 
+																			time_var = time_var,
+																			exog = None,
+																			dmy_covariates = dmy_covariates,
+																			rand_array = rand_array,
+																			period = period)
+			if opts.surface:
+				write_perm_maxTFCE_vertex('Fstat_model',
+										Fvalues,
+										num_vertex_lh,
+										mask_lh,
+										mask_rh,
+										calcTFCE_lh,
+										calcTFCE_rh,
+										vdensity_lh,
+										vdensity_rh)
+				write_perm_maxTFCE_vertex('Tstat_mesor',
+										tMESOR,
+										num_vertex_lh,
+										mask_lh,
+										mask_rh,
+										calcTFCE_lh,
+										calcTFCE_rh,
+										vdensity_lh,
+										vdensity_rh)
+				write_perm_maxTFCE_vertex('Tstat_amplitude',
+										tAMPLITUDE,
+										num_vertex_lh,
+										mask_lh,
+										mask_rh,
+										calcTFCE_lh,
+										calcTFCE_rh,
+										vdensity_lh,
+										vdensity_rh)
+				write_perm_maxTFCE_vertex('Tstat_acrophase',
+										tACROPHASE,
+										num_vertex_lh,
+										mask_lh,
+										mask_rh,
+										calcTFCE_lh,
+										calcTFCE_rh,
+										vdensity_lh,
+										vdensity_rh)
+			else:
+				write_perm_maxTFCE_voxel('Fstat_model',
+										Fvalues,
+										calcTFCE)
+				write_perm_maxTFCE_voxel('Tstat_mesor',
+										tMESOR,
+										calcTFCE)
+				write_perm_maxTFCE_voxel('Tstat_amplitude',
+										tAMPLITUDE,
+										calcTFCE)
+				write_perm_maxTFCE_voxel('Tstat_acrophase',
+										tACROPHASE,
+										calcTFCE)
+
 		# MEDIATION
 		if opts.mediation:
-
-
 			if opts.exchangeblock:
 				rand_array = rand_blocks(block_list, is_equal_sizes)
 			else:

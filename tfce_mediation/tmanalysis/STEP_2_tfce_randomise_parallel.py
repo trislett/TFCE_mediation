@@ -123,7 +123,7 @@ def run(opts):
 		if opts.twobetweenssubjectfactor:
 			whichScript = "tfce_mediation tm-models-randomise -s %s -tfa" % (opts.vertex[0])
 		if opts.cosinor:
-			whichScript= "tfce_mediation tm-models-randomise -v -cos" % (opts.vertex[0])
+			whichScript= "tfce_mediation tm-models-randomise -s %s -cos" % (opts.vertex[0])
 		if opts.modelmediation:
 			whichScript = "tfce_mediation tm-models-randomise -s %s -med" % (opts.vertex[0])
 

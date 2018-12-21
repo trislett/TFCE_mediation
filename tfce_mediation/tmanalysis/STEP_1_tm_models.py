@@ -1490,7 +1490,7 @@ def run(opts):
 		else:
 			dmy_covariates = None
 
-		R2, Fvalues, MESOR, AMPLITUDE, ACROPHASE, tMESOR, tAMPLITUDE, tACROPHASE = glm_cosinor(endog = data, 
+		R2, Fmodel, MESOR, AMPLITUDE, ACROPHASE, tMESOR, tAMPLITUDE, tACROPHASE = glm_cosinor(endog = data, 
 																					time_var = time_var,
 																					exog = None,
 																					dmy_covariates = dmy_covariates,
@@ -1539,7 +1539,7 @@ def run(opts):
 
 			# Between Subjects
 			write_vertStat_img('Fstat_model',
-				Fvalues[:num_vertex_lh],
+				Fmodel[:num_vertex_lh],
 				outdata_mask_lh,
 				affine_mask_lh,
 				surface,
@@ -1549,7 +1549,7 @@ def run(opts):
 				mask_lh.shape[0],
 				vdensity_lh)
 			write_vertStat_img('Fstat_model',
-				Fvalues[num_vertex_lh:],
+				Fmodel[num_vertex_lh:],
 				outdata_mask_rh,
 				affine_mask_rh,
 				surface,
@@ -1718,7 +1718,7 @@ def run(opts):
 			os.chdir(outdir)
 
 			write_voxelStat_img('Fstat_model',
-				Fvalues,
+				Fmodel,
 				data_mask,
 				mask_index,
 				affine_mask,

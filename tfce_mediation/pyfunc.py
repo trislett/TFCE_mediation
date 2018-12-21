@@ -2383,7 +2383,8 @@ def glm_typeI(endog, exog, dmy_covariates = None, output_fvalues = True, output_
 
 
 # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3991883/
-def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array = None, period = 24.0):
+# https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3663600/
+def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array = None, period = 24.0, calc_MESOR = True):
 	"""
 	COSINOR model using GLM
 	
@@ -2437,7 +2438,7 @@ def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array 
 	if rand_array is not None:
 		exog_vars = exog_vars[rand_array]
 
-	# calculate model fit (Fvalues and R-sqr)
+	# calculate model fit (Fmodel and R-sqr)
 	k = exog_vars.shape[1]
 	DF_Between = k - 1 # aka df model
 	DF_Within = n - k # aka df residuals
@@ -2448,32 +2449,40 @@ def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array 
 	MS_Residuals = (SS_Residuals/DF_Within)
 
 	R2 = 1 - (SS_Residuals/SS_Total)
-	Fvalues = (SS_Between/DF_Between) / MS_Residuals
+	Fmodel = (SS_Between/DF_Between) / MS_Residuals
 
 
 	# Calculates sigma sqr and T-value (intercept) for MESOR
-	sigma2 = SS_Residuals / DF_Within
+	sigma = np.sqrt(SS_Residuals / DF_Within)
 	invXX = np.linalg.inv(np.dot(exog_vars.T, exog_vars))
-	if endog.ndim == 1:
-		se = np.sqrt(np.diag(sigma2 * invXX))
+
+	if calc_MESOR:
+		if endog.ndim == 1:
+			se = np.sqrt(np.diag(sigma * sigma * invXX))
+		else:
+			num_depv = endog.shape[1]
+			se = se_of_slope(num_depv,invXX,sigma**2,k)
+		Tvalues = a / se
+		MESOR = a[0,:]
+		tMESOR = Tvalues[0,:]
 	else:
-		num_depv = endog.shape[1]
-		se = se_of_slope(num_depv,invXX,sigma2,k)
-	Tvalues = a / se
+		MESOR = tMESOR = None
 
-	MESOR = a[0,:]
-	betaSIN = a[1,:]
-	betaCOS = a[2,:]
-
-	AMPLITUDE = np.sqrt((betaSIN**2) + (betaCOS**2))
-	ACROPHASE = np.arctan(np.divide(-betaCOS, betaSIN))
-	SE_AMPLITUDE = np.sqrt(sigma2) * np.sqrt((invXX[1,1]*np.cos(ACROPHASE)**2) - (2*invXX[1,2]*np.sin(ACROPHASE)*np.cos(ACROPHASE)) + (invXX[2,2]*np.sin(ACROPHASE)**2))
-	SE_ACROPHASE = np.sqrt(sigma2) * np.sqrt((invXX[1,1]*np.sin(ACROPHASE)**2) + (2*invXX[1,2]*np.sin(ACROPHASE)*np.cos(ACROPHASE)) + (invXX[2,2]*np.cos(ACROPHASE)**2)) / AMPLITUDE
-
-	tMESOR = Tvalues[0,:]
+	# beta, gamma
+	AMPLITUDE = np.sqrt((a[1,:]**2) + (a[2,:]**2))
+	# Acrophase calculation
+	ACROPHASE = np.arctan(np.abs(np.divide(-a[2,:], a[1,:])))
+	ACROPHASE[(a[2,:] > 0) & (a[1,:] >= 0)] = -ACROPHASE[(a[2,:] > 0) & (a[1,:] >= 0)]
+	ACROPHASE[(a[2,:] > 0) & (a[1,:] < 0)] = (-1*np.pi) + ACROPHASE[(a[2,:] > 0) & (a[1,:] < 0)]
+	ACROPHASE[(a[2,:] < 0) & (a[1,:] <= 0)] = (-1*np.pi) - ACROPHASE[(a[2,:] < 0) & (a[1,:] <= 0)]
+	ACROPHASE[(a[2,:] <= 0) & (a[1,:] > 0)] = (-2*np.pi) + ACROPHASE[(a[2,:] <= 0) & (a[1,:] > 0)]
+	# standard errors from error propagation
+	SE_AMPLITUDE = sigma * np.sqrt((invXX[1,1]*np.cos(ACROPHASE)**2) - (2*invXX[1,2]*np.sin(ACROPHASE)*np.cos(ACROPHASE)) + (invXX[2,2]*np.sin(ACROPHASE)**2))
+	SE_ACROPHASE = sigma * np.sqrt((invXX[1,1]*np.sin(ACROPHASE)**2) + (2*invXX[1,2]*np.sin(ACROPHASE)*np.cos(ACROPHASE)) + (invXX[2,2]*np.cos(ACROPHASE)**2)) / AMPLITUDE
+	# t values
 	tAMPLITUDE = np.divide(AMPLITUDE,SE_AMPLITUDE)
 	tACROPHASE = np.divide(ACROPHASE,SE_ACROPHASE)
-	return R2, Fvalues, MESOR, AMPLITUDE, ACROPHASE, np.abs(tMESOR), np.abs(tAMPLITUDE), np.abs(tACROPHASE)
+	return R2, Fmodel, MESOR, AMPLITUDE, ACROPHASE, tMESOR, np.abs(tAMPLITUDE), np.abs(tACROPHASE)
 
 
 

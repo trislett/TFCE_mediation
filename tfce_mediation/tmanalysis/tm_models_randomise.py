@@ -244,12 +244,13 @@ def run(opts):
 				rand_array = rand_blocks(block_list, is_equal_sizes)
 			else:
 				rand_array = np.random.permutation(list(range(data.shape[0])))
-			_, Fvalues, _, _, _, tMESOR, tAMPLITUDE, tACROPHASE = glm_cosinor(endog = data, 
+			_, Fvalues, _, _, _, _, tAMPLITUDE, tACROPHASE = glm_cosinor(endog = data, 
 																			time_var = time_var,
 																			exog = None,
 																			dmy_covariates = dmy_covariates,
 																			rand_array = rand_array,
-																			period = period)
+																			period = period,
+																			calc_MESOR = False)
 			if opts.surface:
 				write_perm_maxTFCE_vertex('Fstat_model',
 										Fvalues,
@@ -260,15 +261,15 @@ def run(opts):
 										calcTFCE_rh,
 										vdensity_lh,
 										vdensity_rh)
-				write_perm_maxTFCE_vertex('Tstat_mesor',
-										tMESOR,
-										num_vertex_lh,
-										mask_lh,
-										mask_rh,
-										calcTFCE_lh,
-										calcTFCE_rh,
-										vdensity_lh,
-										vdensity_rh)
+#				write_perm_maxTFCE_vertex('Tstat_mesor',
+#										tMESOR,
+#										num_vertex_lh,
+#										mask_lh,
+#										mask_rh,
+#										calcTFCE_lh,
+#										calcTFCE_rh,
+#										vdensity_lh,
+#										vdensity_rh)
 				write_perm_maxTFCE_vertex('Tstat_amplitude',
 										tAMPLITUDE,
 										num_vertex_lh,
@@ -291,9 +292,9 @@ def run(opts):
 				write_perm_maxTFCE_voxel('Fstat_model',
 										Fvalues,
 										calcTFCE)
-				write_perm_maxTFCE_voxel('Tstat_mesor',
-										tMESOR,
-										calcTFCE)
+#				write_perm_maxTFCE_voxel('Tstat_mesor',
+#										tMESOR,
+#										calcTFCE)
 				write_perm_maxTFCE_voxel('Tstat_amplitude',
 										tAMPLITUDE,
 										calcTFCE)

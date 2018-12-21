@@ -55,6 +55,9 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	stat.add_argument("-tfa","--twobetweenssubjectfactor",
 		help="Two factor repeated measure ANCOVA with tm-models",
 		action='store_true')
+	stat.add_argument("-cos","--cosinor",
+		help="Cosinor model",
+		action='store_true')
 
 
 	ap.add_argument("-n", "--numperm", 
@@ -98,13 +101,15 @@ def run(opts):
 		if opts.mediation:
 			whichScript= "tfce_mediation voxel-mediation-randomise -m %s" % (opts.mediation[0])
 		if opts.generalizedlinearmodel:
-			whichScript= "tfce_mediation tm_models_randomise -v -glm" % (opts.vertex[0])
+			whichScript= "tfce_mediation tm-models-randomise -v -glm"
 		if opts.onebetweenssubjectfactor:
-			whichScript= "tfce_mediation tm_models_randomise -v -ofa" % (opts.vertex[0])
+			whichScript= "tfce_mediation tm-models-randomise -v -ofa"
 		if opts.twobetweenssubjectfactor:
-			whichScript= "tfce_mediation tm_models_randomise -v -tfa" % (opts.vertex[0])
+			whichScript= "tfce_mediation tm-models-randomise -v -tfa"
+		if opts.cosinor:
+			whichScript= "tfce_mediation tm-models-randomise -v -cos"
 		if opts.modelmediation:
-			whichScript= "tfce_mediation tm_models_randomise -v -med" % (opts.vertex[0])
+			whichScript= "tfce_mediation tm-models-randomise -v -med"
 	else:
 		whichScript= "tfce_mediation vertex-regress-randomise -s %s" % (opts.vertex[0])
 		if opts.specifyvars:
@@ -112,13 +117,15 @@ def run(opts):
 		if opts.mediation:
 			whichScript = "tfce_mediation vertex-mediation-randomise -s %s -m %s" % (opts.vertex[0],opts.mediation[0])
 		if opts.generalizedlinearmodel:
-			whichScript = "tfce_mediation tm_models_randomise -s %s -glm" % (opts.vertex[0])
+			whichScript = "tfce_mediation tm-models-randomise -s %s -glm" % (opts.vertex[0])
 		if opts.onebetweenssubjectfactor:
-			whichScript = "tfce_mediation tm_models_randomise -s %s -ofa" % (opts.vertex[0])
+			whichScript = "tfce_mediation tm-models-randomise -s %s -ofa" % (opts.vertex[0])
 		if opts.twobetweenssubjectfactor:
-			whichScript = "tfce_mediation tm_models_randomise -s %s -tfa" % (opts.vertex[0])
+			whichScript = "tfce_mediation tm-models-randomise -s %s -tfa" % (opts.vertex[0])
+		if opts.cosinor:
+			whichScript= "tfce_mediation tm-models-randomise -v -cos" % (opts.vertex[0])
 		if opts.modelmediation:
-			whichScript = "tfce_mediation tm_models_randomise -s %s -med" % (opts.vertex[0])
+			whichScript = "tfce_mediation tm-models-randomise -s %s -med" % (opts.vertex[0])
 
 	if opts.exchangeblock:
 		whichScript = "%s -e %s" % (whichScript, opts.exchangeblock[0])

@@ -244,7 +244,7 @@ def run(opts):
 				rand_array = rand_blocks(block_list, is_equal_sizes)
 			else:
 				rand_array = np.random.permutation(list(range(data.shape[0])))
-			_, Fvalues, _, _, _, _, tAMPLITUDE, tACROPHASE = glm_cosinor(endog = data, 
+			_, Fmodel, _, _, _, _, tAMPLITUDE, tACROPHASE, _, _ = glm_cosinor(endog = data, 
 																			time_var = time_var,
 																			exog = None,
 																			dmy_covariates = dmy_covariates,
@@ -253,7 +253,7 @@ def run(opts):
 																			calc_MESOR = False)
 			if opts.surface:
 				write_perm_maxTFCE_vertex('Fstat_model',
-										Fvalues,
+										Fmodel,
 										num_vertex_lh,
 										mask_lh,
 										mask_rh,
@@ -290,7 +290,7 @@ def run(opts):
 										vdensity_rh)
 			else:
 				write_perm_maxTFCE_voxel('Fstat_model',
-										Fvalues,
+										Fmodel,
 										calcTFCE)
 #				write_perm_maxTFCE_voxel('Tstat_mesor',
 #										tMESOR,

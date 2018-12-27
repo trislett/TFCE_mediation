@@ -2472,19 +2472,26 @@ def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array 
 	AMPLITUDE = np.sqrt((a[1,:]**2) + (a[2,:]**2))
 	# Acrophase calculation
 	ACROPHASE = np.arctan(np.abs(np.divide(-a[2,:], a[1,:])))
+
+
+
+	ACROPHASE_STAT = np.zeros_like(ACROPHASE)
+	ACROPHASE_STAT[:] = np.pi + ACROPHASE
+
 	ACROPHASE[(a[2,:] > 0) & (a[1,:] >= 0)] = -ACROPHASE[(a[2,:] > 0) & (a[1,:] >= 0)]
 	ACROPHASE[(a[2,:] > 0) & (a[1,:] < 0)] = (-1*np.pi) + ACROPHASE[(a[2,:] > 0) & (a[1,:] < 0)]
 	ACROPHASE[(a[2,:] < 0) & (a[1,:] <= 0)] = (-1*np.pi) - ACROPHASE[(a[2,:] < 0) & (a[1,:] <= 0)]
 	ACROPHASE[(a[2,:] <= 0) & (a[1,:] > 0)] = (-2*np.pi) + ACROPHASE[(a[2,:] <= 0) & (a[1,:] > 0)]
+
+
+
 	# standard errors from error propagation
 	SE_AMPLITUDE = sigma * np.sqrt((invXX[1,1]*np.cos(ACROPHASE)**2) - (2*invXX[1,2]*np.sin(ACROPHASE)*np.cos(ACROPHASE)) + (invXX[2,2]*np.sin(ACROPHASE)**2))
 	SE_ACROPHASE = sigma * np.sqrt((invXX[1,1]*np.sin(ACROPHASE)**2) + (2*invXX[1,2]*np.sin(ACROPHASE)*np.cos(ACROPHASE)) + (invXX[2,2]*np.cos(ACROPHASE)**2)) / AMPLITUDE
 	# t values
 	tAMPLITUDE = np.divide(AMPLITUDE,SE_AMPLITUDE)
-	tACROPHASE = np.divide(ACROPHASE,SE_ACROPHASE)
-	return R2, Fmodel, MESOR, AMPLITUDE, ACROPHASE, tMESOR, np.abs(tAMPLITUDE), np.abs(tACROPHASE)
-
-
+	tACROPHASE = np.divide(ACROPHASE_STAT,SE_ACROPHASE)
+	return R2, Fmodel, MESOR, AMPLITUDE, ACROPHASE, tMESOR, np.abs(tAMPLITUDE), np.abs(tACROPHASE), SE_AMPLITUDE, SE_ACROPHASE
 
 def dummy_code(variable, iscontinous = False, demean = True):
 	"""

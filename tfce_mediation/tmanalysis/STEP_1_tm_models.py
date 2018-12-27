@@ -1490,7 +1490,7 @@ def run(opts):
 		else:
 			dmy_covariates = None
 
-		R2, Fmodel, MESOR, AMPLITUDE, ACROPHASE, tMESOR, tAMPLITUDE, tACROPHASE = glm_cosinor(endog = data, 
+		R2, Fmodel, MESOR, AMPLITUDE, ACROPHASE, tMESOR, tAMPLITUDE, tACROPHASE, SE_AMPLITUDE, SE_ACROPHASE = glm_cosinor(endog = data, 
 																					time_var = time_var,
 																					exog = None,
 																					dmy_covariates = dmy_covariates,
@@ -1708,6 +1708,28 @@ def run(opts):
 				mask_rh.shape[0],
 				vdensity_rh,
 				TFCE = False)
+			write_vertStat_img('SE_acrophase',
+				SE_ACROPHASE[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh,
+				TFCE = False)
+			write_vertStat_img('SE_acrophase',
+				SE_ACROPHASE[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh,
+				TFCE = False)
 
 
 		if opts.volumetricinputs or opts.volumetricinputlist:
@@ -1773,6 +1795,14 @@ def run(opts):
 				TFCE = False)
 			write_voxelStat_img('acrophase',
 				ACROPHASE,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext,
+				TFCE = False)
+			write_voxelStat_img('SE_acrophase',
+				SE_ACROPHASE,
 				data_mask,
 				mask_index,
 				affine_mask,

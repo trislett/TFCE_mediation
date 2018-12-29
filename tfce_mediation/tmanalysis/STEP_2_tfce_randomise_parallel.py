@@ -133,8 +133,10 @@ def run(opts):
 
 	#round number of permutations to the nearest 200
 	roundperm=int(np.round(opts.numperm[0]/200.0)*100.0)
-	forperm=int(roundperm/100)-1
 	print("Evaluating %d permuations" % (roundperm*2))
+	if opts.mediation or opts.onebetweenssubjectfactor or opts.twobetweenssubjectfactor or opts.cosinor:
+		roundperm *= 2
+	forperm=int(roundperm/100)-1
 
 	#build command text file
 	for i in range(forperm+1):

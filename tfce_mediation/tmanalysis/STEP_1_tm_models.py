@@ -1490,12 +1490,12 @@ def run(opts):
 		else:
 			dmy_covariates = None
 
-		R2, Fmodel, MESOR, AMPLITUDE, ACROPHASE, tMESOR, tAMPLITUDE, tACROPHASE, SE_AMPLITUDE, SE_ACROPHASE = glm_cosinor(endog = data, 
-																					time_var = time_var,
-																					exog = None,
-																					dmy_covariates = dmy_covariates,
-																					rand_array = None,
-																					period = period)
+		R2, MESOR, SE_MESOR, AMPLITUDE, SE_AMPLITUDE, ACROPHASE, SE_ACROPHASE, Fmodel, tMESOR, tAMPLITUDE, tACROPHASE = glm_cosinor(endog = data, 
+																																time_var = time_var,
+																																exog = None,
+																																dmy_covariates = dmy_covariates,
+																																rand_array = None,
+																																period = period)
 
 		if opts.surfaceinputfolder:
 			save_temporary_files('cosinor', modality_type = surface,

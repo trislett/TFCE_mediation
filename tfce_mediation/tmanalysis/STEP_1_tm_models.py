@@ -78,7 +78,7 @@ def check_columns(pdData, datatype, folders = None, surface = None, FWHM = None,
 	if datatype == 'filelist':
 		for filelist in filelists:
 			if not os.path.isfile(filelist):
-				print ("Error: %s not found." % filelist)
+				print("Error: %s not found." % filelist)
 			loc_arr = np.genfromtxt(filelist, dtype=str)
 			if len(loc_arr) == num_subjects:
 				print("%s ...EXISTS" % filelist)
@@ -89,7 +89,7 @@ def check_columns(pdData, datatype, folders = None, surface = None, FWHM = None,
 			if num_missing == 0:
 				print("%s ...FOUND ALL IMAGES" % filelist)
 			else:
-				print ("Error: %d image not found in %s." % (num_missing,filelist))
+				print("Error: %d image not found in %s." % (num_missing,filelist))
 	if datatype == 'tmi':
 		print("TMI not supported yet.")
 	if datatype == 'tmp_folder':
@@ -98,14 +98,13 @@ def check_columns(pdData, datatype, folders = None, surface = None, FWHM = None,
 		if temp_num_img == num_subjects:
 			print("%s/nonzero.npy ...OK" % tempdir)
 		else:
-			print data.shape
 			print("Error: Length of nonzero.npy [%d] does not match number of subjects[%d]" % (temp_num_img, num_subjects))
 
 
 def load_vars(pdCSV, variables, exog = [], names = [], demean_flag = True):
 	if len(variables) % 2 == 1:
 		print("Error: each input must be followed by data type. e.g., -glm age c sex d site d (d = discrete, c = continous)")
-	num_exog = len(variables) / 2
+	num_exog = int(len(variables) / 2)
 	for i in range(num_exog):
 		j = i * 2 
 		k = j + 1
@@ -446,10 +445,8 @@ def run(opts):
 				tempdata = import_voxel_neuroimage(vimage, mask_index)
 				data.append(tempdata.T)
 		data = np.array(data)
-		print data.shape
 		nonzero = np.zeros_like(data)
 		nonzero[:] = np.copy(data)
-		print nonzero.shape
 		#TFCE
 		if opts.adjfiles:
 			print("Loading prior adjacency set")

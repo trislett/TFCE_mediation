@@ -2426,7 +2426,7 @@ def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array 
 		for var in exog:
 			var = np.array(var)
 			if var.ndim == 1:
-				kvars.append((1))
+				kvars.append((3))
 			else:
 				kvars.append((var.shape[1]))
 			exog_vars = np.column_stack((exog_vars,var))
@@ -2461,9 +2461,9 @@ def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array 
 		if endog.ndim == 1:
 			se = np.sqrt(np.diag(sigma * sigma * invXX))
 			Tvalues = a / se
-			MESOR = a[0,:]
-			tMESOR = Tvalues[0,:]
-			SE_MESOR = se[0,:]
+			MESOR = a[0]
+			tMESOR = Tvalues[0]
+			SE_MESOR = se[0]
 			a = a[:, np.newaxis]
 		else:
 			num_depv = endog.shape[1]
@@ -2472,6 +2472,10 @@ def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array 
 			MESOR = a[0,:]
 			tMESOR = Tvalues[0,:]
 			SE_MESOR = se[0,:]
+		if exog is not None:
+			tEXOG = Tvalues[3:,:]
+		else:
+			tEXOG = None
 	else:
 		MESOR = tMESOR = SE_MESOR = None
 
@@ -2498,7 +2502,7 @@ def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array 
 	tAMPLITUDE = np.divide(AMPLITUDE, SE_AMPLITUDE)
 	tACROPHASE = np.divide(1.0, SE_ACROPHASE)
 
-	return R2, MESOR, SE_MESOR, AMPLITUDE, SE_AMPLITUDE, ACROPHASE, SE_ACROPHASE, Fmodel, tMESOR, np.abs(tAMPLITUDE), np.abs(tACROPHASE)
+	return R2, MESOR, SE_MESOR, AMPLITUDE, SE_AMPLITUDE, ACROPHASE, SE_ACROPHASE, Fmodel, tMESOR, np.abs(tAMPLITUDE), np.abs(tACROPHASE), tEXOG
 
 
 def dummy_code(variable, iscontinous = False, demean = True):

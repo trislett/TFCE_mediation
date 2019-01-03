@@ -160,6 +160,8 @@ def save_temporary_files(statmodel, modality_type = None, **kwargs):
 		tempdir = "tmtemp_rmANCOVA2BS"
 	if statmodel == "cosinor":
 		tempdir = "tmtemp_cosinor"
+	if statmodel == "cosinormediation":
+		tempdir = "tmtemp_medcosinor"
 	if modality_type is not None:
 		tempdir += "_%s" % modality_type
 	#save variables
@@ -237,8 +239,12 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		metavar=('{I|M|Y}', 'left_var', '{d|c}', 'right_var', '{d|c}'))
 	stat.add_argument("-cos", "--cosinor",
 		nargs=2,
-		help="Cosinor model. Input the time variable, and the period. -cm {time} {period}",
+		help="Cosinor model. Input the time variable, and the period. -cos {time} {period}",
 		metavar=('time_variable', 'period'))
+	stat.add_argument("-mcos", "--cosinormediation",
+		nargs=3,
+		help="Mediation of the cosinor model . Input the time variable, and the period. The mediation variable must be continous. -cm {time} {period} {mediator} {mediator}",
+		metavar=('time_variable', 'period', 'mediation_variable'))
 
 	ap.add_argument("-c", "--covariates",
 		help="Covariates of no interest.",
@@ -343,8 +349,10 @@ def run(opts):
 			pass
 		elif opts.cosinor:
 			pass
+		elif opts.cosinormediation:
+			pass
 		else:
-			print("ERROR: please specify statistical model {-glm | -of | -tw | -med}")
+			print("ERROR: please specify statistical model {-glm | -of | -tw | -med | -mcos}")
 			quit()
 
 	data = []
@@ -420,8 +428,8 @@ def run(opts):
 				vdensity_rh[j] = len(adjac_rh[j])
 			vdensity_lh = np.array((1 - (vdensity_lh/vdensity_lh.max()) + (vdensity_lh.mean()/vdensity_lh.max())), dtype=np.float32)
 			vdensity_rh = np.array((1 - (vdensity_rh/vdensity_rh.max()) + (vdensity_rh.mean()/vdensity_rh.max())), dtype=np.float32)
-		calcTFCE_lh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_lh)
-		calcTFCE_rh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_rh)
+		calcTFCE_lh = CreateAdjSet(float(optstfce[0]), float(optstfce[1]), adjac_lh)
+		calcTFCE_rh = CreateAdjSet(float(optstfce[0]), float(optstfce[1]), adjac_rh)
 
 	if opts.volumetricinputs:
 		images = opts.volumetricinputs
@@ -904,6 +912,7 @@ def run(opts):
 						output_fvalues = False,
 						output_tvalues = True,
 						output_reduced_residuals = False)[1]
+
 		else:
 			print("ERROR: Invalid mediation type: %s" % medtype)
 			quit()
@@ -985,6 +994,168 @@ def run(opts):
 				calcTFCE,
 				imgext)
 
+
+	if opts.cosinormediation:
+		medtype = 'Y'
+		data = data[0] # There should only be one interval...
+		time_var = pdCSV["%s" % opts.cosinormediation[0]]
+		period = float(opts.cosinormediation[1])
+		dmy_mediator = dummy_code(np.array(pdCSV[opts.cosinormediation[2]]), iscontinous = True, demean = demean_flag)
+		print("Coding mediator %s as continous variable" % opts.cosinormediation[2])
+
+		if opts.initcovar:
+			init_covars, init_covarsnames = load_vars(pdCSV, variables = opts.initcovar, exog = [], names = [], demean_flag = False)
+			dmy_init_covars = np.concatenate(init_covars,1)
+			data = lm_residuals(data, dmy_init_covars)
+
+		if opts.covariates:
+			dmy_covariates = np.concatenate(covars,1)
+		else:
+			dmy_covariates = None
+
+
+		EXOG = []
+		EXOG.append(dmy_mediator)
+
+		_, _, _, _, _, _, _, Fmodel_A, _, tAMPLITUDE_A, _, _ = glm_cosinor(endog = dmy_mediator, 
+																	time_var = time_var,
+																	exog = None,
+																	dmy_covariates = None,
+																	rand_array = None,
+																	period = period,
+																	calc_MESOR = True)
+
+		_, _, _, _, _, _, _, Fmodel_B, _, tAMPLITUDE_B, _, tEXOG_B = glm_cosinor(endog = data, 
+																	time_var = time_var,
+																	exog = EXOG,
+																	dmy_covariates = None,
+																	rand_array = None,
+																	period = period,
+																	calc_MESOR = True)
+
+		SobelZ  = calc_indirect(tAMPLITUDE_A[0], tEXOG_B[0], alg = "aroian")
+		print(tAMPLITUDE_A)
+		print(Fmodel_A)
+
+		if opts.surfaceinputfolder:
+			save_temporary_files('cosinormediation', modality_type = surface,
+				all_vertex = all_vertex,
+				num_vertex_lh = num_vertex_lh,
+				mask_lh = mask_lh,
+				mask_rh = mask_rh,
+				outdata_mask_lh = outdata_mask_lh,
+				outdata_mask_rh = outdata_mask_rh,
+				affine_mask_lh = affine_mask_lh,
+				affine_mask_rh = affine_mask_rh,
+				adjac_lh = adjac_lh,
+				adjac_rh = adjac_rh,
+				vdensity_lh = vdensity_lh,
+				vdensity_rh = vdensity_rh,
+				time_var = time_var,
+				period = period,
+				dmy_mediator = dmy_mediator,
+				dmy_covariates = dmy_covariates,
+				optstfce = optstfce,
+				medtype = medtype,
+				nonzero = nonzero.astype(np.float32, order = "C"),
+				data = data.astype(np.float32, order = "C"))
+
+			outdir = "output_medcosinor_%s" % (surface)
+			if not os.path.exists(outdir):
+				os.mkdir(outdir)
+			os.chdir(outdir)
+
+			write_vertStat_img('Zstat_%s' % medtype,
+				SobelZ[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh)
+			write_vertStat_img('Zstat_%s' % medtype,
+				SobelZ[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh)
+
+			write_vertStat_img('test_AMPB_Tstat_%s' % medtype,
+				tAMPLITUDE_B[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh)
+			write_vertStat_img('test_AMPB_Tstat_%s' % medtype,
+				tAMPLITUDE_B[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh)
+
+			write_vertStat_img('test_Fmodel_B_%s' % medtype,
+				Fmodel_B[:num_vertex_lh],
+				outdata_mask_lh,
+				affine_mask_lh,
+				surface,
+				'lh',
+				mask_lh,
+				calcTFCE_lh,
+				mask_lh.shape[0],
+				vdensity_lh,
+				TFCE = False)
+			write_vertStat_img('test_Fmodel_B_%s' % medtype,
+				Fmodel_B[num_vertex_lh:],
+				outdata_mask_rh,
+				affine_mask_rh,
+				surface,
+				'rh',
+				mask_rh,
+				calcTFCE_rh,
+				mask_rh.shape[0],
+				vdensity_rh,
+				TFCE = False)
+
+		if opts.volumetricinputs or opts.volumetricinputlist:
+			save_temporary_files('cosinormediation', modality_type = "volume",
+				mask_index = mask_index,
+				data_mask = data_mask,
+				affine_mask = affine_mask,
+				adjac = adjac,
+				dmy_leftvar = dmy_leftvar,
+				dmy_rightvar = dmy_rightvar,
+				dmy_covariates = dmy_covariates,
+				optstfce = optstfce,
+				medtype = medtype,
+				nonzero = nonzero.astype(np.float32, order = "C"),
+				data = data.astype(np.float32, order = "C"))
+
+			outdir = "output_medcosinor_volume"
+			if not os.path.exists(outdir):
+				os.mkdir(outdir)
+			os.chdir(outdir)
+
+			write_voxelStat_img('Zstat_%s' % medtype,
+				SobelZ,
+				data_mask,
+				mask_index,
+				affine_mask,
+				calcTFCE,
+				imgext)
 
 	##### RM ANCOVA (one between subject, one within subject) ######
 	if opts.onebetweenssubjectfactor:
@@ -1487,7 +1658,7 @@ def run(opts):
 		else:
 			dmy_covariates = None
 
-		R2, MESOR, SE_MESOR, AMPLITUDE, SE_AMPLITUDE, ACROPHASE, SE_ACROPHASE, Fmodel, tMESOR, tAMPLITUDE, tACROPHASE = glm_cosinor(endog = data, 
+		R2, MESOR, SE_MESOR, AMPLITUDE, SE_AMPLITUDE, ACROPHASE, SE_ACROPHASE, Fmodel, tMESOR, tAMPLITUDE, tACROPHASE, tEXOG = glm_cosinor(endog = data, 
 																																time_var = time_var,
 																																exog = None,
 																																dmy_covariates = dmy_covariates,

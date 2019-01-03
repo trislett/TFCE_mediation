@@ -57,6 +57,8 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		action='store_true')
 	stat.add_argument("-cos","--cosinor",
 		action='store_true')
+	stat.add_argument("-mcos","--cosinormediation",
+		action='store_true')
 	ap.add_argument("-e", "--exchangeblock", 
 		nargs=1, 
 		help="Exchangability blocks", 
@@ -107,6 +109,18 @@ def run(opts):
 			outdir = "output_cosinor_volume/perm_cosinor"
 		time_var = np.load("%s/time_var.npy" % tempdir)
 		period = np.load("%s/period.npy" % tempdir)
+
+	if opts.cosinormediation:
+		if opts.surface:
+			tempdir = "tmtemp_medcosinor_%s" % surface
+			outdir = "output_medcosinor_%s/perm_cosinor" % surface
+		else:
+			tempdir = "tmtemp_medcosinor_volume"
+			outdir = "output_medcosinor_volume/perm_cosinor"
+		time_var = np.load("%s/time_var.npy" % tempdir)
+		period = np.load("%s/period.npy" % tempdir)
+		dmy_mediator = np.load("%s/dmy_mediator.npy" % tempdir)
+		medtype = np.load("%s/medtype.npy" % tempdir)
 	if opts.onebetweenssubjectfactor:
 		tempdir = "tmtemp_rmANCOVA1BS_%s" % surface
 		outdir = "output_rmANCOVA1BS_%s/perm_rmANCOVA1BS" % surface
@@ -245,7 +259,7 @@ def run(opts):
 			else:
 				rand_array = np.random.permutation(list(range(data.shape[0])))
 			# get just the stats for randomization
-			_, _, _, _, _, _, _, Fmodel, _, tAMPLITUDE, tACROPHASE = glm_cosinor(endog = data, 
+			_, _, _, _, _, _, _, Fmodel, _, tAMPLITUDE, tACROPHASE, _ = glm_cosinor(endog = data, 
 																			time_var = time_var,
 																			exog = None,
 																			dmy_covariates = dmy_covariates,
@@ -301,6 +315,47 @@ def run(opts):
 										calcTFCE)
 				write_perm_maxTFCE_voxel('Tstat_acrophase',
 										tACROPHASE,
+										calcTFCE)
+
+		# Cosinor mediation
+		if opts.cosinormediation:
+			if opts.exchangeblock:
+				rand_array = rand_blocks(block_list, is_equal_sizes)
+			else:
+				rand_array = np.random.permutation(list(range(dmy_leftvar.shape[0])))
+
+			EXOG = []
+			EXOG.append(dmy_mediator)
+
+			_, _, _, _, _, _, _, _, _, tAMPLITUDE_A, _, _ = glm_cosinor(endog = dmy_mediator, 
+																		time_var = time_var,
+																		exog = None,
+																		dmy_covariates = None,
+																		rand_array = rand_array,
+																		period = period)
+
+			_, _, _, _, _, _, _, _, _, _, _, tEXOG_B = glm_cosinor(endog = data, 
+																		time_var = time_var,
+																		exog = EXOG,
+																		dmy_covariates = None,
+																		rand_array = rand_array,
+																		period = period)
+
+			SobelZ  = calc_indirect(tAMPLITUDE_A[0], tEXOG_B[0], alg = "aroian")
+
+			if opts.surface:
+				write_perm_maxTFCE_vertex("Zstat_%s" % medtype,
+										SobelZ,
+										num_vertex_lh,
+										mask_lh,
+										mask_rh,
+										calcTFCE_lh,
+										calcTFCE_rh,
+										vdensity_lh,
+										vdensity_rh)
+			else:
+				write_perm_maxTFCE_voxel("Zstat_%s" % medtype,
+										SobelZ,
 										calcTFCE)
 
 		# MEDIATION

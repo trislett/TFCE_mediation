@@ -58,7 +58,8 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	stat.add_argument("-cos","--cosinor",
 		help="Cosinor model",
 		action='store_true')
-
+	stat.add_argument("-mcos","--cosinormediation",
+		action='store_true')
 
 	ap.add_argument("-n", "--numperm", 
 		nargs=1, 
@@ -110,6 +111,8 @@ def run(opts):
 			whichScript= "tfce_mediation tm-models-randomise -v -cos"
 		if opts.modelmediation:
 			whichScript= "tfce_mediation tm-models-randomise -v -med"
+		if opts.cosinormediation:
+			whichScript= "tfce_mediation tm-models-randomise -v -mcos"
 	else:
 		whichScript= "tfce_mediation vertex-regress-randomise -s %s" % (opts.vertex[0])
 		if opts.specifyvars:
@@ -126,6 +129,8 @@ def run(opts):
 			whichScript= "tfce_mediation tm-models-randomise -s %s -cos" % (opts.vertex[0])
 		if opts.modelmediation:
 			whichScript = "tfce_mediation tm-models-randomise -s %s -med" % (opts.vertex[0])
+		if opts.cosinormediation:
+			whichScript= "tfce_mediation tm-models-randomise -s %s  -mcos" % (opts.vertex[0])
 
 	if opts.exchangeblock:
 		whichScript = "%s -e %s" % (whichScript, opts.exchangeblock[0])
@@ -134,7 +139,7 @@ def run(opts):
 	#round number of permutations to the nearest 200
 	roundperm=int(np.round(opts.numperm[0]/200.0)*100.0)
 	print("Evaluating %d permuations" % (roundperm*2))
-	if opts.mediation or opts.onebetweenssubjectfactor or opts.twobetweenssubjectfactor or opts.cosinor:
+	if opts.mediation or opts.onebetweenssubjectfactor or opts.twobetweenssubjectfactor or opts.cosinor or opts.cosinormediation:
 		roundperm *= 2
 	forperm=int(roundperm/100)-1
 

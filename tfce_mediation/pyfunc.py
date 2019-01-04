@@ -2477,7 +2477,7 @@ def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array 
 		else:
 			tEXOG = None
 	else:
-		MESOR = tMESOR = SE_MESOR = None
+		MESOR = tMESOR = SE_MESOR = tEXOG = None
 
 	# beta, gamma
 	AMPLITUDE = np.sqrt((a[1,:]**2) + (a[2,:]**2))

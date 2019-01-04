@@ -552,8 +552,8 @@ def run(opts):
 			adjac_rh = np.load("%s/adjac_rh.npy" % tempdir)
 			vdensity_lh = np.load("%s/vdensity_lh.npy" % tempdir)
 			vdensity_rh = np.load("%s/vdensity_rh.npy" % tempdir)
-			calcTFCE_lh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_lh)
-			calcTFCE_rh = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac_rh)
+			calcTFCE_lh = CreateAdjSet(float(optstfce[0]), float(optstfce[1]), adjac_lh)
+			calcTFCE_rh = CreateAdjSet(float(optstfce[0]), float(optstfce[1]), adjac_rh)
 
 	##### GLM ######
 	if opts.generalizedlinearmodel:
@@ -1017,7 +1017,7 @@ def run(opts):
 		EXOG = []
 		EXOG.append(dmy_mediator)
 
-		_, _, _, _, _, _, _, Fmodel_A, _, tAMPLITUDE_A, _, _ = glm_cosinor(endog = dmy_mediator, 
+		_, _, _, _, _, _, _, _, _, tAMPLITUDE_A, _, _ = glm_cosinor(endog = dmy_mediator, 
 																	time_var = time_var,
 																	exog = None,
 																	dmy_covariates = None,
@@ -1025,7 +1025,7 @@ def run(opts):
 																	period = period,
 																	calc_MESOR = True)
 
-		_, _, _, _, _, _, _, Fmodel_B, _, tAMPLITUDE_B, _, tEXOG_B = glm_cosinor(endog = data, 
+		_, _, _, _, _, _, _, _, _, _, _, tEXOG_B = glm_cosinor(endog = data, 
 																	time_var = time_var,
 																	exog = EXOG,
 																	dmy_covariates = None,
@@ -1034,8 +1034,9 @@ def run(opts):
 																	calc_MESOR = True)
 
 		SobelZ  = calc_indirect(tAMPLITUDE_A[0], tEXOG_B[0], alg = "aroian")
-		print(tAMPLITUDE_A)
-		print(Fmodel_A)
+#		print(tAMPLITUDE_A)
+#		print(tEXOG_B.max())
+#		print(calc_indirect(tAMPLITUDE_A[0], tEXOG_B.max(), alg = "aroian"))
 
 		if opts.surfaceinputfolder:
 			save_temporary_files('cosinormediation', modality_type = surface,
@@ -1086,18 +1087,8 @@ def run(opts):
 				mask_rh.shape[0],
 				vdensity_rh)
 
-			write_vertStat_img('test_AMPB_Tstat_%s' % medtype,
-				tAMPLITUDE_B[:num_vertex_lh],
-				outdata_mask_lh,
-				affine_mask_lh,
-				surface,
-				'lh',
-				mask_lh,
-				calcTFCE_lh,
-				mask_lh.shape[0],
-				vdensity_lh)
-			write_vertStat_img('test_AMPB_Tstat_%s' % medtype,
-				tAMPLITUDE_B[num_vertex_lh:],
+			write_vertStat_img('Texog_%s' % medtype,
+				tEXOG_B[0,num_vertex_lh:],
 				outdata_mask_rh,
 				affine_mask_rh,
 				surface,
@@ -1106,29 +1097,6 @@ def run(opts):
 				calcTFCE_rh,
 				mask_rh.shape[0],
 				vdensity_rh)
-
-			write_vertStat_img('test_Fmodel_B_%s' % medtype,
-				Fmodel_B[:num_vertex_lh],
-				outdata_mask_lh,
-				affine_mask_lh,
-				surface,
-				'lh',
-				mask_lh,
-				calcTFCE_lh,
-				mask_lh.shape[0],
-				vdensity_lh,
-				TFCE = False)
-			write_vertStat_img('test_Fmodel_B_%s' % medtype,
-				Fmodel_B[num_vertex_lh:],
-				outdata_mask_rh,
-				affine_mask_rh,
-				surface,
-				'rh',
-				mask_rh,
-				calcTFCE_rh,
-				mask_rh.shape[0],
-				vdensity_rh,
-				TFCE = False)
 
 		if opts.volumetricinputs or opts.volumetricinputlist:
 			save_temporary_files('cosinormediation', modality_type = "volume",

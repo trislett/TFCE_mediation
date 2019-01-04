@@ -327,11 +327,17 @@ def run(opts):
 			EXOG = []
 			EXOG.append(dmy_mediator)
 
+#			_, _, _, _, _, _, _, _, _, tAMPLITUDE_A, _, _ = glm_cosinor(endog = dmy_mediator, 
+#																		time_var = time_var,
+#																		exog = None,
+#																		dmy_covariates = None,
+#																		rand_array = rand_array,
+#																		period = period)
 			_, _, _, _, _, _, _, _, _, tAMPLITUDE_A, _, _ = glm_cosinor(endog = dmy_mediator, 
 																		time_var = time_var,
 																		exog = None,
 																		dmy_covariates = None,
-																		rand_array = rand_array,
+																		rand_array = None,
 																		period = period)
 
 			_, _, _, _, _, _, _, _, _, _, _, tEXOG_B = glm_cosinor(endog = data, 

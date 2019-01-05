@@ -2482,7 +2482,7 @@ def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array 
 	# beta, gamma
 	AMPLITUDE = np.sqrt((a[1,:]**2) + (a[2,:]**2))
 	# Acrophase calculation
-	ACROPHASE = np.arctan(np.divide(-a[2,:], a[1,:]))
+	ACROPHASE = np.arctan(np.abs(np.divide(-a[2,:], a[1,:])))
 
 	# standard errors from error propagation
 	SE_ACROPHASE = sigma * np.sqrt((invXX[1,1]*np.sin(ACROPHASE)**2) + (2*invXX[1,2]*np.sin(ACROPHASE)*np.cos(ACROPHASE)) + (invXX[2,2]*np.cos(ACROPHASE)**2)) / AMPLITUDE

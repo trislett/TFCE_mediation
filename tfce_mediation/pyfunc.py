@@ -45,32 +45,34 @@ def create_adjac_vertex(vertices,faces): # basic version
 		adjacency[faces[i, 2]].add(faces[i, 1])
 	return adjacency
 
-def create_adjac_voxel(data_index,data_mask,num_voxel, dirtype=26): # default is 26 directions
-	ind=np.where(data_index)
-	dm=np.zeros_like(data_mask)
-	x_dim,y_dim,z_dim=data_mask.shape
+def create_adjac_voxel(data_index, data_mask, num_voxel, dirtype=26): # default is 26 directions
+	ind = np.where(data_index)
+	dm = np.zeros_like(data_mask)
+	x_dim, y_dim, z_dim = data_mask.shape
 	adjacency = [set([]) for i in range(num_voxel)]
-	label=0
+	label = 0
 	for x,y,z in zip(ind[0],ind[1],ind[2]):
 		dm[x,y,z] = label
 		label += 1
 	for x,y,z in zip(ind[0],ind[1],ind[2]):
-		xMin=max(x-1,0)
-		xMax=min(x+1,x_dim-1)
-		yMin=max(y-1,0)
-		yMax=min(y+1,y_dim-1)
-		zMin=max(z-1,0)
-		zMax=min(z+1,z_dim-1)
+		xMin=max(x-1, 0)
+		xMax=min(x+1, x_dim-1)
+		yMin=max(y-1, 0)
+		yMax=min(y+1, y_dim-1)
+		zMin=max(z-1, 0)
+		zMax=min(z+1, z_dim-1)
 		local_area = dm[xMin:xMax+1,yMin:yMax+1,zMin:zMax+1]
 		if int(dirtype)==6:
 			if local_area.shape!=(3,3,3): # check to prevent calculating adjacency at walls
-				local_area = dm[x,y,z] 
+				local_area = dm[x,y,z]
 			else:
 				local_area = local_area * np.array([0,0,0,0,1,0,0,0,0,0,1,0,1,1,1,0,1,0,0,0,0,0,1,0,0,0,0]).reshape(3,3,3)
 		cV = int(dm[x,y,z])
 		for j in local_area[local_area>0]:
 			adjacency[cV].add(int(j))
-	return adjacency
+	# convert to list
+	return np.array([list(i) for i in adjacency])
+#	return adjacency
 
 #writing statistics images
 

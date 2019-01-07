@@ -387,8 +387,8 @@ def run(opts):
 				data_rh = np.squeeze(nib.freesurfer.mghformat.load("%s/rh.all.%s.%s.mgh" % (sfolder, surface,FWHM)).get_data())
 				data.append(np.hstack((data_lh[mask_lh].T,data_rh[mask_rh].T)))
 				data_lh = data_rh = []
-		data = np.array(data)
-		nonzero = np.empty_like(data)
+		data = np.array(data, dtype=np.float32, order = 'c')
+		nonzero = np.zeros_like(data)
 		nonzero[:] = np.copy(data)
 
 		#TFCE
@@ -452,7 +452,7 @@ def run(opts):
 			else:
 				tempdata = import_voxel_neuroimage(vimage, mask_index)
 				data.append(tempdata.T)
-		data = np.array(data)
+		data = np.array(data, dtype=np.float32, order = 'c')
 		nonzero = np.zeros_like(data)
 		nonzero[:] = np.copy(data)
 		#TFCE
@@ -461,8 +461,8 @@ def run(opts):
 			arg_adjac_lh = opts.adjfiles[0]
 			adjac = np.load(arg_adjac_lh)
 		else:
-			adjac = create_adjac_voxel(mask_index, data_mask, len(data_mask[mask_index]), dirtype = opts.tfce[2])
-		calcTFCE = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac) # H=2, E=2, 26 neighbour connectivity
+			adjac = create_adjac_voxel(mask_index, data_mask, len(data_mask[mask_index]), dirtype = optstfce[2])
+		calcTFCE = CreateAdjSet(float(optstfce[0]), float(optstfce[1]), adjac) # H=2, E=2, 26 neighbour connectivity
 	if opts.volumetricinputlist:
 		img_lists = opts.volumetricinputlist
 		for i in range(len(img_lists)):
@@ -493,8 +493,8 @@ def run(opts):
 				for image_path in np.genfromtxt(img_lists[i], delimiter=',', dtype=str):
 					img_data.append(import_voxel_neuroimage(image_path, mask_index))
 				data.append(np.array(img_data))
-		data = np.array(data)
-		nonzero = np.empty_like(data)
+		data = np.array(data, dtype=np.float32, order = 'c')
+		nonzero = np.zeros_like(data)
 		nonzero[:] = np.copy(data)
 		print ("Voxel data loaded [%d intervals, %d subjects, %d voxels]" % (data.shape[0], data.shape[1], data.shape[2]))
 		#TFCE
@@ -503,8 +503,8 @@ def run(opts):
 			arg_adjac_lh = opts.adjfiles[0]
 			adjac = np.load(arg_adjac_lh)
 		else:
-			adjac = create_adjac_voxel(mask_index, data_mask, data.shape[2], dirtype=opts.tfce[2])
-		calcTFCE = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac) # H=2, E=2, 26 neighbour connectivity
+			adjac = create_adjac_voxel(mask_index, data_mask, data.shape[2], dirtype=optstfce[2])
+		calcTFCE = CreateAdjSet(float(optstfce[0]), float(optstfce[1]), adjac) # H=2, E=2, 26 neighbour connectivity
 	if opts.tmiinputs:
 		print("TMI not supported yet.")
 		quit()
@@ -533,7 +533,7 @@ def run(opts):
 			data_mask = np.load("%s/data_mask.npy" % tempdir)
 			mask_index = np.load("%s/mask_index.npy" % tempdir)
 			affine_mask = np.load("%s/affine_mask.npy" % tempdir)
-			calcTFCE = CreateAdjSet(float(opts.tfce[0]), float(opts.tfce[1]), adjac)
+			calcTFCE = CreateAdjSet(float(optstfce[0]), float(optstfce[1]), adjac)
 			opts.volumetricinputs = True
 		elif modtype == 'tmi':
 			pass

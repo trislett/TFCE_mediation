@@ -71,8 +71,9 @@ def create_adjac_voxel(data_index, data_mask, num_voxel, dirtype=26): # default 
 		for j in local_area[local_area>0]:
 			adjacency[cV].add(int(j))
 	# convert to list
-	return np.array([list(i) for i in adjacency])
-#	return adjacency
+	adjacency = np.array([[x for x in sorted(i) if x != index] for index, i in enumerate(adjacency)]) # just convoluted enough
+	adjacency[0] = []
+	return adjacency
 
 #writing statistics images
 
@@ -2386,7 +2387,7 @@ def glm_typeI(endog, exog, dmy_covariates = None, output_fvalues = True, output_
 
 # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3991883/
 # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3663600/
-def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array = None, period = 24.0, calc_MESOR = True):
+def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array = None, period = [24.0], calc_MESOR = True):
 	"""
 	COSINOR model using GLM
 	
@@ -2405,22 +2406,21 @@ def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array 
 		Dummy coded array of covariates for two-step regression.
 	rand_array : array
 		randomized array for permutations (Nsubjects).
-	period : float
-		Period for cosinor model.
+	period : array
+		Period(s) as an array of floats for cosinor model.
 	Returns
 	---------
 	To-do
 	"""
 
 	n = endog.shape[0]
-	# create beta/gamma terms
-	cosT = np.cos(2*np.pi*time_var/period)
-	sinT = np.sin(2*np.pi*time_var/period)
-
 	# add cosinor terms
+	num_period = len(period)
 	exog_vars = np.ones((n))
-	exog_vars = np.column_stack((exog_vars,cosT))
-	exog_vars = np.column_stack((exog_vars,sinT))
+	for i in range(num_period):
+		exog_vars = np.column_stack((exog_vars,np.cos(np.divide(2.0*np.pi*time_var, period[i]))))
+		exog_vars = np.column_stack((exog_vars,np.sin(np.divide(2.0*np.pi*time_var, period[i]))))
+
 
 	kvars = []
 	# add other exogenous variables to the model (currently not implemented)
@@ -2459,7 +2459,7 @@ def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array 
 	sigma = np.sqrt(SS_Residuals / DF_Within)
 	invXX = np.linalg.inv(np.dot(exog_vars.T, exog_vars))
 
-	if calc_MESOR:
+	if (calc_MESOR) or (exog is not None):
 		if endog.ndim == 1:
 			se = np.sqrt(np.diag(sigma * sigma * invXX))
 			Tvalues = a / se
@@ -2475,36 +2475,53 @@ def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array 
 			tMESOR = Tvalues[0,:]
 			SE_MESOR = se[0,:]
 		if exog is not None:
-			tEXOG = Tvalues[3:,:]
+			tEXOG = Tvalues[(3+(2*(num_period-1))):,:]
 		else:
 			tEXOG = None
 	else:
 		MESOR = tMESOR = SE_MESOR = tEXOG = None
 
-	# beta, gamma
-	AMPLITUDE = np.sqrt((a[1,:]**2) + (a[2,:]**2))
-	# Acrophase calculation
-	ACROPHASE = np.arctan(np.abs(np.divide(-a[2,:], a[1,:])))
 
-	# standard errors from error propagation
-	SE_ACROPHASE = sigma * np.sqrt((invXX[1,1]*np.sin(ACROPHASE)**2) + (2*invXX[1,2]*np.sin(ACROPHASE)*np.cos(ACROPHASE)) + (invXX[2,2]*np.cos(ACROPHASE)**2)) / AMPLITUDE
-	SE_AMPLITUDE = sigma * np.sqrt((invXX[1,1]*np.cos(ACROPHASE)**2) - (2*invXX[1,2]*np.sin(ACROPHASE)*np.cos(ACROPHASE)) + (invXX[2,2]*np.sin(ACROPHASE)**2))
+	AMPLITUDE = []
+	ACROPHASE = []
+	SE_ACROPHASE = []
+	SE_AMPLITUDE = []
+	tAMPLITUDE = []
+	tACROPHASE = []
+	
+	for i in range(num_period):
+		# beta, gamma
+		AMPLITUDE.append(np.sqrt((a[1+(i*2),:]**2) + (a[2+(i*2),:]**2)))
+		# Acrophase calculation
+		if i == 0: # awful hack
+			ACROPHASE = np.arctan(np.abs(np.divide(-a[2+(i*2),:], a[1+(i*2),:])))
+			ACROPHASE = ACROPHASE[np.newaxis,:]
+		else:
+			temp_acro = np.arctan(np.abs(np.divide(-a[2+(i*2),:], a[1+(i*2),:])))
+			temp_acro = temp_acro[np.newaxis,:]
+			ACROPHASE = np.append(ACROPHASE,temp_acro, axis=0)
 
+		# standard errors from error propagation
+		SE_ACROPHASE.append(sigma * np.sqrt((invXX[(1+(i*2)),1+(i*2)]*np.sin(ACROPHASE[i])**2) + (2*invXX[1+(i*2),2+(i*2)]*np.sin(ACROPHASE[i])*np.cos(ACROPHASE[i])) + (invXX[2+(i*2),2+(i*2)]*np.cos(ACROPHASE[i])**2)) / AMPLITUDE[i])
+		SE_AMPLITUDE.append(sigma * np.sqrt((invXX[(1+(i*2)),1+(i*2)]*np.cos(ACROPHASE[i])**2) - (2*invXX[1+(i*2),2+(i*2)]*np.sin(ACROPHASE[i])*np.cos(ACROPHASE[i])) + (invXX[2+(i*2),2+(i*2)]*np.sin(ACROPHASE[i])**2)))
+
+		ACROPHASE = np.array(ACROPHASE)
+		if rand_array is None:
+			ACROPHASE[i, (a[2,:] > 0) & (a[1,:] >= 0)] = -ACROPHASE[i, (a[2,:] > 0) & (a[1,:] >= 0)]
+			ACROPHASE[i, (a[2,:] > 0) & (a[1,:] < 0)] = (-1*np.pi) + ACROPHASE[i, (a[2,:] > 0) & (a[1,:] < 0)]
+			ACROPHASE[i, (a[2,:] < 0) & (a[1,:] <= 0)] = (-1*np.pi) - ACROPHASE[i, (a[2,:] < 0) & (a[1,:] <= 0)]
+			ACROPHASE[i, (a[2,:] <= 0) & (a[1,:] > 0)] = (-2*np.pi) + ACROPHASE[i, (a[2,:] <= 0) & (a[1,:] > 0)]
+		# t values
+		tAMPLITUDE.append(np.divide(AMPLITUDE[i], SE_AMPLITUDE[i]))
+		tACROPHASE.append(np.divide(1.0, SE_ACROPHASE[i]))
+
+	# Do not output R-squared during permutations testing.
 	if rand_array is None:
-		ACROPHASE[(a[2,:] > 0) & (a[1,:] >= 0)] = -ACROPHASE[(a[2,:] > 0) & (a[1,:] >= 0)]
-		ACROPHASE[(a[2,:] > 0) & (a[1,:] < 0)] = (-1*np.pi) + ACROPHASE[(a[2,:] > 0) & (a[1,:] < 0)]
-		ACROPHASE[(a[2,:] < 0) & (a[1,:] <= 0)] = (-1*np.pi) - ACROPHASE[(a[2,:] < 0) & (a[1,:] <= 0)]
-		ACROPHASE[(a[2,:] <= 0) & (a[1,:] > 0)] = (-2*np.pi) + ACROPHASE[(a[2,:] <= 0) & (a[1,:] > 0)]
 		R2 = 1 - (SS_Residuals/SS_Total)
 	else:
-		# Do not output R-squared during permutations testing.
 		R2 = None
 
-	# t values
-	tAMPLITUDE = np.divide(AMPLITUDE, SE_AMPLITUDE)
-	tACROPHASE = np.divide(1.0, SE_ACROPHASE)
-
-	return R2, MESOR, SE_MESOR, AMPLITUDE, SE_AMPLITUDE, ACROPHASE, SE_ACROPHASE, Fmodel, tMESOR, np.abs(tAMPLITUDE), np.abs(tACROPHASE), tEXOG
+	return R2, MESOR, SE_MESOR, np.array(AMPLITUDE), np.array(SE_AMPLITUDE), np.array(ACROPHASE), np.array(SE_ACROPHASE), Fmodel, tMESOR, np.abs(tAMPLITUDE), np.abs(tACROPHASE), np.array(tEXOG)
 
 
 def dummy_code(variable, iscontinous = False, demean = True):

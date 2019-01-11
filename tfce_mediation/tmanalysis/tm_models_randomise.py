@@ -285,24 +285,25 @@ def run(opts):
 #										calcTFCE_rh,
 #										vdensity_lh,
 #										vdensity_rh)
-				write_perm_maxTFCE_vertex('Tstat_amplitude',
-										tAMPLITUDE,
-										num_vertex_lh,
-										mask_lh,
-										mask_rh,
-										calcTFCE_lh,
-										calcTFCE_rh,
-										vdensity_lh,
-										vdensity_rh)
-				write_perm_maxTFCE_vertex('Tstat_acrophase',
-										tACROPHASE,
-										num_vertex_lh,
-										mask_lh,
-										mask_rh,
-										calcTFCE_lh,
-										calcTFCE_rh,
-										vdensity_lh,
-										vdensity_rh)
+				for i, per in enumerate(period):
+					write_perm_maxTFCE_vertex('Tstat_amplitude_%2.2f' % per,
+											tAMPLITUDE[i],
+											num_vertex_lh,
+											mask_lh,
+											mask_rh,
+											calcTFCE_lh,
+											calcTFCE_rh,
+											vdensity_lh,
+											vdensity_rh)
+					write_perm_maxTFCE_vertex('Tstat_acrophase_%2.2f' % per,
+											tACROPHASE[i],
+											num_vertex_lh,
+											mask_lh,
+											mask_rh,
+											calcTFCE_lh,
+											calcTFCE_rh,
+											vdensity_lh,
+											vdensity_rh)
 			else:
 				write_perm_maxTFCE_voxel('Fstat_model',
 										Fmodel,
@@ -310,12 +311,13 @@ def run(opts):
 #				write_perm_maxTFCE_voxel('Tstat_mesor',
 #										tMESOR,
 #										calcTFCE)
-				write_perm_maxTFCE_voxel('Tstat_amplitude',
-										tAMPLITUDE,
-										calcTFCE)
-				write_perm_maxTFCE_voxel('Tstat_acrophase',
-										tACROPHASE,
-										calcTFCE)
+				for i, per in enumerate(period):
+					write_perm_maxTFCE_voxel('Tstat_amplitude_%2.2f' % per,
+											tAMPLITUDE[i],
+											calcTFCE)
+					write_perm_maxTFCE_voxel('Tstat_acrophase_%2.2f' % per,
+											tACROPHASE[i],
+											calcTFCE)
 
 		# Cosinor mediation
 		if opts.cosinormediation:

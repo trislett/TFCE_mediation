@@ -265,6 +265,11 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		default = ['f'],
 		choices = ['f','t', 'all'])
 
+	ap.add_argument("-ms", "--mesorcentering",
+		nargs=1,
+		help="Run a COSINOR analysis on each subject independently to determine the MESOR and subtract it. i.e., mean-centering using the mesor. Input subject variable. -ms {subject}",
+		metavar=('subject_var'))
+
 	mask = ap.add_mutually_exclusive_group(required=False)
 	mask.add_argument("-m","--binarymask", 
 		help="Load binary mask surface for lh and rh, respectively.", 
@@ -1626,6 +1631,17 @@ def run(opts):
 			dmy_covariates = np.concatenate(covars,1)
 		else:
 			dmy_covariates = None
+
+		if opts.mesorcentering:
+			sub_arr = pdCSV["%s" % opts.mesorcentering[0]]
+			sub_unique = np.unique(sub_arr)
+			for subject in sub_unique:
+				mesor = glm_cosinor(endog = data[sub_arr == subject],
+												time_var = time_var[sub_arr == subject],
+												exog = None, dmy_covariates = None,
+												rand_array = None, period = period)[1]
+				data[sub_arr == subject] = data[sub_arr == subject] - mesor
+				del mesor
 
 		R2, MESOR, SE_MESOR, AMPLITUDE, SE_AMPLITUDE, ACROPHASE, SE_ACROPHASE, Fmodel, tMESOR, tAMPLITUDE, tACROPHASE, tEXOG = glm_cosinor(endog = data, 
 																																time_var = time_var,

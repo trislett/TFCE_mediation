@@ -224,7 +224,7 @@ def run(opts):
 			print("unknown number of compenents")
 			exit()
 		print(num_comp)
-		ica, sort_mask, _ = tmi_run_ica(img_data_trunc,num_comp, variance_threshold=.8, masking_array = masking_array, affine_array = affine_array, filetype='mgh', outname='ica.mgh')
+		ica, sort_mask, _ = tmi_run_ica(img_data_trunc, num_comp, variance_threshold=.8, masking_array = masking_array, affine_array = affine_array, filetype='mgh', outname='ica.mgh')
 		components = ica.components_.T
 
 	if opts.timeplot:

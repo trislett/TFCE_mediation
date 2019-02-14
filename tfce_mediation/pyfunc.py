@@ -2387,7 +2387,7 @@ def glm_typeI(endog, exog, dmy_covariates = None, output_fvalues = True, output_
 
 # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3991883/
 # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3663600/
-def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array = None, period = [24.0], calc_MESOR = True):
+def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array = None, interaction_var = None, period = [24.0], calc_MESOR = True):
 	"""
 	COSINOR model using GLM
 	
@@ -2420,6 +2420,10 @@ def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array 
 	for i in range(num_period):
 		exog_vars = np.column_stack((exog_vars,np.cos(np.divide(2.0*np.pi*time_var, period[i]))))
 		exog_vars = np.column_stack((exog_vars,np.sin(np.divide(2.0*np.pi*time_var, period[i]))))
+
+	if interaction_var is not None:
+		for i in range(num_period):
+			exog_vars = np.column_stack((exog_vars, exog_vars[i+1] * interaction_var))
 
 
 	kvars = []

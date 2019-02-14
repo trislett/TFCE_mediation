@@ -224,7 +224,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	stat.add_argument("-glm", "--generalizedlinearmodel",
 		nargs='+',
 		help="Generalized linear model that uses type I sum of squares. Each exogenous variable must be specified as either discrete (d) or continous (c). Output metrics can be specified by -gs as either F-statics, T-statistics, or all. Interactions can be specified using -ei. Only one interval is supported. e.g., -glm sex d age c genotype d. [-glm {exogenous_1} {type_1} ... {exogenous_k} {type_k}]",
-		metavar=('exog1', '{d|c}'))
+		metavar=('exogn', '{d|c}'))
 	stat.add_argument("-ofa", "--onebetweenssubjectfactor",
 		nargs=2,
 		help="ANCOVA with one between-subject (fixed) factor and neuroimage as the within-subject (random) factor (mixed-effect model). AKA, the repeated-measure ANCOVA. Covariates may also be included. Interactions will be coded automatically (Factor1*Time). ANOVA uses type I sum of squares (order matters). The between-subject factor must be specified as either discrete (d) or continous (c). Additional interactions among the covariates can be specified using -ei. e.g., -ofa genotype d. [-ofa {factor} {type}]",
@@ -269,6 +269,10 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs=1,
 		help="Run a COSINOR analysis on each subject independently to determine the MESOR and subtract it. i.e., mean-centering using the mesor. Input subject variable. -ms {subject}",
 		metavar=('subject_var'))
+	ap.add_argument("-ce", "--cosinorexog",
+		nargs='+',
+		help="Add exogenous variable to the consinor model.",
+		metavar=('exog1', '{d|c}'))
 
 	mask = ap.add_mutually_exclusive_group(required=False)
 	mask.add_argument("-m","--binarymask", 
@@ -1615,7 +1619,6 @@ def run(opts):
 		data = data[0] # There should only be one interval...
 		time_var = pdCSV["%s" % opts.cosinor[0]]
 		period = np.array(opts.cosinor[1:], dtype=np.float32)
-		num_period = len(period)
 
 		if opts.initcovar:
 			init_covars, init_covarsnames = load_vars(pdCSV, variables = opts.initcovar, exog = [], names = [], demean_flag = False)
@@ -1626,6 +1629,15 @@ def run(opts):
 			covars, covarnames = load_vars(pdCSV, variables = opts.covariates, exog = [], names = [], demean_flag = demean_flag)
 		else:
 			covars = covarnames = []
+
+		if opts.cosinorexog:
+			exog, varnames = load_vars(pdCSV, variables = opts.cosinorexog, exog = [], names = [], demean_flag = demean_flag)
+			exog_shape = []
+			for i in range(len(varnames)):
+				exog_shape.append(exog[i].shape[1])
+		else:
+			exog = varnames = [] 
+			exog_shape = exog_flat = None
 
 		if opts.covariates:
 			dmy_covariates = np.concatenate(covars,1)
@@ -1641,11 +1653,12 @@ def run(opts):
 												exog = None, dmy_covariates = None,
 												rand_array = None, period = period)[1]
 				data[sub_arr == subject] = data[sub_arr == subject] - mesor
+				print("The mean MESOR for %s was %1.5f" % (subject, np.mean(mesor)))
 				del mesor
 
 		R2, MESOR, SE_MESOR, AMPLITUDE, SE_AMPLITUDE, ACROPHASE, SE_ACROPHASE, Fmodel, tMESOR, tAMPLITUDE, tACROPHASE, tEXOG = glm_cosinor(endog = data, 
 																																time_var = time_var,
-																																exog = None,
+																																exog = exog,
 																																dmy_covariates = dmy_covariates,
 																																rand_array = None,
 																																period = period)
@@ -1667,6 +1680,9 @@ def run(opts):
 				time_var = time_var,
 				period = period,
 				dmy_covariates = dmy_covariates,
+				exog_flat = exog_flat,
+				exog_shape = exog_shape,
+				varnames = varnames,
 				optstfce = optstfce,
 				nonzero = nonzero.astype(np.float32, order = "C"),
 				data = data.astype(np.float32, order = "C"))
@@ -1679,6 +1695,9 @@ def run(opts):
 				time_var = time_var,
 				period = period,
 				dmy_covariates = dmy_covariates,
+				exog_flat = exog_flat,
+				exog_shape = exog_shape,
+				varnames = varnames,
 				optstfce = optstfce,
 				nonzero = nonzero.astype(np.float32, order = "C"),
 				data = data.astype(np.float32, order = "C"))
@@ -1776,6 +1795,54 @@ def run(opts):
 				mask_rh.shape[0],
 				vdensity_rh,
 				TFCE = False)
+			if opts.cosinorexog:
+				numcon = np.concatenate(exog,1).shape[1]
+				for j in range(numcon):
+					tnum=j # quick fix
+					if len(varnames) == numcon:
+						outname = 'Tstat_%s' % varnames[j]
+					else:
+						outname = 'Tstat_con%d' % int(j+1)
+					write_vertStat_img(outname, 
+						tEXOG[tnum,:num_vertex_lh],
+						outdata_mask_lh,
+						affine_mask_lh,
+						surface,
+						'lh',
+						mask_lh,
+						calcTFCE_lh,
+						mask_lh.shape[0],
+						vdensity_lh)
+					write_vertStat_img(outname,
+						tEXOG[tnum,num_vertex_lh:],
+						outdata_mask_rh,
+						affine_mask_rh,
+						surface,
+						'rh',
+						mask_rh,
+						calcTFCE_rh,
+						mask_rh.shape[0],
+						vdensity_rh)
+					write_vertStat_img('neg%s' % outname,
+						(tEXOG[tnum,:num_vertex_lh]*-1),
+						outdata_mask_lh,
+						affine_mask_lh,
+						surface,
+						'lh',
+						mask_lh,
+						calcTFCE_lh,
+						mask_lh.shape[0],
+						vdensity_lh)
+					write_vertStat_img('neg%s' % outname,
+						(tEXOG[tnum,num_vertex_lh:]*-1),
+						outdata_mask_rh,
+						affine_mask_rh,
+						surface,
+						'rh',
+						mask_rh,
+						calcTFCE_rh,
+						mask_rh.shape[0],
+						vdensity_rh)
 
 			for i, per in enumerate(period):
 				write_vertStat_img('Tstat_amplitude_%2.2f' % per,
@@ -1924,6 +1991,25 @@ def run(opts):
 				calcTFCE,
 				imgext,
 				TFCE = False)
+
+			if opts.cosinorexog:
+				numcon = np.concatenate(exog,1).shape[1]
+				for j in range(numcon):
+					tnum=j
+					write_voxelStat_img('Tstat_%s' % varnames[j], 
+						tEXOG[tnum,:],
+						data_mask,
+						mask_index,
+						affine_mask,
+						calcTFCE,
+						imgext)
+					write_voxelStat_img('negTstat_%s' % varnames[j], 
+						-tEXOG[tnum,:],
+						data_mask,
+						mask_index,
+						affine_mask,
+						calcTFCE,
+						imgext)
 
 			for i, per in enumerate(period):
 				write_voxelStat_img('Tstat_amplitude_%2.2f' % per,

@@ -109,6 +109,18 @@ def run(opts):
 			outdir = "output_cosinor_volume/perm_cosinor"
 		time_var = np.load("%s/time_var.npy" % tempdir)
 		period = np.load("%s/period.npy" % tempdir)
+		
+		exog_flat = np.load("%s/exog_flat.npy" % tempdir)
+		exog_shape = np.load("%s/exog_shape.npy" % tempdir)
+		if np.all(exog_flat) is None:
+			exog = None
+		else:
+			count = 0
+			exog = []
+			for nc in exog_shape:
+				exog.append(exog_flat[:,count:(count+nc)])
+				count += nc
+			varnames = np.load("%s/varnames.npy" % tempdir)
 
 	if opts.cosinormediation:
 		if opts.surface:
@@ -259,9 +271,9 @@ def run(opts):
 			else:
 				rand_array = np.random.permutation(list(range(data.shape[0])))
 			# get just the stats for randomization
-			_, _, _, _, _, _, _, Fmodel, _, tAMPLITUDE, tACROPHASE, _ = glm_cosinor(endog = data, 
+			_, _, _, _, _, _, _, Fmodel, _, tAMPLITUDE, tACROPHASE, tEXOG = glm_cosinor(endog = data, 
 																			time_var = time_var,
-																			exog = None,
+																			exog = exog,
 																			dmy_covariates = dmy_covariates,
 																			rand_array = rand_array,
 																			period = period,
@@ -304,6 +316,33 @@ def run(opts):
 											calcTFCE_rh,
 											vdensity_lh,
 											vdensity_rh)
+				if exog is not None:
+					numcon = np.concatenate(exog,1).shape[1]
+					for j in range(numcon):
+						tnum=j # quick fix
+						if len(varnames) == numcon:
+							outname = 'Tstat_%s' % varnames[j]
+						else:
+							outname = 'Tstat_con%d' % int(j+1)
+
+						write_perm_maxTFCE_vertex(outname, 
+												tEXOG[tnum],
+												num_vertex_lh,
+												mask_lh,
+												mask_rh,
+												calcTFCE_lh,
+												calcTFCE_rh,
+												vdensity_lh,
+												vdensity_rh)
+						write_perm_maxTFCE_vertex(outname, 
+												-tEXOG[tnum],
+												num_vertex_lh,
+												mask_lh,
+												mask_rh,
+												calcTFCE_lh,
+												calcTFCE_rh,
+												vdensity_lh,
+												vdensity_rh)
 			else:
 				write_perm_maxTFCE_voxel('Fstat_model',
 										Fmodel,
@@ -319,6 +358,20 @@ def run(opts):
 											tACROPHASE[i],
 											calcTFCE)
 
+				if exog is not None:
+					numcon = np.concatenate(exog,1).shape[1]
+					for j in range(numcon):
+						tnum=j # quick fix
+						if len(varnames) == numcon:
+							outname = 'Tstat_%s' % varnames[j]
+						else:
+							outname = 'Tstat_con%d' % int(j+1)
+						write_perm_maxTFCE_voxel(outname,
+												tEXOG[tnum],
+												calcTFCE)
+						write_perm_maxTFCE_voxel(outname,
+												-tEXOG[tnum],
+												calcTFCE)
 		# Cosinor mediation
 		if opts.cosinormediation:
 			if opts.exchangeblock:

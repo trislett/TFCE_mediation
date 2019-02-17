@@ -23,7 +23,7 @@ import argparse as ap
 import pandas as pd
 
 from tfce_mediation.tfce import CreateAdjSet
-from tfce_mediation.pyfunc import write_vertStat_img, write_voxelStat_img, create_adjac_vertex, create_adjac_voxel, reg_rm_ancova_one_bs_factor, reg_rm_ancova_two_bs_factor, glm_typeI, glm_cosinor, calc_indirect, dummy_code, column_product, stack_ones, import_voxel_neuroimage, lm_residuals
+from tfce_mediation.pyfunc import write_vertStat_img, write_voxelStat_img, create_adjac_vertex, create_adjac_voxel, reg_rm_ancova_one_bs_factor, reg_rm_ancova_two_bs_factor, glm_typeI, glm_cosinor, calc_indirect, dummy_code, column_product, stack_ones, import_voxel_neuroimage, lm_residuals, dummy_code_cosine
 
 def check_columns(pdData, datatype, folders = None, surface = None, FWHM = None, filelists = None, voximgs = None, tmi = None, tempdir = None):
 	for counter, roi in enumerate(pdData.columns):
@@ -257,13 +257,19 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		metavar=('exogn', '{d|c}'),
 		required=False)
 	ap.add_argument("-ei", "--exogenousvariableinteraction",
-		help="Specify interactions. The variables must be exognenous variables in either -c or -glm (e.g.-ei site*scanner sex*age age*age age*age*age) [-ei {exogi*exogj}...]",
+		help="Specify interactions. The variables must be exognenous variables in either -c or -glm or -glmcs (e.g.-ei site*scanner sex*age age*age age*age*age) [-ei {exogi*exogj}...]",
 		nargs='+',
 		metavar=('exogn'),
 		required=False)
 	ap.add_argument("-gs","--glmoutputstatistic",
+		help="Specify the output variables for the GLM.",
 		default = ['f'],
 		choices = ['f','t', 'all'])
+	ap.add_argument("-glmcs","--glmcosine",
+		help="Specify interactions. The variables must be exognenous variables in either -c or -glm (e.g.-ei site*scanner sex*age age*age age*age*age) [-ei {exogi*exogj}...]",
+		nargs=2,
+		metavar=('time', 'period'),
+		required=False)
 
 	ap.add_argument("-ms", "--mesorcentering",
 		nargs=1,
@@ -566,7 +572,8 @@ def run(opts):
 
 	##### GLM ######
 	if opts.generalizedlinearmodel:
-		exog, varnames = load_vars(pdCSV, variables = opts.generalizedlinearmodel, exog = [], names = [], demean_flag = demean_flag)
+		variables = opts.generalizedlinearmodel
+		exog, varnames = load_vars(pdCSV, variables = variables, exog = [], names = [], demean_flag = demean_flag)
 		data = data[0] # There should only be one interval...
 
 
@@ -574,6 +581,14 @@ def run(opts):
 			covars, covarnames = load_vars(pdCSV, variables = opts.covariates, exog = [], names = [], demean_flag = demean_flag)
 		else:
 			covars = covarnames = []
+
+		if opts.glmcosine:
+			time_var = opts.glmcosine[0]
+			period_var = opts.glmcosine[1]
+			time = np.array(pdCSV[time_var], dtype = np.float)
+			period = float(period_var)
+			varnames.append(time_var)
+			exog.append(dummy_code_cosine(time,period))
 		if opts.exogenousvariableinteraction:
 			varnames, exog, covarnames, covars = load_interactions(opts.exogenousvariableinteraction, 
 														varnames = varnames,
@@ -590,7 +605,8 @@ def run(opts):
 			exog_shape.append(exog[i].shape[1])
 
 		Tvalues = Fmodel = Fvalues = None
-		if opts.glmoutputstatistic[0] == 't':
+		glmoutputstatistic = opts.glmoutputstatistic[0]
+		if glmoutputstatistic == 't':
 			if opts.noreducedmodel:
 				Tvalues = glm_typeI(data,
 							exog,
@@ -607,7 +623,7 @@ def run(opts):
 							output_tvalues = True,
 							output_reduced_residuals = True,
 							exog_names = varnames)
-		elif opts.glmoutputstatistic[0] == 'f':
+		elif glmoutputstatistic == 'f':
 			if opts.noreducedmodel:
 				Fmodel, Fvalues = glm_typeI(data,
 							exog,
@@ -659,7 +675,7 @@ def run(opts):
 				dmy_covariates = dmy_covariates,
 				optstfce = optstfce,
 				varnames = varnames,
-				gstat = opts.glmoutputstatistic[0],
+				gstat = glmoutputstatistic,
 				nonzero = nonzero.astype(np.float32, order = "C"),
 				data = data.astype(np.float32, order = "C"))
 		if opts.volumetricinputs or opts.volumetricinputlist:

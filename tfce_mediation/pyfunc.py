@@ -2561,6 +2561,29 @@ def dummy_code(variable, iscontinous = False, demean = True):
 			dummy_vars = dummy_vars - np.mean(dummy_vars,0)
 	return dummy_vars
 
+def dummy_code_cosine(time, period = 24.0):
+	"""
+	Dummy codes a time variable into a cosine
+	C1 = (2.0*Pi*time)/period)
+	C2 = sin(2.0*Pi*time)/period)
+
+	Parameters
+	----------
+	time : array
+		1D array variable of any type 
+	period : float
+		Defined period (i.e., for one entire cycle) for the time variable
+
+	Returns
+	---------
+	cosine_curve : array
+		2D array cos and sine curves 
+	
+	"""
+
+	cosine_curve = np.cos(np.divide(2.0*np.pi*time, period))
+	cosine_curve = np.column_stack((cosine_curve,np.sin(np.divide(2.0*np.pi*time, period))))
+	return cosine_curve
 
 
 def column_product(arr1, arr2):

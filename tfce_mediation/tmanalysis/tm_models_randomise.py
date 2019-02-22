@@ -121,7 +121,6 @@ def run(opts):
 				exog.append(exog_flat[:,count:(count+nc)])
 				count += nc
 			varnames = np.load("%s/varnames.npy" % tempdir)
-
 	if opts.cosinormediation:
 		if opts.surface:
 			tempdir = "tmtemp_medcosinor_%s" % surface
@@ -134,15 +133,23 @@ def run(opts):
 		dmy_mediator = np.load("%s/dmy_mediator.npy" % tempdir)
 		medtype = np.load("%s/medtype.npy" % tempdir)
 	if opts.onebetweenssubjectfactor:
-		tempdir = "tmtemp_rmANCOVA1BS_%s" % surface
-		outdir = "output_rmANCOVA1BS_%s/perm_rmANCOVA1BS" % surface
+		if opts.surface:
+			tempdir = "tmtemp_rmANCOVA1BS_%s" % surface
+			outdir = "output_rmANCOVA1BS_%s/perm_rmANCOVA1BS"
+		else:
+			tempdir = "tmtemp_rmANCOVA1BS_volume"
+			outdir = "output_rmANCOVA1BS_volume/perm_rmANCOVA1BS"
 		dmy_factor1 = np.load("%s/dmy_factor1.npy" % tempdir)
 		factors = np.load("%s/factors.npy" % tempdir)
 		dmy_subjects = np.load("%s/dmy_subjects.npy" % tempdir)
 		dformat = np.load("%s/dformat.npy" % tempdir)[0]
 	if opts.twobetweenssubjectfactor:
-		tempdir = "tmtemp_rmANCOVA2BS_%s" % surface
-		outdir = "output_rmANCOVA2BS_%s/perm_rmANCOVA2BS" % surface
+		if opts.surface:
+			tempdir = "tmtemp_rmANCOVA2BS_%s" % surface
+			outdir = "output_rmANCOVA2BS_%s/perm_rmANCOVA2BS" % surface
+		else:
+			tempdir = "tmtemp_rmANCOVA2BS_volume"
+			outdir = "output_rmANCOVA2BS_volume/perm_rmANCOVA2BS"
 		dmy_factor1 = np.load("%s/dmy_factor1.npy" % tempdir)
 		dmy_factor2 = np.load("%s/dmy_factor2.npy" % tempdir)
 		factors = np.load("%s/factors.npy" % tempdir)
@@ -177,7 +184,7 @@ def run(opts):
 
 	#permute T values and write max TFCE values
 	if not os.path.exists(outdir):
-		os.mkdir(outdir)
+		os.system("mkdir -p %s" % outdir)
 	os.chdir(outdir)
 
 	if opts.generalizedlinearmodel:

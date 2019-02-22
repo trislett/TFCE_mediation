@@ -27,7 +27,7 @@ from sklearn.decomposition import FastICA, PCA, FactorAnalysis, IncrementalPCA
 from sklearn.model_selection import cross_val_score
 from scipy import stats, signal
 
-from tfce_mediation.pyfunc import zscaler
+from tfce_mediation.pyfunc import zscaler, lm_residuals
 from tfce_mediation.tm_io import read_tm_filetype, write_tm_filetype, savenifti_v2, savemgh_v2
 
 DESCRIPTION="ICA"
@@ -132,6 +132,10 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 	ap.add_argument("--scale", 
 		help="Removes the spatial trend.",
 		action='store_true')
+	ap.add_argument("-c","--covar", 
+		help="covariate",
+		nargs=1,
+		metavar=('csv'))
 
 	return ap
 
@@ -141,6 +145,9 @@ def run(opts):
 	del image_array # reduce ram usage
 	img_data_trunc = img_data_trunc.astype(np.float32)
 	img_data_trunc[np.isnan(img_data_trunc)]=0
+	if opts.covar:
+		covar = np.genfromtxt('dmy_Blocks.csv', delimiter=',',dtype=np.float)
+		img_data_trunc = lm_residuals(img_data_trunc.T,covar).T
 	if opts.scale:
 		img_data_trunc = zscaler(img_data_trunc)
 	if opts.maxnpcacomponents:
@@ -224,7 +231,8 @@ def run(opts):
 			print("unknown number of compenents")
 			exit()
 		print(num_comp)
-		ica, sort_mask, _ = tmi_run_ica(img_data_trunc, num_comp, variance_threshold=.8, masking_array = masking_array, affine_array = affine_array, filetype='mgh', outname='ica.mgh')
+		img_data_trunc[np.isnan(img_data_trunc)]=0
+		ica, sort_mask, _ = tmi_run_ica(img_data_trunc, num_comp, variance_threshold=.5, masking_array = masking_array, affine_array = affine_array, filetype='mgh', outname='ica.mgh')
 		components = ica.components_.T
 
 	if opts.timeplot:

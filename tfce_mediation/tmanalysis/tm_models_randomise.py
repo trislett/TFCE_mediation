@@ -135,7 +135,7 @@ def run(opts):
 	if opts.onebetweenssubjectfactor:
 		if opts.surface:
 			tempdir = "tmtemp_rmANCOVA1BS_%s" % surface
-			outdir = "output_rmANCOVA1BS_%s/perm_rmANCOVA1BS"
+			outdir = "output_rmANCOVA1BS_%s/perm_rmANCOVA1BS" % surface
 		else:
 			tempdir = "tmtemp_rmANCOVA1BS_volume"
 			outdir = "output_rmANCOVA1BS_volume/perm_rmANCOVA1BS"

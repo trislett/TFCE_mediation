@@ -2511,10 +2511,10 @@ def glm_cosinor(endog, time_var, exog = None, dmy_covariates = None, rand_array 
 
 		ACROPHASE = np.array(ACROPHASE)
 		if rand_array is None:
-			ACROPHASE[i, (a[2,:] > 0) & (a[1,:] >= 0)] = -ACROPHASE[i, (a[2,:] > 0) & (a[1,:] >= 0)]
-			ACROPHASE[i, (a[2,:] > 0) & (a[1,:] < 0)] = (-1*np.pi) + ACROPHASE[i, (a[2,:] > 0) & (a[1,:] < 0)]
-			ACROPHASE[i, (a[2,:] < 0) & (a[1,:] <= 0)] = (-1*np.pi) - ACROPHASE[i, (a[2,:] < 0) & (a[1,:] <= 0)]
-			ACROPHASE[i, (a[2,:] <= 0) & (a[1,:] > 0)] = (-2*np.pi) + ACROPHASE[i, (a[2,:] <= 0) & (a[1,:] > 0)]
+			ACROPHASE[i, (a[2+(i*2),:] > 0) & (a[1+(i*2),:] >= 0)] = -ACROPHASE[i, (a[2+(i*2),:] > 0) & (a[1+(i*2),:] >= 0)]
+			ACROPHASE[i, (a[2+(i*2),:] > 0) & (a[1+(i*2),:] < 0)] = (-1*np.pi) + ACROPHASE[i, (a[2+(i*2),:] > 0) & (a[1+(i*2),:] < 0)]
+			ACROPHASE[i, (a[2+(i*2),:] < 0) & (a[1+(i*2),:] <= 0)] = (-1*np.pi) - ACROPHASE[i, (a[2+(i*2),:] < 0) & (a[1+(i*2),:] <= 0)]
+			ACROPHASE[i, (a[2+(i*2),:] <= 0) & (a[1+(i*2),:] > 0)] = (-2*np.pi) + ACROPHASE[i, (a[2+(i*2),:] <= 0) & (a[1+(i*2),:] > 0)]
 		# t values
 		tAMPLITUDE.append(np.divide(AMPLITUDE[i], SE_AMPLITUDE[i]))
 		tACROPHASE.append(np.divide(1.0, SE_ACROPHASE[i]))

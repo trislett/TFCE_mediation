@@ -1158,6 +1158,13 @@ def run(opts):
 		if factors[1] == 'c':
 			dmy_factor1 = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = True, demean = demean_flag)
 			print("Coding %s as continous variable" % factors[0])
+		elif factors[1] == 'p':
+			time_var = factors[0]
+			period_var = 24.0
+			time = np.array(pdCSV[time_var], dtype = np.float)
+			period = float(period_var)
+			dmy_factor1 = dummy_code_cosine(time,period)
+			print("Coding %s as cosine variable" % factors[0])
 		else:
 			dmy_factor1 = dummy_code(np.array(pdCSV[factors[0]]), iscontinous = False, demean = demean_flag)
 			print("Coding %s as discrete variable" % factors[0])

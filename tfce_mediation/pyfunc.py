@@ -1250,7 +1250,7 @@ def import_voxel_neuroimage(image_path, mask_index = None):
 	else:
 		return image, image_data
 
-def rm_anova(data, output_sig = False):
+def rm_anova(data, output_sig = False, output_eta_sq = False):
 	"""
 	Repeated measure ANOVA for longitudinal dependent variables
 	
@@ -1268,20 +1268,29 @@ def rm_anova(data, output_sig = False):
 	-------
 	F : array
 		F-statistics of the interval variable
-	
-	Optional returns
-	-------
 	P : array
-		P-statistics of the interval variable
-	
+		P-statistics of the interval variable (P = None if output_sig = False)
+	partial_eta_sq : array
+		Partial eta squared of the interval variable (partial_eta_sq = None if output_eta_sq = False)
 	"""
 
 	k = data.shape[0]
 	ni = data.shape[1]
-	mu_grand = np.divide((np.mean(data[0],0) + np.mean(data[1],0)),2)
-	SStime = ni * ((np.mean(data[0],0)-mu_grand)**2 + (np.mean(data[1],0)-mu_grand)**2)
-	SSw = np.sum(np.square(data[0] - np.mean(data[0],0)),0) + np.sum(np.square(data[1] - np.mean(data[1],0)),0)
-	SSsub = k * np.sum(np.square(np.divide((data[0] + data[1]),2) - mu_grand),0)
+	mu_grand = np.zeros_like(np.mean(data[0],0))
+	for i in range(k):
+		mu_grand += np.mean(data[i],0)
+	mu_grand = np.divide(mu_grand,k)
+
+	SStime = np.zeros_like(np.mean(data[0],0))
+	for i in range(k):
+		SStime += (np.mean(data[i],0)-mu_grand)**2
+	SStime *= ni
+
+	SSw = np.zeros_like(np.mean(data[0],0))
+	for i in range(k):
+		SSw += np.sum(np.square(data[i] - np.mean(data[i],0)),0)
+
+	SSsub = k * np.sum(np.square(np.divide((data.sum(0)),k) - mu_grand),0)
 	SSerror = SSw - SSsub
 
 	df_time = (k-1)
@@ -1292,9 +1301,13 @@ def rm_anova(data, output_sig = False):
 	F = np.divide(MStime, MSerror)
 	if output_sig:
 		P = 1 - f.cdf(F,df_time,df_error)
-		return(F, P)
 	else:
-		return(F)
+		P = None
+	if output_eta_sq:
+		partial_eta_sq = SStime / (SStime + SSerror)
+	else:
+		partial_eta_sq = None
+	return(F, P, partial_eta_sq)
 
 
 def rm_anova_one_bs_factor(data, between_factor, output_sig = False):

@@ -1392,7 +1392,7 @@ def run(opts):
 									output_reduced_residuals = True)
 
 		if opts.surfaceinputfolder:
-			save_temporary_files('rmancova_one', modality_type = surface,
+			save_temporary_files('rmancova_two', modality_type = surface,
 				all_vertex = all_vertex,
 				num_vertex_lh = num_vertex_lh,
 				mask_lh = mask_lh,
@@ -1415,7 +1415,7 @@ def run(opts):
 				nonzero = nonzero.astype(np.float32, order = "C"),
 				data = data.astype(np.float32, order = "C"))
 		if opts.volumetricinputs or opts.volumetricinputlist:
-			save_temporary_files('rmancova_one', modality_type = "volume",
+			save_temporary_files('rmancova_two', modality_type = "volume",
 				mask_index = mask_index,
 				data_mask = data_mask,
 				affine_mask = affine_mask,
@@ -1658,6 +1658,7 @@ def run(opts):
 			exog_shape = []
 			for i in range(len(varnames)):
 				exog_shape.append(exog[i].shape[1])
+			exog_flat = np.concatenate(exog,1)
 		else:
 			exog = varnames = [] 
 			exog_shape = exog_flat = None

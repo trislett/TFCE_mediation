@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/trislett/TFCE_mediation.svg?branch=master)](https://travis-ci.org/trislett/TFCE_mediation)
 # TFCE_mediation
 Fast regression and mediation analysis of vertex or voxel MRI data with TFCE
 

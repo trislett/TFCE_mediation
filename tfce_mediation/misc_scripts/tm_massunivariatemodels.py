@@ -21,7 +21,7 @@ if not sys.warnoptions:
 	warnings.simplefilter("ignore")
 
 def run_mm(trunc_data, out_data_array, exog_vars, groupVar, i):
-	print i
+	print(i)
 	try:
 		out_data_array = sm.MixedLM(trunc_data, exog_vars, groupVar).fit().resid
 	except ValueError:
@@ -469,7 +469,7 @@ def run(opts):
 				pdCSV[int_tempname] = int_temp
 				opts.exogenousvariables.append(int_tempname)
 			int_temp = None
-		print opts.exogenousvariables
+		print(opts.exogenousvariables)
 
 
 	# output column/variable names.

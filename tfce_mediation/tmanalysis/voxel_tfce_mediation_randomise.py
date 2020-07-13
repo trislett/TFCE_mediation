@@ -24,6 +24,10 @@ from time import time
 from tfce_mediation.tfce import CreateAdjSet
 from tfce_mediation.pyfunc import write_perm_maxTFCE_voxel, calc_sobelz
 
+# modify the default parameters of np.load
+np_load_old = np.load
+np.load = lambda *a,**k: np_load_old(*a, allow_pickle=True, **k)
+
 DESCRIPTION = "Permutation testing for voxel-wise mediation with TFCE"
 start_time = time()
 

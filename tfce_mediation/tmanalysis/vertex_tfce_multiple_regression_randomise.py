@@ -25,10 +25,6 @@ from tfce_mediation.cynumstats import tval_int
 from tfce_mediation.tfce import CreateAdjSet
 from tfce_mediation.pyfunc import write_perm_maxTFCE_vertex
 
-# modify the default parameters of np.load
-np_load_old = np.load
-np.load = lambda *a,**k: np_load_old(*a, allow_pickle=True, **k)
-
 DESCRIPTION = "Permutation testing for vertex-wise multiple regression with TFCE"
 start_time = time()
 np.seterr(divide="ignore", invalid="ignore")

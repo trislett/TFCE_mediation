@@ -24,10 +24,6 @@ import argparse as ap
 from tfce_mediation.tfce import CreateAdjSet
 from tfce_mediation.pyfunc import write_perm_maxTFCE_vertex, calc_sobelz
 
-# modify the default parameters of np.load
-np_load_old = np.load
-np.load = lambda *a,**k: np_load_old(*a, allow_pickle=True, **k)
-
 DESCRIPTION = "Permutation testing for vetex-wise mediation with TFCE"
 start_time = time()
 np.seterr(divide="ignore", invalid="ignore")

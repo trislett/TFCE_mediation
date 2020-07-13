@@ -25,6 +25,10 @@ import pandas as pd
 from tfce_mediation.tfce import CreateAdjSet
 from tfce_mediation.pyfunc import write_vertStat_img, write_voxelStat_img, create_adjac_vertex, create_adjac_voxel, reg_rm_ancova_one_bs_factor, reg_rm_ancova_two_bs_factor, glm_typeI, glm_cosinor, calc_indirect, dummy_code, column_product, stack_ones, import_voxel_neuroimage, lm_residuals, dummy_code_cosine
 
+# modify the default parameters of np.load
+np_load_old = np.load
+np.load = lambda *a,**k: np_load_old(*a, allow_pickle=True, **k)
+
 def check_columns(pdData, datatype, folders = None, surface = None, FWHM = None, filelists = None, voximgs = None, tmi = None, tempdir = None):
 	for counter, roi in enumerate(pdData.columns):
 		if counter == 0:

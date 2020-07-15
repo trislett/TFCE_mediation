@@ -28,6 +28,14 @@ Additional help:
 * Ask in the [Issues](https://github.com/trislett/TFCE_mediation/issues) section, even if it is just a question.
 
 ### What's new / updates ###
+15-07-2020
+* version 1.6.2
+* we are now droping support for python2.7 due to incompatibilities with other python packages.
+* step1-tm-models should be consider tfce_mediation 2.0 which will come out in the not too distant future.
+* added some tools for single subject analyses
+* updated the code to work properly with numpy updates. AKA the lazy pickle problem.
+* For some reason, I'm no longer getting email alerts when there are new issues. Please also email me at tristram.lett@charite.de.
+
 17-11-2018
 * version 1.6.0
 * An alpha version of step1-vertex-mixed is now available

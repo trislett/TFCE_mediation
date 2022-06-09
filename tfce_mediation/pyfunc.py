@@ -634,24 +634,27 @@ def save_ply(v, f, outname, color_array=None, output_binary=True):
 	header += ("end_header\n")
 
 	# write to file
-	with open(outname, "a") as o:
-		o.write(header)
-		for i in range(len(v)):
-			if output_binary:
-				if color_array is not None:
-					o.write(
-						struct.pack(output_fmt + 'fffBBB', v[i, 0], v[i, 1], v[i, 2], color_array[i, 0], color_array[i, 1], color_array[i, 2]))
-				else:
-					o.write(struct.pack(output_fmt + 'fff', v[i, 0], v[i, 1], v[i, 2]))
-			else:
+	if output_binary:
+		with open(outname, "a") as o:
+			o.write(header)
+			o.close()
+		with open(outname, "ab") as o:
+			for i in range(len(v)):
+					if color_array is not None:
+						o.write(
+							struct.pack(output_fmt + 'fffBBB', v[i, 0], v[i, 1], v[i, 2], color_array[i, 0], color_array[i, 1], color_array[i, 2]))
+					else:
+						o.write(struct.pack(output_fmt + 'fff', v[i, 0], v[i, 1], v[i, 2]))
+			for j in range(len(f)):
+				o.write(struct.pack('<Biii', 3, f[j, 0], f[j, 1], f[j, 2]))
+	else:
+		with open(outname, "a") as o:
+			for i in range(len(v)):
 				if color_array is not None:
 					o.write("%1.6f %1.6f %1.6f %d %d %d\n" % (v[i, 0], v[i, 1], v[i, 2], color_array[i, 0], color_array[i, 1], color_array[i, 2]))
 				else:
 					o.write("%1.6f %1.6f %1.6f\n" % (v[i, 0], v[i, 1], v[i, 2]))
-		for j in range(len(f)):
-			if output_binary:
-				o.write(struct.pack('<Biii', 3, f[j, 0], f[j, 1], f[j, 2]))
-			else:
+			for j in range(len(f)):
 				o.write("3 %d %d %d\n" % (f[j, 0], f[j, 1], f[j, 2]))
 
 

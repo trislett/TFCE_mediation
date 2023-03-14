@@ -512,7 +512,7 @@ def convert_ply(name_ply):
 			if ply_ascii:
 				reader = obj.readline().strip().split()
 				numf = int(reader[0])
-				f = np.zeros((int(size[e]), numf), dtype=np.int32)
+				f = np.zeros((int(size[e]), numf), dtype=int32)
 				f[0] = reader[1:]
 				fcounter = 1
 				while fcounter != int(size[e]):
@@ -529,7 +529,7 @@ def convert_ply(name_ply):
 						try:
 							f
 						except NameError:
-							f = np.zeros((int(size[e]), numf), dtype=np.int32)
+							f = np.zeros((int(size[e]), numf), dtype=int32)
 						struct_fmt = ply_format
 						for i in range(int(numf)):
 							struct_fmt += 'i'
@@ -545,15 +545,15 @@ def convert_fslabel(name_fslabel):
 	reader = obj.readline().strip().split()
 	reader = np.array(obj.readline().strip().split())
 	if reader.ndim == 1:
-		num_vertex = reader[0].astype(np.int)
+		num_vertex = reader[0].astype(int)
 	else:
 		print('Error reading header')
-	v_id = np.zeros((num_vertex)).astype(np.int)
+	v_id = np.zeros((num_vertex)).astype(int)
 	v_ras = np.zeros((num_vertex,3)).astype(np.float)
 	v_value = np.zeros((num_vertex)).astype(np.float)
 	for i in range(num_vertex):
 		reader = obj.readline().strip().split()
-		v_id[i] = np.array(reader[0]).astype(np.int)
+		v_id[i] = np.array(reader[0]).astype(int)
 		v_ras[i] = np.array(reader[1:4]).astype(np.float)
 		v_value[i] = np.array(reader[4]).astype(np.float)
 	return (v_id, v_ras, v_value)
@@ -576,7 +576,7 @@ def save_stl(v,f, outname):
 		outname += '.stl'
 	outname=check_outname(outname)
 	v = np.array(v, dtype=np.float32, order = "C")
-	f = np.array(f, dtype=np.int32, order = "C")
+	f = np.array(f, dtype=int32, order = "C")
 	tris = v[f]
 	n = np.cross( tris[::,1 ] - tris[::,0]  , tris[::,2 ] - tris[::,0] )
 	n = normalize_v3(n)
@@ -2589,7 +2589,7 @@ def dummy_code(variable, iscontinous = False, demean = True):
 			temp_var[variable == var] = 1
 			dummy_vars.append(temp_var)
 		dummy_vars = np.array(dummy_vars)[1:] # remove the first column as reference variable
-		dummy_vars = np.squeeze(dummy_vars).astype(np.int).T
+		dummy_vars = np.squeeze(dummy_vars).astype(int).T
 		if demean:
 			dummy_vars = dummy_vars - np.mean(dummy_vars,0)
 	return dummy_vars

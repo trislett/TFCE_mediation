@@ -792,7 +792,7 @@ def convert_voxel(img_data, affine = None, threshold = None, data_mask = None, a
 		del img_data
 		img_data = np.copy(data_mask)
 	try:
-		v, f, _, values = measure.marching_cubes_lewiner(img_data)
+		v, f, _, values = measure.marching_cubes(img_data)
 		if affine is not None:
 			print("Applying affine transformation")
 			v = nib.affines.apply_affine(affine,v)
